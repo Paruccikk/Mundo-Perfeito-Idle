@@ -3,14 +3,22 @@ import {
   CLASS_DEFINITIONS,
   CHARACTER_CLASS_IDS,
   experienceToNextLevel,
-  getDefaultStageId,
   statsForLevel
 } from './classes.js';
 import type { CharacterRepository } from './characterRepository.js';
+import { simulateCombat } from './combat.js';
+import {
+  STAGE_ONE,
+  getMonster,
+  getStage,
+  nextNormalMonster
+} from './monsters.js';
 import type {
   CharacterClassDefinition,
   CharacterRecord,
-  CharacterSummary
+  CharacterSummary,
+  CombatEvent,
+  CombatSnapshot
 } from './types.js';
 import {
   MAX_CHARACTERS_PER_PLAYER,
@@ -67,6 +75,10 @@ export class CharacterService {
     }
 
     const now = new Date().toISOString();
+    const stats = statsForLevel(payload.classId, 1);
+    const initialMonsterId = nextNormalMonster(STAGE_ONE, 0);
+    const initialMonster = getMonster(initialMonsterId);
+
     const record: CharacterRecord = {
       id: randomUUID(),
       playerId: payload.playerId,
@@ -76,7 +88,19 @@ export class CharacterService {
       level: 1,
       experience: 0,
       gold: CLASS_DEFINITIONS[payload.classId].startingGold,
-      currentStageId: getDefaultStageId(),
+      currentStageId: STAGE_ONE.id,
+      combat: {
+        stageId: STAGE_ONE.id,
+        monsterId: initialMonsterId,
+        monsterHp: initialMonster.maxHp,
+        playerHp: stats.maxHp,
+        killsInStage: 0,
+        bossActive: false,
+        bossDefeated: 0,
+        status: 'fighting',
+        recoveringUntil: null,
+        lastTickAt: now
+      },
       createdAt: now
     };
 
@@ -86,10 +110,7 @@ export class CharacterService {
 
   async getCharacter(id: string, playerId: unknown): Promise<CharacterSummary> {
     assertPlayerId(playerId);
-    const record = await this.repository.findById(id);
-    if (!record || record.playerId !== playerId) {
-      throw new CharacterError('character_not_found', 404, 'Personagem não encontrado.');
-    }
+    const record = await this.findOwned(id, playerId);
     return toSummary(record);
   }
 
@@ -97,6 +118,24 @@ export class CharacterService {
     assertPlayerId(playerId);
     const records = await this.repository.listByPlayer(playerId);
     return records.map(toSummary);
+  }
+
+  async getCombat(id: string, playerId: unknown): Promise<CombatSnapshot> {
+    assertPlayerId(playerId);
+    const record = await this.findOwned(id, playerId);
+
+    const simulation = simulateCombat(record, Date.now());
+    await this.repository.save(simulation.record);
+
+    return toCombatSnapshot(simulation.record, simulation.events, simulation.simulatedSeconds);
+  }
+
+  private async findOwned(id: string, playerId: string): Promise<CharacterRecord> {
+    const record = await this.repository.findById(id);
+    if (!record || record.playerId !== playerId) {
+      throw new CharacterError('character_not_found', 404, 'Personagem não encontrado.');
+    }
+    return record;
   }
 }
 
@@ -114,6 +153,37 @@ export function toSummary(record: CharacterRecord): CharacterSummary {
     currentStageId: record.currentStageId,
     stats: statsForLevel(record.classId, record.level),
     createdAt: record.createdAt
+  };
+}
+
+export function toCombatSnapshot(
+  record: CharacterRecord,
+  events: CombatEvent[],
+  simulatedSeconds: number
+): CombatSnapshot {
+  const summary = toSummary(record);
+  const stage = getStage(record.combat.stageId);
+  const monster = getMonster(record.combat.monsterId);
+
+  return {
+    character: summary,
+    combat: {
+      stageId: stage.id,
+      stageName: stage.name,
+      monster: {
+        ...monster,
+        hp: Math.max(0, record.combat.monsterHp)
+      },
+      playerHp: Math.max(0, record.combat.playerHp),
+      playerMaxHp: summary.stats.maxHp,
+      killsInStage: record.combat.killsInStage,
+      killsRequiredForBoss: stage.killsRequiredForBoss,
+      bossActive: record.combat.bossActive,
+      bossDefeated: record.combat.bossDefeated,
+      status: record.combat.status
+    },
+    events,
+    simulatedSeconds
   };
 }
 

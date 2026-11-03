@@ -42,6 +42,22 @@ export function createCharacterRoutes(repository: CharacterRepository) {
     });
 
     app.get(
+      '/api/v1/characters/:id/combat',
+      async (
+        request: FastifyRequest<{ Params: { id: string } }>,
+        reply: FastifyReply
+      ) => {
+        try {
+          const { playerId } = request.query as { playerId?: unknown };
+          const snapshot = await service.getCombat(request.params.id, playerId);
+          return reply.send(snapshot);
+        } catch (error) {
+          return sendError(reply, error);
+        }
+      }
+    );
+
+    app.get(
       '/api/v1/characters/:id',
       async (
         request: FastifyRequest<{ Params: { id: string } }>,

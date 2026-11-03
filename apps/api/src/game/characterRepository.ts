@@ -9,6 +9,7 @@ import type { CharacterRecord } from './types.js';
  */
 export interface CharacterRepository {
   create(record: CharacterRecord): Promise<void>;
+  save(record: CharacterRecord): Promise<void>;
   findById(id: string): Promise<CharacterRecord | null>;
   findByName(playerId: string, nameKey: string): Promise<CharacterRecord | null>;
   listByPlayer(playerId: string): Promise<CharacterRecord[]>;
@@ -19,18 +20,22 @@ export class MemoryCharacterRepository implements CharacterRepository {
   private readonly characters = new Map<string, CharacterRecord>();
 
   async create(record: CharacterRecord): Promise<void> {
-    this.characters.set(record.id, { ...record });
+    this.characters.set(record.id, clone(record));
+  }
+
+  async save(record: CharacterRecord): Promise<void> {
+    this.characters.set(record.id, clone(record));
   }
 
   async findById(id: string): Promise<CharacterRecord | null> {
     const record = this.characters.get(id);
-    return record ? { ...record } : null;
+    return record ? clone(record) : null;
   }
 
   async findByName(playerId: string, nameKey: string): Promise<CharacterRecord | null> {
     for (const record of this.characters.values()) {
       if (record.playerId === playerId && record.nameKey === nameKey) {
-        return { ...record };
+        return clone(record);
       }
     }
     return null;
@@ -40,7 +45,7 @@ export class MemoryCharacterRepository implements CharacterRepository {
     return [...this.characters.values()]
       .filter((record) => record.playerId === playerId)
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
-      .map((record) => ({ ...record }));
+      .map(clone);
   }
 
   async countByPlayer(playerId: string): Promise<number> {
@@ -52,4 +57,11 @@ export class MemoryCharacterRepository implements CharacterRepository {
     }
     return count;
   }
+}
+
+function clone(record: CharacterRecord): CharacterRecord {
+  return {
+    ...record,
+    combat: { ...record.combat }
+  };
 }
