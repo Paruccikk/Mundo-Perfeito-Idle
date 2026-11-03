@@ -23,7 +23,7 @@ export function createAuthRoutes(prisma: PrismaClient) {
       }
 
       const passwordHash = await hashPassword(input.password);
-      let account;
+      let account: Awaited<ReturnType<typeof prisma.account.create>>;
       if (input.legacyPlayerId) {
         const legacy = await prisma.account.findUnique({ where: { id: input.legacyPlayerId } });
         if (legacy?.email) {
