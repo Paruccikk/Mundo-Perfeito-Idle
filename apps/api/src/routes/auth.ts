@@ -9,7 +9,7 @@ const scrypt = promisify(scryptCallback) as (
   keyLength: number
 ) => Promise<Buffer>;
 
-type AuthBody = { email?: unknown; password?: unknown };
+type AuthBody = { email?: unknown; password?: unknown; legacyPlayerId?: unknown };
 
 export function createAuthRoutes(prisma: PrismaClient) {
   return async function authRoutes(app: FastifyInstance): Promise<void> {
@@ -23,9 +23,25 @@ export function createAuthRoutes(prisma: PrismaClient) {
       }
 
       const passwordHash = await hashPassword(input.password);
-      const account = await prisma.account.create({
-        data: { id: randomUUID(), email: input.email, passwordHash }
-      });
+      let account;
+      if (input.legacyPlayerId) {
+        const legacy = await prisma.account.findUnique({ where: { id: input.legacyPlayerId } });
+        if (legacy?.email) {
+          return reply.status(409).send({ error: { code: 'legacy_account_already_claimed', message: 'Este progresso já está vinculado a uma conta.' } });
+        }
+        account = legacy
+          ? await prisma.account.update({
+              where: { id: legacy.id },
+              data: { email: input.email, passwordHash }
+            })
+          : await prisma.account.create({
+              data: { id: randomUUID(), email: input.email, passwordHash }
+            });
+      } else {
+        account = await prisma.account.create({
+          data: { id: randomUUID(), email: input.email, passwordHash }
+        });
+      }
       return reply.status(201).send(await createSession(app, account.id, input.email));
     });
 
@@ -61,7 +77,7 @@ export function createAuthRoutes(prisma: PrismaClient) {
 }
 
 function readCredentials(body: unknown):
-  | { ok: true; email: string; password: string }
+  | { ok: true; email: string; password: string; legacyPlayerId?: string }
   | { ok: false; message: string } {
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
     return { ok: false, message: 'Informe e-mail e senha.' };
@@ -75,7 +91,11 @@ function readCredentials(body: unknown):
   if (password.length < 10 || password.length > 128) {
     return { ok: false, message: 'A senha deve ter entre 10 e 128 caracteres.' };
   }
-  return { ok: true, email, password };
+  const legacyPlayerId = typeof input.legacyPlayerId === 'string' ? input.legacyPlayerId : undefined;
+  if (legacyPlayerId && !/^ply_[A-Za-z0-9_-]{8,64}$/.test(legacyPlayerId)) {
+    return { ok: false, message: 'Não foi possível validar o progresso de visitante.' };
+  }
+  return { ok: true, email, password, ...(legacyPlayerId ? { legacyPlayerId } : {}) };
 }
 
 async function hashPassword(password: string): Promise<string> {
