@@ -26,7 +26,8 @@ Para ativar a persistência no serviço da API:
 3. Abra o serviço `mundo-perfeito-api` > **Environment**.
 4. Crie/atualize a variável `DATABASE_URL` com a Internal Database URL.
 5. Salve e aguarde o novo deploy/restart. A API executa `prisma migrate deploy` antes de iniciar e cria o esquema versionado.
-6. Confirme em `/health` que `storage` é `postgres` e `databaseConfigured` é `true`.
+6. Crie também `JWT_SECRET` com pelo menos 32 caracteres aleatórios (por exemplo, gere 48 bytes aleatórios em um gerenciador seguro). Não reutilize senhas pessoais nem coloque o valor no Git.
+7. Confirme em `/health` que `storage` é `postgres`, `databaseConfigured` é `true` e `authentication` é `true`.
 
 O plano gratuito não tem cobrança mensal, mas o banco expira em 30 dias (03/12/2026). Faça upgrade antes do vencimento se quiser preservar os dados. O plano gratuito não oferece backups.
 
@@ -36,7 +37,9 @@ O plano gratuito não tem cobrança mensal, mas o banco expira em 30 dias (03/12
 - Se `DATABASE_URL` não estiver configurada, a API inicia em modo de memória para permitir testar o jogo, mas os dados somem quando o processo reinicia.
 - O avanço de combate usa atualização condicional pelo último tick persistido para impedir que requisições simultâneas processem o mesmo intervalo e concedam recompensas duplicadas.
 - O progresso offline é calculado pela API com base no relógio do servidor, limitado a 8 horas por intervalo.
-- O `playerId` continua sendo um identificador anônimo guardado no `localStorage`. Isso não é autenticação real: usuários podem falsificá-lo ou perder o acesso ao trocar de navegador/dispositivo. Não use bens com valor real ou abra RMT nesta fase.
+- As rotas de personagem agora exigem JWT e usam o ID da conta autenticada. O cadastro tenta vincular o antigo identificador de visitante ao novo cadastro quando ele ainda está no navegador e existe no banco sem e-mail associado.
+- O token JWT do protótipo fica no `localStorage` e expira em 7 dias. Migração para cookie HttpOnly, verificação de e-mail, recuperação de senha e rate limiting ainda são pendências.
+- Não use bens com valor real ou abra RMT nesta fase.
 - O serviço gratuito do Render pode entrar em suspensão após períodos sem tráfego; o primeiro acesso depois disso pode demorar.
 - Não coloque senhas, tokens ou URLs de banco no Git nem no chat. Segredos devem ser configurados no painel Render.
 
