@@ -18,8 +18,10 @@ O repositório inclui um Blueprint em `render.yaml` para criar dois serviços:
 
 ## Observações
 
-- Esta primeira publicação é um ambiente de protótipo. Já existe criação de personagem, mas os dados ficam em memória na API (um restart limpa tudo) e ainda não há login ou banco de dados conectado.
+- Esta publicação é um ambiente de protótipo. A API já é consumida pelo cliente por meio de `VITE_API_URL`; criação de personagem e combate automático funcionam no servidor.
+- O progresso offline é calculado pela API com base no relógio do servidor, limitado a 8 horas por intervalo. Os cooldowns de ataque são preservados entre ticks para evitar que cada consulta reinicie a cadência de combate.
+- Os dados ainda ficam em memória na API: reiniciar ou fazer deploy apaga personagens e progresso. O `playerId` atual é anônimo e fica no `localStorage`; não é autenticação segura e não deve ser tratado como identidade de produção.
 - O serviço gratuito do Render pode entrar em suspensão após períodos sem tráfego; o primeiro acesso depois disso pode demorar.
 - Não coloque senhas, tokens ou chaves privadas no Git. Segredos devem ser configurados nas variáveis do painel Render.
 - PostgreSQL será adicionado quando a API implementar persistência real e migrações.
-- A URL da API ainda não é consumida pelo cliente. A integração cliente/API será feita na próxima etapa de desenvolvimento.
+- Antes de abrir o jogo ao público, integrar autenticação real e PostgreSQL com transações, índices únicos e registro de operações econômicas.
