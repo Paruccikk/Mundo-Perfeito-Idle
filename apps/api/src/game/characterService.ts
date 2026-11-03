@@ -98,6 +98,8 @@ export class CharacterService {
         bossActive: false,
         bossDefeated: 0,
         status: 'fighting',
+        playerCooldownSeconds: 0,
+        monsterCooldownSeconds: 0,
         recoveringUntil: null,
         lastTickAt: now
       },
