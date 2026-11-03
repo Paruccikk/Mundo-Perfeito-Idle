@@ -11,36 +11,37 @@ Protótipo inicial de um MMORPG Idle 2D isométrico para navegador (PC e celular
 ## Stack inicial
 - Cliente: Phaser 3 + TypeScript + Vite.
 - Backend: Node.js + TypeScript + Fastify.
-- Banco: PostgreSQL.
-- ORM/migrations: Prisma.
+- Banco planejado: PostgreSQL + Prisma (a integrar quando houver persistência).
 - Redis: reservado para cache, filas e sessões quando necessário.
 
-O servidor é a autoridade sobre XP, ouro, drops, inventário, mercado e transações. O navegador nunca decide nem envia a recompensa final.
+O servidor será a autoridade sobre XP, ouro, drops, inventário, mercado e transações. O navegador nunca decide nem envia a recompensa final.
 
 ## Requisitos
 - Node.js 20+ (recomendado LTS atual)
 - npm 10+
-- Docker Desktop (opcional, para banco local)
+- Docker Desktop (opcional, para banco local quando integrado)
 
-## Começar
+## Desenvolvimento local
 ```bash
 npm install
-docker compose up -d
 npm run dev
 ```
 
 Cliente: http://localhost:5173  
 API: http://localhost:3000/health
 
+## Publicação de teste no Render
+O arquivo `render.yaml` prepara o cliente estático e a API. Consulte [docs/DEPLOY_RENDER.md](docs/DEPLOY_RENDER.md) para publicar pela branch `dev`.
+
 ## Estrutura
 - `apps/web`: cliente Phaser.
 - `apps/api`: API e regras de jogo.
 - `packages/shared`: tipos compartilhados e constantes.
-- `database`: schema e infraestrutura local.
-- `docs`: documento de design e decisões técnicas.
+- `database`: infraestrutura local planejada.
+- `docs`: documentação de design e implantação.
 
-## Estado do protótipo
-Esta é a fundação do projeto, não um jogo completo. O combate e a progressão ainda serão implementados em etapas. A API inclui apenas um endpoint de saúde e um esqueleto seguro para a futura simulação.
+## Estado atual
+A cena isométrica é um protótipo visual. A API possui endpoints de saúde e configuração; combate autoritativo, autenticação, persistência e cálculo offline ainda serão implementados.
 
 ## Próximos marcos
 1. Cena isométrica com personagem e monstros de teste.
