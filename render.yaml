@@ -4,7 +4,7 @@ services:
     runtime: node
     plan: free
     region: ohio
-    buildCommand: npm install && npm run build --workspace @mundo-perfeito/api
+    buildCommand: npm install --include=dev && npm run build --workspace @mundo-perfeito/api
     startCommand: npm run start --workspace @mundo-perfeito/api
     healthCheckPath: /health
     envVars:
@@ -16,7 +16,7 @@ services:
   - type: web
     name: mundo-perfeito-web
     runtime: static
-    buildCommand: npm install && npm run build --workspace @mundo-perfeito/web
+    buildCommand: npm install --include=dev && npm run build --workspace @mundo-perfeito/web
     staticPublishPath: apps/web/dist
     envVars:
       - key: VITE_API_URL
