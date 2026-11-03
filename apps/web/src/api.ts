@@ -2,7 +2,8 @@ import type {
   ApiErrorBody,
   CharacterClassDefinition,
   CharacterClassId,
-  CharacterSummary
+  CharacterSummary,
+  CombatSnapshot
 } from '@mundo-perfeito/shared';
 
 const LOCAL_API = 'http://localhost:3000';
@@ -118,5 +119,11 @@ export const api = {
       `/api/v1/characters?playerId=${encodeURIComponent(playerId)}`
     );
     return data.characters;
+  },
+
+  async getCombat(id: string, playerId: string): Promise<CombatSnapshot> {
+    return request<CombatSnapshot>(
+      `/api/v1/characters/${encodeURIComponent(id)}/combat?playerId=${encodeURIComponent(playerId)}`
+    );
   }
 };

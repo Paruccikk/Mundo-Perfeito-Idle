@@ -1,0 +1,202 @@
+import { CLASS_DEFINITIONS, MAX_LEVEL, experienceToNextLevel, statsForLevel } from './classes.js';
+import { getMonster, getStage, nextNormalMonster } from './monsters.js';
+import type { CharacterRecord, CombatEvent } from './types.js';
+
+const STEP_SECONDS = 0.2;
+const MAX_EVENTS = 60;
+const RECOVERY_SECONDS = 3;
+const HEAL_ON_KILL_RATIO = 0.2;
+const MAX_SIMULATION_SECONDS = 300;
+
+export interface CombatSimulation {
+  record: CharacterRecord;
+  events: CombatEvent[];
+  simulatedSeconds: number;
+}
+
+/**
+ * Simula o combate automático do intervalo entre o último tick e `nowMs`.
+ *
+ * O cliente nunca envia dano, XP ou duração: ele apenas pede o estado, e o
+ * servidor avança a simulação pelo tempo do relógio do servidor (limitado por
+ * `maxSeconds` para evitar lotes gigantes).
+ */
+export function simulateCombat(
+  record: CharacterRecord,
+  nowMs: number,
+  maxSeconds = MAX_SIMULATION_SECONDS
+): CombatSimulation {
+  const events: CombatEvent[] = [];
+  const lastTickMs = Date.parse(record.combat.lastTickAt);
+  const elapsedRaw = Number.isFinite(lastTickMs) ? (nowMs - lastTickMs) / 1000 : 0;
+  const elapsed = Math.min(Math.max(elapsedRaw, 0), maxSeconds);
+
+  if (elapsed <= 0) {
+    return {
+      record,
+      events,
+      simulatedSeconds: 0
+    };
+  }
+
+  const stage = getStage(record.combat.stageId);
+  const classDefinition = CLASS_DEFINITIONS[record.classId];
+
+  let level = record.level;
+  let experience = record.experience;
+  let gold = record.gold;
+  let stats = statsForLevel(record.classId, level);
+
+  let monsterId = record.combat.monsterId;
+  let monster = getMonster(monsterId);
+  let monsterHp = Math.min(record.combat.monsterHp, monster.maxHp);
+
+  let playerHp = Math.min(Math.max(record.combat.playerHp, 0), stats.maxHp);
+  if (playerHp <= 0) {
+    playerHp = stats.maxHp;
+  }
+
+  let killsInStage = record.combat.killsInStage;
+  let bossActive = record.combat.bossActive;
+  let bossDefeated = record.combat.bossDefeated;
+
+  let status = playerHp > 0 ? record.combat.status : 'fighting';
+  let recoveryLeft = record.combat.recoveringUntil
+    ? Math.max(0, (Date.parse(record.combat.recoveringUntil) - lastTickMs) / 1000)
+    : 0;
+
+  let simulated = 0;
+  let playerCooldown = 0;
+  let monsterCooldown = 0;
+
+  const pushEvent = (event: CombatEvent): void => {
+    events.push(event);
+    if (events.length > MAX_EVENTS) {
+      events.shift();
+    }
+  };
+
+  while (simulated < elapsed) {
+    const dt = Math.min(STEP_SECONDS, elapsed - simulated);
+    simulated += dt;
+
+    if (recoveryLeft > 0) {
+      recoveryLeft = Math.max(0, recoveryLeft - dt);
+      if (recoveryLeft === 0) {
+        status = 'fighting';
+        playerCooldown = 0;
+        monsterCooldown = 0.5;
+      }
+      continue;
+    }
+
+    status = 'fighting';
+    playerCooldown -= dt;
+    monsterCooldown -= dt;
+
+    // Ataque do jogador
+    if (playerCooldown <= 0) {
+      const attacksPerSecond = stats.attacksPerSecond > 0 ? stats.attacksPerSecond : 1;
+      playerCooldown += 1 / attacksPerSecond;
+
+      const critical = Math.random() < stats.critChance;
+      const rawAttack = critical ? stats.attack * stats.critMultiplier : stats.attack;
+      const damage = Math.max(1, Math.round(rawAttack - monster.defense));
+
+      monsterHp -= damage;
+      pushEvent({
+        type: critical ? 'player_crit' : 'player_hit',
+        amount: damage
+      });
+
+      if (monsterHp <= 0) {
+        const defeated = monster;
+        pushEvent({
+          type: 'kill',
+          amount: defeated.experienceReward,
+          message: defeated.name
+        });
+
+        gold += defeated.goldReward;
+        playerHp = Math.min(stats.maxHp, playerHp + Math.round(stats.maxHp * HEAL_ON_KILL_RATIO));
+
+        experience += defeated.experienceReward;
+        while (level < MAX_LEVEL && experience >= experienceToNextLevel(level)) {
+          experience -= experienceToNextLevel(level);
+          level += 1;
+          stats = statsForLevel(record.classId, level);
+          playerHp = stats.maxHp;
+          pushEvent({ type: 'level_up', message: `Nível ${level}` });
+        }
+
+        if (defeated.isBoss) {
+          bossActive = false;
+          bossDefeated += 1;
+          killsInStage = 0;
+          pushEvent({ type: 'boss_defeated', message: defeated.name });
+        } else {
+          killsInStage += 1;
+          if (killsInStage >= stage.killsRequiredForBoss) {
+            bossActive = true;
+            monsterId = stage.bossId;
+            pushEvent({ type: 'boss_spawn', message: getMonster(stage.bossId).name });
+          }
+        }
+
+        if (!bossActive) {
+          monsterId = nextNormalMonster(stage, killsInStage);
+        }
+
+        monster = getMonster(monsterId);
+        monsterHp = monster.maxHp;
+        monsterCooldown = 0.5;
+      }
+    }
+
+    // Ataque do monstro
+    if (monsterCooldown <= 0 && monsterHp > 0) {
+      const attacksPerSecond = monster.attacksPerSecond > 0 ? monster.attacksPerSecond : 1;
+      monsterCooldown += 1 / attacksPerSecond;
+
+      const damage = Math.max(1, Math.round(monster.attack - stats.defense));
+      playerHp -= damage;
+      pushEvent({ type: 'monster_hit', amount: damage });
+
+      if (playerHp <= 0) {
+        playerHp = 0;
+        pushEvent({ type: 'player_death', message: classDefinition.name });
+        status = 'recovering';
+        recoveryLeft = RECOVERY_SECONDS;
+        playerHp = stats.maxHp;
+        playerCooldown = 0;
+        monsterCooldown = 0;
+      }
+    }
+  }
+
+  const updated: CharacterRecord = {
+    ...record,
+    level,
+    experience,
+    gold,
+    combat: {
+      stageId: record.combat.stageId,
+      monsterId,
+      monsterHp: Math.max(1, Math.round(monsterHp)),
+      playerHp: Math.max(0, Math.round(playerHp)),
+      killsInStage,
+      bossActive,
+      bossDefeated,
+      status,
+      recoveringUntil:
+        recoveryLeft > 0 ? new Date(nowMs + recoveryLeft * 1000).toISOString() : null,
+      lastTickAt: new Date(nowMs).toISOString()
+    }
+  };
+
+  return {
+    record: updated,
+    events,
+    simulatedSeconds: elapsed
+  };
+}

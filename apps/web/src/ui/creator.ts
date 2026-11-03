@@ -6,6 +6,7 @@ import type {
 export interface CharacterCreatorOptions {
   classes: CharacterClassDefinition[];
   onCreate: (input: { name: string; classId: CharacterClassId }) => Promise<void>;
+  onBack?: () => void;
 }
 
 export function renderCharacterCreator(
@@ -27,6 +28,13 @@ export function renderCharacterCreator(
       'Escolha um nome e uma classe. O servidor é a autoridade sobre todo o progresso.'
     )
   );
+
+  if (options.onBack) {
+    const back = el('button', 'creator__back', '← Voltar aos personagens') as HTMLButtonElement;
+    back.type = 'button';
+    back.addEventListener('click', options.onBack);
+    header.prepend(back);
+  }
 
   const form = el('form', 'creator__form');
   form.noValidate = true;

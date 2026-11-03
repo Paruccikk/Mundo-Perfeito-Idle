@@ -53,6 +53,58 @@ export interface CreateCharacterInput {
   classId: CharacterClassId;
 }
 
+export type MonsterSpriteId = 'slime' | 'boar' | 'wolf' | 'slime-king';
+
+export interface MonsterDefinition {
+  id: string;
+  name: string;
+  level: number;
+  maxHp: number;
+  attack: number;
+  defense: number;
+  attacksPerSecond: number;
+  experienceReward: number;
+  goldReward: number;
+  isBoss: boolean;
+  sprite: MonsterSpriteId;
+}
+
+export type CombatStatus = 'fighting' | 'recovering';
+
+export type CombatEventType =
+  | 'player_hit'
+  | 'player_crit'
+  | 'monster_hit'
+  | 'kill'
+  | 'level_up'
+  | 'boss_spawn'
+  | 'boss_defeated'
+  | 'player_death';
+
+export interface CombatEvent {
+  type: CombatEventType;
+  amount?: number;
+  message?: string;
+}
+
+export interface CombatSnapshot {
+  character: CharacterSummary;
+  combat: {
+    stageId: string;
+    stageName: string;
+    monster: MonsterDefinition & { hp: number };
+    playerHp: number;
+    playerMaxHp: number;
+    killsInStage: number;
+    killsRequiredForBoss: number;
+    bossActive: boolean;
+    bossDefeated: number;
+    status: CombatStatus;
+  };
+  events: CombatEvent[];
+  simulatedSeconds: number;
+}
+
 export interface ApiErrorBody {
   error: {
     code: string;
