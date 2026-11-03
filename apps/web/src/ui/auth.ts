@@ -36,7 +36,7 @@ export function renderAuthScreen(
   const submit = screen.querySelector('.auth-submit') as HTMLButtonElement;
   const password = screen.querySelector('#auth-password') as HTMLInputElement;
   const error = screen.querySelector('.auth-error') as HTMLElement;
-  const tabs = [...screen.querySelectorAll<HTMLButtonElement>('.auth-tab')];
+  const tabs = Array.from(screen.querySelectorAll<HTMLButtonElement>('.auth-tab'));
 
   const setMode = (next: AuthMode): void => {
     mode = next;
