@@ -73,14 +73,14 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 }
 
 export const api = {
-  async register(email: string, password: string): Promise<{ token: string; account: { id: string; email: string } }> {
-    return request('/api/v1/auth/register', { method: 'POST', body: { email, password } });
+  async register(email: string, password: string, legacyPlayerId?: string | null): Promise<{ token: string; account: { id: string; email: string } }> {
+    return request('/api/v1/auth/register', { method: 'POST', body: { email, password, ...(legacyPlayerId ? { legacyPlayerId } : {}) } });
   },
   async login(email: string, password: string): Promise<{ token: string; account: { id: string; email: string } }> {
-    return request('/api/v1/auth/login', { method: 'POST', body: { email, password } });
+    return request<{ token: string; account: { id: string; email: string } }>('/api/v1/auth/login', { method: 'POST', body: { email, password } });
   },
   async me(): Promise<{ account: { id: string; email: string } }> {
-    return request('/api/v1/auth/me');
+    return request<{ account: { id: string; email: string } }>('/api/v1/auth/me');
   },
   async listClasses(): Promise<CharacterClassDefinition[]> {
     const data = await request<{ classes: CharacterClassDefinition[] }>('/api/v1/game/classes');
