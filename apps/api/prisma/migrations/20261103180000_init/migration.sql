@@ -64,3 +64,5 @@ ALTER TABLE "InventoryItem" ADD CONSTRAINT "InventoryItem_characterId_fkey"
 FOREIGN KEY ("characterId") REFERENCES "Character"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "EconomyLedger" ADD CONSTRAINT "EconomyLedger_characterId_fkey"
 FOREIGN KEY ("characterId") REFERENCES "Character"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "Account" ADD COLUMN "passwordHash" TEXT;
