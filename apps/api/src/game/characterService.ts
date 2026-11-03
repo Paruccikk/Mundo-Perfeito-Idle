@@ -32,12 +32,7 @@ export class CharacterError extends Error {
   readonly statusCode: number;
   readonly details?: Record<string, string>;
 
-  constructor(
-    code: string,
-    statusCode: number,
-    message: string,
-    details?: Record<string, string>
-  ) {
+  constructor(code: string, statusCode: number, message: string, details?: Record<string, string>) {
     super(message);
     this.name = 'CharacterError';
     this.code = code;
@@ -56,22 +51,15 @@ export class CharacterService {
   async createCharacter(payload: CreateCharacterPayload): Promise<CharacterSummary> {
     const owned = await this.repository.countByPlayer(payload.playerId);
     if (owned >= MAX_CHARACTERS_PER_PLAYER) {
-      throw new CharacterError(
-        'character_limit_reached',
-        409,
-        `Você já tem ${MAX_CHARACTERS_PER_PLAYER} personagens. O limite do protótipo é ${MAX_CHARACTERS_PER_PLAYER}.`
-      );
+      throw new CharacterError('character_limit_reached', 409,
+        `Você já tem ${MAX_CHARACTERS_PER_PLAYER} personagens. O limite do protótipo é ${MAX_CHARACTERS_PER_PLAYER}.`);
     }
 
     const key = nameKey(payload.name);
     const existing = await this.repository.findByName(payload.playerId, key);
     if (existing) {
-      throw new CharacterError(
-        'name_taken',
-        409,
-        'Você já tem um personagem com esse nome.',
-        { name: 'Escolha outro nome.' }
-      );
+      throw new CharacterError('name_taken', 409, 'Você já tem um personagem com esse nome.',
+        { name: 'Escolha outro nome.' });
     }
 
     const now = new Date().toISOString();
@@ -112,24 +100,33 @@ export class CharacterService {
 
   async getCharacter(id: string, playerId: unknown): Promise<CharacterSummary> {
     assertPlayerId(playerId);
-    const record = await this.findOwned(id, playerId);
-    return toSummary(record);
+    return toSummary(await this.findOwned(id, playerId));
   }
 
   async listCharacters(playerId: unknown): Promise<CharacterSummary[]> {
     assertPlayerId(playerId);
-    const records = await this.repository.listByPlayer(playerId);
-    return records.map(toSummary);
+    return (await this.repository.listByPlayer(playerId)).map(toSummary);
   }
 
   async getCombat(id: string, playerId: unknown): Promise<CombatSnapshot> {
     assertPlayerId(playerId);
-    const record = await this.findOwned(id, playerId);
 
-    const simulation = simulateCombat(record, Date.now());
-    await this.repository.save(simulation.record);
+    // Recarrega e tenta novamente se outra requisição avançar o mesmo personagem
+    // primeiro. O update condicional no repositório impede recompensas duplicadas.
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const record = await this.findOwned(id, playerId);
+      const simulation = simulateCombat(record, Date.now());
+      if (simulation.simulatedSeconds <= 0) {
+        return toCombatSnapshot(record, simulation.events, 0);
+      }
+      const saved = await this.repository.save(simulation.record, record.combat.lastTickAt);
+      if (saved) {
+        return toCombatSnapshot(simulation.record, simulation.events, simulation.simulatedSeconds);
+      }
+    }
 
-    return toCombatSnapshot(simulation.record, simulation.events, simulation.simulatedSeconds);
+    throw new CharacterError('combat_busy', 409,
+      'O personagem está sendo atualizado. Tente novamente em alguns segundos.');
   }
 
   private async findOwned(id: string, playerId: string): Promise<CharacterRecord> {
@@ -172,10 +169,7 @@ export function toCombatSnapshot(
     combat: {
       stageId: stage.id,
       stageName: stage.name,
-      monster: {
-        ...monster,
-        hp: Math.max(0, record.combat.monsterHp)
-      },
+      monster: { ...monster, hp: Math.max(0, record.combat.monsterHp) },
       playerHp: Math.max(0, record.combat.playerHp),
       playerMaxHp: summary.stats.maxHp,
       killsInStage: record.combat.killsInStage,
@@ -191,11 +185,8 @@ export function toCombatSnapshot(
 
 function assertPlayerId(playerId: unknown): asserts playerId is string {
   if (!isValidPlayerId(playerId)) {
-    throw new CharacterError(
-      'invalid_player_id',
-      400,
+    throw new CharacterError('invalid_player_id', 400,
       'Informe um playerId válido (8 a 64 caracteres: letras, números, _ ou -).',
-      { playerId: 'playerId inválido.' }
-    );
+      { playerId: 'playerId inválido.' });
   }
 }
