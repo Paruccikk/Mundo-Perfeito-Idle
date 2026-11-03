@@ -8,58 +8,62 @@ datasource db {
 }
 
 model Account {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  createdAt DateTime @default(now())
+  id         String      @id
+  email      String?     @unique
+  createdAt  DateTime    @default(now())
   characters Character[]
 }
 
 model Character {
-  id              String   @id @default(cuid())
+  id              String   @id
   accountId       String
   name            String
+  nameKey         String
+  classId         String
   level           Int      @default(1)
   experience      BigInt   @default(0)
   gold            BigInt   @default(0)
   currentStageId  String   @default("clearing-01")
+  combat          Json
   lastSimulatedAt DateTime @default(now())
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-  account         Account  @relation(fields: [accountId], references: [id])
+  account         Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
   inventory       InventoryItem[]
   ledger          EconomyLedger[]
 
   @@index([accountId])
+  @@unique([accountId, nameKey])
 }
 
 model ItemDefinition {
-  id          String @id
-  name        String
-  rarity      String
-  category    String
-  tradeable   Boolean @default(false)
+  id        String @id
+  name      String
+  rarity    String
+  category  String
+  tradeable Boolean @default(false)
 }
 
 model InventoryItem {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   characterId String
   itemId      String
-  quantity    Int      @default(1)
-  acquiredAt  DateTime @default(now())
-  character   Character @relation(fields: [characterId], references: [id])
+  quantity    Int       @default(1)
+  acquiredAt  DateTime  @default(now())
+  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
 
   @@index([characterId, itemId])
 }
 
 model EconomyLedger {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   characterId String
-  operationId String   @unique
+  operationId String    @unique
   assetType   String
   amount      BigInt
   reason      String
-  createdAt   DateTime @default(now())
-  character   Character @relation(fields: [characterId], references: [id])
+  createdAt   DateTime  @default(now())
+  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
 
   @@index([characterId, createdAt])
 }
