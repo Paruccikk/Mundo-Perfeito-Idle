@@ -1,0 +1,18 @@
+{
+  "name": "@mundo-perfeito/web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc -p tsconfig.json && vite build",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "phaser": "^3.90.0"
+  },
+  "devDependencies": {
+    "vite": "^6.2.0",
+    "typescript": "^5.8.3"
+  }
+}
