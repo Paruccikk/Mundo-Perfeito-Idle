@@ -74,6 +74,8 @@ export interface CombatStateRecord {
   bossActive: boolean;
   bossDefeated: number;
   status: CombatStatus;
+  playerCooldownSeconds: number;
+  monsterCooldownSeconds: number;
   recoveringUntil: string | null;
   lastTickAt: string;
 }
