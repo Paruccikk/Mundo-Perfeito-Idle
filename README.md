@@ -1,25 +1,26 @@
 # Mundo Perfeito — Perfect World Idle
 
-Protótipo inicial de um MMORPG Idle 2D isométrico para navegador (PC e celular).
+Protótipo de um MMORPG Idle 2D isométrico para navegador (PC e celular).
 
 ## Decisões aprovadas
-- Visual: 2D isométrico.
-- Combate: automático, com progressão offline.
-- Economia: preparada para possível RMT oficial no futuro; sem saque ou conversão em dinheiro nesta primeira versão.
-- Plataforma: navegador (desktop e mobile).
+- Visual 2D isométrico.
+- Combate automático com progressão offline calculada no servidor.
+- Economia preparada para possível RMT oficial no futuro; sem saque ou conversão em dinheiro nesta fase.
+- Plataforma navegador (desktop e mobile).
 
-## Stack inicial
+## Stack
 - Cliente: Phaser 3 + TypeScript + Vite.
 - Backend: Node.js + TypeScript + Fastify.
-- Banco planejado: PostgreSQL + Prisma (a integrar quando houver persistência).
-- Redis: reservado para cache, filas e sessões quando necessário.
+- Banco: PostgreSQL + Prisma.
+- Sessões: JWT assinado no backend; senhas armazenadas com hash scrypt.
+- Redis: reservado para cache, filas e sessões distribuídas quando necessário.
 
-O servidor será a autoridade sobre XP, ouro, drops, inventário, mercado e transações. O navegador nunca decide nem envia a recompensa final.
+O servidor é a autoridade sobre XP, ouro, drops, inventário, mercado e transações. O navegador nunca decide nem envia a recompensa final.
 
 ## Requisitos
-- Node.js 20+ (recomendado LTS atual)
-- npm 10+
-- Docker Desktop (opcional, para banco local quando integrado)
+- Node.js 20+ e npm 10+.
+- PostgreSQL configurado em `DATABASE_URL`.
+- `JWT_SECRET` com pelo menos 32 caracteres aleatórios.
 
 ## Desenvolvimento local
 ```bash
@@ -27,91 +28,88 @@ npm install
 npm run dev
 ```
 
+Configure `DATABASE_URL` e `JWT_SECRET` no ambiente da API antes de iniciar.
+
 Cliente: http://localhost:5173  
 API: http://localhost:3000/health
 
-## Criação de personagem (Etapa 1)
+## Conta e autenticação
 
-O cliente abre na tela de seleção de personagem (ou na criação, quando ainda não
-há nenhum). A API é a autoridade sobre nome, classe, atributos, XP, ouro e
-combate.
+A API oferece cadastro, login e validação da sessão:
+
+| Método | Rota | Descrição |
+| --- | --- | --- |
+| `POST` | `/api/v1/auth/register` | Cria conta com e-mail e senha (mínimo 10 caracteres) |
+| `POST` | `/api/v1/auth/login` | Autentica e retorna token JWT |
+| `GET` | `/api/v1/auth/me` | Valida o token e retorna a conta |
+
+O cliente envia o token como `Authorization: Bearer <token>`. As rotas de personagens exigem autenticação e usam o identificador da conta extraído do token; não confiam mais em `playerId` informado pelo navegador.
+
+**Progresso de visitante anterior:** no cadastro, o cliente envia o identificador anônimo antigo apenas para tentar vincular o personagem já existente à nova conta. Se o registro antigo existir e ainda não estiver associado a e-mail, o cadastro atualiza essa conta, preservando seus personagens. Se o navegador antigo/dados locais foram apagados, o progresso anônimo não pode ser recuperado automaticamente.
+
+A sessão atual expira após 7 dias. O token fica no armazenamento local do navegador nesta versão de protótipo. Verificação de e-mail, recuperação de senha por e-mail e migração para cookie HttpOnly ainda são melhorias pendentes.
+
+## Personagens
 
 | Método | Rota | Descrição |
 | --- | --- | --- |
 | `GET` | `/api/v1/game/classes` | Classes disponíveis, atributos base e progressão |
-| `POST` | `/api/v1/characters` | Cria um personagem (`playerId`, `name`, `classId`) |
-| `GET` | `/api/v1/characters?playerId=...` | Lista os personagens do jogador |
-| `GET` | `/api/v1/characters/:id?playerId=...` | Busca um personagem do jogador |
-| `GET` | `/api/v1/characters/:id/combat?playerId=...` | Avança a simulação e retorna o estado do combate |
+| `POST` | `/api/v1/characters` | Cria personagem autenticado (`name`, `classId`) |
+| `GET` | `/api/v1/characters` | Lista personagens da conta autenticada |
+| `GET` | `/api/v1/characters/:id` | Busca personagem pertencente à conta |
+| `GET` | `/api/v1/characters/:id/combat` | Avança simulação e retorna o combate |
 
-Exemplo:
+Regras:
+- Nome entre 3 e 16 caracteres, único por conta.
+- Até 3 personagens por conta.
+- Classes: Guerreiro, Mago e Patrulheiro.
+- As rotas de personagens respondem 401 sem token válido e 404 quando o personagem não pertence à conta.
 
-```bash
-curl -X POST http://localhost:3000/api/v1/characters \
-  -H "Content-Type: application/json" \
-  -d '{"playerId":"ply_exemplo-123","name":"Kael","classId":"warrior"}'
-```
+## Combate automático
 
-Regras do protótipo:
+O cliente consulta `GET /api/v1/characters/:id/combat` periodicamente. A API simula o tempo decorrido usando o relógio do servidor, com limite de 8 horas por intervalo. Cooldowns de ataque são persistidos para não reiniciar artificialmente a cadência entre chamadas.
 
-- Nome de 3 a 16 caracteres, único por jogador.
-- Até 3 personagens por jogador.
-- `playerId` é um identificador anônimo gerado no navegador e salvo no
-  `localStorage`; ele será substituído por autenticação real na Etapa 3.
-
-> **Persistência:** os personagens ficam em memória no processo da API. Um restart
-> ou deploy limpa os dados. A troca para PostgreSQL/Prisma está isolada em
-> `apps/api/src/game/characterRepository.ts`.
-
-## Combate automático (Etapa 1)
-
-O cliente faz polling em `GET /api/v1/characters/:id/combat` a cada segundo. Cada
-chamada avança a simulação no servidor com base no tempo real decorrido (até 300
-segundos por requisição), então o progresso continua mesmo com a aba fechada. O
-navegador só anima os eventos retornados; ele nunca calcula dano, XP ou ouro.
-
-- **Fase 1 — Clareira dos Aprendizes:** rotação de Slime Verde → Javali Selvagem
-  → Lobo Cinzento.
-- **Chefe:** após 10 abates na fase, o Rei Slime entra no lugar do monstro normal.
-  Derrotá-lo conta como chefe vencido e retoma a rotação normal.
-- **Recompensas por abate:** Slime 10 XP / 4 ouro; Javali 16 XP / 6 ouro; Lobo
-  20 XP / 8 ouro; Rei Slime 150 XP / 90 ouro.
+- **Fase 1 — Clareira dos Aprendizes:** Slime Verde → Javali Selvagem → Lobo Cinzento.
+- **Chefe:** após 10 abates na fase, aparece o Rei Slime.
+- **Recompensas por abate:** Slime 10 XP / 4 ouro; Javali 16 XP / 6 ouro; Lobo 20 XP / 8 ouro; Rei Slime 150 XP / 90 ouro.
 - **Cura:** 20% da vida máxima ao derrotar um monstro.
-- **Morte:** o personagem fica 3 segundos em recuperação e volta com a vida cheia.
-- **Nível:** o XP excedente transfere para o próximo nível e os atributos crescem
-  conforme a classe.
-- **Autoridade:** crítico, dano, morte, XP e ouro são resolvidos em
-  `apps/api/src/game/combat.ts`; o cliente apenas reproduz os eventos.
+- **Morte:** recuperação de 3 segundos e retorno com vida cheia.
+- **Nível:** XP excedente transfere para o próximo nível e atributos crescem conforme a classe.
+- **Concorrência:** gravação condicional pelo último tick impede que duas requisições processem o mesmo intervalo e dupliquem recompensas.
 
-O HUD mostra vida, XP, ouro, abates, progresso do chefe e o feed de eventos. O
-personagem e os monstros são desenhados proceduralmente no Phaser, com animações
-de idle, ataque, dano, morte e patrulha, além do cenário isométrico.
+## Persistência PostgreSQL — concluída (Etapa 4)
 
+A API usa Prisma e PostgreSQL quando `DATABASE_URL` está configurada. Personagens, conta proprietária, classe, nível, XP, ouro, estágio e estado de combate são persistidos. As migrations ficam em `apps/api/prisma/migrations`.
+
+O schema já reserva tabelas para inventário e auditoria econômica, mas **o sistema de itens/inventário ainda não está implementado no jogo**. Não confundir a existência dessas tabelas com drops funcionando.
 
 ## Publicação de teste no Render
-O arquivo `render.yaml` prepara o cliente estático e a API. Consulte [docs/DEPLOY_RENDER.md](docs/DEPLOY_RENDER.md) para publicar pela branch `dev`.
+
+O arquivo `render.yaml` prepara o cliente e a API. Consulte [docs/DEPLOY_RENDER.md](docs/DEPLOY_RENDER.md) para publicar pela branch `dev` e configurar `DATABASE_URL` e `JWT_SECRET`.
+
+- Jogo: https://mundo-perfeito-web.onrender.com
+- API health: https://mundo-perfeito-api.onrender.com/health
 
 ## Estrutura
 - `apps/web`: cliente Phaser.
-- `apps/api`: API e regras de jogo.
+- `apps/api`: API, autenticação e regras do jogo.
 - `packages/shared`: tipos compartilhados e constantes.
-- `database`: infraestrutura local planejada.
+- `database`: infraestrutura local.
 - `docs`: documentação de design e implantação.
 
 ## Estado atual
-A Etapa 1 avança com criação e seleção de personagem validadas pelo servidor,
-escolha entre Guerreiro, Mago e Patrulheiro, atributos iniciais, HUD com
-nome/classe/nível/XP/ouro e recuperação do personagem ao reabrir o navegador.
-O combate automático já roda no servidor com três monstros, chefe com gating por
-abates, XP, níveis, ouro, cura, morte/recuperação e simulação por tempo real. O
-cliente exibe o novo visual isométrico animado e uma tela para trocar de
-personagem. Persistência em banco, autenticação e o limite formal de recompensas
-offline ainda serão implementados.
+Protótipo com tela de cadastro/login, sessão JWT, seleção e criação de personagens, três classes, cenário isométrico, combate automático, monstros e chefe, XP, níveis, ouro, cura, morte e recuperação. A API persiste personagens e combate no PostgreSQL. O cadastro tenta preservar progresso de visitante antigo quando o identificador local ainda está disponível.
+
+A autenticação é uma primeira versão: ainda faltam verificação de e-mail, recuperação de senha, proteção anti-abuso mais completa e armazenamento de sessão HttpOnly. O identificador de visitante antigo não é uma identidade segura até ser convertido em uma conta.
 
 ## Próximos marcos
-1. ~~Cena isométrica com personagem e monstros de teste.~~ ✅
+
+1. ~~Cena isométrica, personagens e monstros de teste.~~ ✅
 2. ~~Criação de personagem com classes e atributos validados pela API.~~ ✅
-3. ~~Combate automático calculado pelo servidor, com monstros, chefe e progressão.~~ ✅
-4. Persistência de personagem, inventário e progresso em PostgreSQL.
-5. Cálculo offline com limite e auditoria.
-6. Mercado interno; RMT somente após análise jurídica, financeira e antifraude.
+3. ~~Combate automático no servidor, chefe, XP, níveis e ouro.~~ ✅
+4. ~~Persistência de personagens e progresso de combate em PostgreSQL.~~ ✅
+5. **Autenticação e contas:** cadastro/login com JWT implementados; concluir verificação de e-mail, recuperação de senha, sessão HttpOnly, rate limiting e testes de autorização.
+6. Inventário e equipamentos: implementar drops, itens, slots, atributos e persistência real dos itens.
+7. Auditoria e robustez do progresso offline: testes de limite de 8 horas, idempotência, concorrência, reinícios e logs econômicos.
+8. Mercado entre jogadores, com transações atômicas, taxas e prevenção de duplicação.
+9. Avaliar RMT somente depois de estabilidade econômica, antifraude e análise jurídica/financeira.
