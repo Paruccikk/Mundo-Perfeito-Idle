@@ -30,6 +30,38 @@ npm run dev
 Cliente: http://localhost:5173  
 API: http://localhost:3000/health
 
+## Criação de personagem (Etapa 1)
+
+O cliente abre na tela de criação de personagem, busca as classes na API e envia o
+personagem para o servidor. A API é a autoridade sobre nome, classe, atributos e
+ouro inicial.
+
+| Método | Rota | Descrição |
+| --- | --- | --- |
+| `GET` | `/api/v1/game/classes` | Classes disponíveis, atributos base e progressão |
+| `POST` | `/api/v1/characters` | Cria um personagem (`playerId`, `name`, `classId`) |
+| `GET` | `/api/v1/characters?playerId=...` | Lista os personagens do jogador |
+| `GET` | `/api/v1/characters/:id?playerId=...` | Busca um personagem do jogador |
+
+Exemplo:
+
+```bash
+curl -X POST http://localhost:3000/api/v1/characters \
+  -H "Content-Type: application/json" \
+  -d '{"playerId":"ply_exemplo-123","name":"Kael","classId":"warrior"}'
+```
+
+Regras do protótipo:
+
+- Nome de 3 a 16 caracteres, único por jogador.
+- Até 3 personagens por jogador.
+- `playerId` é um identificador anônimo gerado no navegador e salvo no
+  `localStorage`; ele será substituído por autenticação real na Etapa 3.
+
+> **Persistência:** os personagens ficam em memória no processo da API. Um restart
+> ou deploy limpa os dados. A troca para PostgreSQL/Prisma está isolada em
+> `apps/api/src/game/characterRepository.ts`.
+
 ## Publicação de teste no Render
 O arquivo `render.yaml` prepara o cliente estático e a API. Consulte [docs/DEPLOY_RENDER.md](docs/DEPLOY_RENDER.md) para publicar pela branch `dev`.
 
@@ -41,11 +73,16 @@ O arquivo `render.yaml` prepara o cliente estático e a API. Consulte [docs/DEPL
 - `docs`: documentação de design e implantação.
 
 ## Estado atual
-A cena isométrica é um protótipo visual. A API possui endpoints de saúde e configuração; combate autoritativo, autenticação, persistência e cálculo offline ainda serão implementados.
+A Etapa 1 está em andamento: já existe criação de personagem validada pelo
+servidor, escolha entre Guerreiro, Mago e Patrulheiro, atributos iniciais, HUD com
+nome/classe/nível/XP/ouro e recuperação do personagem ao reabrir o navegador.
+A cena isométrica continua sendo um protótipo visual. Combate autoritativo,
+persistência em banco, autenticação e cálculo offline ainda serão implementados.
 
 ## Próximos marcos
-1. Cena isométrica com personagem e monstros de teste.
-2. Combate automático calculado pelo servidor.
-3. Persistência de personagem, inventário e progresso.
-4. Cálculo offline com limite e auditoria.
-5. Mercado interno; RMT somente após análise jurídica, financeira e antifraude.
+1. ~~Cena isométrica com personagem e monstros de teste.~~ ✅
+2. ~~Criação de personagem com classes e atributos validados pela API.~~ ✅
+3. Combate automático calculado pelo servidor (próximo).
+4. Persistência de personagem, inventário e progresso em PostgreSQL.
+5. Cálculo offline com limite e auditoria.
+6. Mercado interno; RMT somente após análise jurídica, financeira e antifraude.

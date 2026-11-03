@@ -18,7 +18,7 @@ O repositório inclui um Blueprint em `render.yaml` para criar dois serviços:
 
 ## Observações
 
-- Esta primeira publicação é um ambiente de protótipo. Ainda não há login, salvamento de personagem ou banco de dados conectado.
+- Esta primeira publicação é um ambiente de protótipo. Já existe criação de personagem, mas os dados ficam em memória na API (um restart limpa tudo) e ainda não há login ou banco de dados conectado.
 - O serviço gratuito do Render pode entrar em suspensão após períodos sem tráfego; o primeiro acesso depois disso pode demorar.
 - Não coloque senhas, tokens ou chaves privadas no Git. Segredos devem ser configurados nas variáveis do painel Render.
 - PostgreSQL será adicionado quando a API implementar persistência real e migrações.
