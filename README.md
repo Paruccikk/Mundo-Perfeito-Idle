@@ -4,7 +4,7 @@ Protótipo de um MMORPG Idle 2D isométrico para navegador (PC e celular).
 
 ## Decisões aprovadas
 - Visual 2D isométrico.
-- Combate automático com progressão offline calculada no servidor.
+- Combate automático somente enquanto o jogo estiver aberto e conectado ao servidor (inclusive minimizado, enquanto a sessão continuar ativa). Não haverá farm offline após fechar o jogo.
 - Economia preparada para possível RMT oficial no futuro; sem saque ou conversão em dinheiro nesta fase.
 - Plataforma navegador (desktop e mobile).
 
@@ -67,7 +67,7 @@ Regras:
 
 ## Combate automático
 
-O cliente consulta `GET /api/v1/characters/:id/combat` periodicamente. A API simula o tempo decorrido usando o relógio do servidor, com limite de 8 horas por intervalo. Cooldowns de ataque são persistidos para não reiniciar artificialmente a cadência entre chamadas.
+O cliente consulta `GET /api/v1/characters/:id/combat` periodicamente. O servidor é a autoridade do combate, mas a intenção de design é farmar apenas durante uma sessão ativa com o jogo aberto e conectado. Fechar o jogo encerra o farm; o tempo em que o jogo ficou fechado não deve gerar XP, ouro ou itens. O comportamento atual ainda usa uma janela de simulação de até 8 horas e será substituído por controle de sessão/heartbeat antes de considerar essa regra concluída. Cooldowns de ataque são persistidos para não reiniciar artificialmente a cadência entre chamadas.
 
 - **Fase 1 — Clareira dos Aprendizes:** Slime Verde → Javali Selvagem → Lobo Cinzento.
 - **Chefe:** após 10 abates na fase, aparece o Rei Slime.
@@ -106,10 +106,10 @@ A autenticação é uma primeira versão: ainda faltam verificação de e-mail, 
 
 1. ~~Cena isométrica, personagens e monstros de teste.~~ ✅
 2. ~~Criação de personagem com classes e atributos validados pela API.~~ ✅
-3. ~~Combate automático no servidor, chefe, XP, níveis e ouro.~~ ✅
+3. ~~Combate automático no servidor, chefe, XP, níveis e ouro (atualmente com simulação por intervalo; regra final será apenas farm ativo).~~ ✅
 4. ~~Persistência de personagens e progresso de combate em PostgreSQL.~~ ✅
 5. **Autenticação e contas:** cadastro/login com JWT implementados; concluir verificação de e-mail, recuperação de senha, sessão HttpOnly, rate limiting e testes de autorização.
 6. Inventário e equipamentos: implementar drops, itens, slots, atributos e persistência real dos itens.
-7. Auditoria e robustez do progresso offline: testes de limite de 8 horas, idempotência, concorrência, reinícios e logs econômicos.
+7. Farm ativo e auditoria: processar combate somente com sessão do jogo ativa; encerrar o farm ao fechar/desconectar; tolerar minimização enquanto a conexão permanecer viva; auditar tempo ativo, XP, ouro, drops e transações; testar concorrência, reconexão e reinícios.
 8. Mercado entre jogadores, com transações atômicas, taxas e prevenção de duplicação.
 9. Avaliar RMT somente depois de estabilidade econômica, antifraude e análise jurídica/financeira.
