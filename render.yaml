@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: mundo-perfeito-api
+    runtime: node
+    plan: free
+    region: ohio
+    buildCommand: npm install && npm run build --workspace @mundo-perfeito/api
+    startCommand: npm run start --workspace @mundo-perfeito/api
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: WEB_ORIGIN
+        value: https://mundo-perfeito-web.onrender.com
+
+  - type: web
+    name: mundo-perfeito-web
+    runtime: static
+    buildCommand: npm install && npm run build --workspace @mundo-perfeito/web
+    staticPublishPath: apps/web/dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://mundo-perfeito-api.onrender.com
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
