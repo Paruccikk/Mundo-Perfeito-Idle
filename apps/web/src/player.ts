@@ -1,21 +1,24 @@
-const PLAYER_ID_KEY = 'mundo-perfeito.playerId';
+const ACCOUNT_ID_KEY = 'mundo-perfeito.accountId';
 const CHARACTER_ID_KEY = 'mundo-perfeito.characterId';
-
-function createPlayerId(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return `ply_${crypto.randomUUID()}`;
-  }
-  const random = Math.random().toString(36).slice(2);
-  return `ply_${Date.now().toString(36)}${random}`;
-}
+const AUTH_TOKEN_KEY = 'mundo-perfeito.authToken';
 
 export function getPlayerId(): string {
-  let playerId = localStorage.getItem(PLAYER_ID_KEY);
-  if (!playerId) {
-    playerId = createPlayerId();
-    localStorage.setItem(PLAYER_ID_KEY, playerId);
-  }
-  return playerId;
+  return localStorage.getItem(ACCOUNT_ID_KEY) ?? '';
+}
+
+export function getAuthToken(): string | null {
+  return localStorage.getItem(AUTH_TOKEN_KEY);
+}
+
+export function setAuthSession(token: string, accountId: string): void {
+  localStorage.setItem(AUTH_TOKEN_KEY, token);
+  localStorage.setItem(ACCOUNT_ID_KEY, accountId);
+}
+
+export function clearAuthSession(): void {
+  localStorage.removeItem(AUTH_TOKEN_KEY);
+  localStorage.removeItem(ACCOUNT_ID_KEY);
+  localStorage.removeItem(CHARACTER_ID_KEY);
 }
 
 export function getStoredCharacterId(): string | null {
