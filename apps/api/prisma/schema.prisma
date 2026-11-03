@@ -8,10 +8,11 @@ datasource db {
 }
 
 model Account {
-  id         String      @id
-  email      String?     @unique
-  createdAt  DateTime    @default(now())
-  characters Character[]
+  id           String      @id
+  email        String?     @unique
+  passwordHash String?
+  createdAt    DateTime    @default(now())
+  characters   Character[]
 }
 
 model Character {
