@@ -6,6 +6,10 @@ export function getPlayerId(): string {
   return localStorage.getItem(ACCOUNT_ID_KEY) ?? '';
 }
 
+export function getLegacyPlayerId(): string | null {
+  return localStorage.getItem('mundo-perfeito.playerId');
+}
+
 export function getAuthToken(): string | null {
   return localStorage.getItem(AUTH_TOKEN_KEY);
 }
