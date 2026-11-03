@@ -2,14 +2,12 @@ import type { CharacterRecord } from './types.js';
 
 /**
  * Contrato de persistência de personagens.
- *
- * Hoje a implementação é em memória (protótipo). Quando o PostgreSQL entrar,
- * basta criar um `PrismaCharacterRepository` com esta mesma interface e trocar
- * a injeção em `server.ts` — o restante da API não muda.
+ * O save de combate usa o último tick esperado para impedir que duas
+ * requisições simultâneas concedam duas vezes as mesmas recompensas offline.
  */
 export interface CharacterRepository {
   create(record: CharacterRecord): Promise<void>;
-  save(record: CharacterRecord): Promise<void>;
+  save(record: CharacterRecord, expectedLastTickAt?: string): Promise<boolean>;
   findById(id: string): Promise<CharacterRecord | null>;
   findByName(playerId: string, nameKey: string): Promise<CharacterRecord | null>;
   listByPlayer(playerId: string): Promise<CharacterRecord[]>;
@@ -23,8 +21,11 @@ export class MemoryCharacterRepository implements CharacterRepository {
     this.characters.set(record.id, clone(record));
   }
 
-  async save(record: CharacterRecord): Promise<void> {
+  async save(record: CharacterRecord, expectedLastTickAt?: string): Promise<boolean> {
+    const current = this.characters.get(record.id);
+    if (expectedLastTickAt && current?.combat.lastTickAt !== expectedLastTickAt) return false;
     this.characters.set(record.id, clone(record));
+    return true;
   }
 
   async findById(id: string): Promise<CharacterRecord | null> {
@@ -34,9 +35,7 @@ export class MemoryCharacterRepository implements CharacterRepository {
 
   async findByName(playerId: string, nameKey: string): Promise<CharacterRecord | null> {
     for (const record of this.characters.values()) {
-      if (record.playerId === playerId && record.nameKey === nameKey) {
-        return clone(record);
-      }
+      if (record.playerId === playerId && record.nameKey === nameKey) return clone(record);
     }
     return null;
   }
@@ -51,17 +50,12 @@ export class MemoryCharacterRepository implements CharacterRepository {
   async countByPlayer(playerId: string): Promise<number> {
     let count = 0;
     for (const record of this.characters.values()) {
-      if (record.playerId === playerId) {
-        count += 1;
-      }
+      if (record.playerId === playerId) count += 1;
     }
     return count;
   }
 }
 
 function clone(record: CharacterRecord): CharacterRecord {
-  return {
-    ...record,
-    combat: { ...record.combat }
-  };
+  return { ...record, combat: { ...record.combat } };
 }
