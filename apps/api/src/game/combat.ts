@@ -6,7 +6,8 @@ const STEP_SECONDS = 0.2;
 const MAX_EVENTS = 60;
 const RECOVERY_SECONDS = 3;
 const HEAL_ON_KILL_RATIO = 0.2;
-const MAX_SIMULATION_SECONDS = 300;
+// Limite de progresso offline por sessão. Deve acompanhar /game/config.
+const MAX_SIMULATION_SECONDS = 8 * 60 * 60;
 
 export interface CombatSimulation {
   record: CharacterRecord;
@@ -66,8 +67,8 @@ export function simulateCombat(
     : 0;
 
   let simulated = 0;
-  let playerCooldown = 0;
-  let monsterCooldown = 0;
+  let playerCooldown = Math.max(0, record.combat.playerCooldownSeconds);
+  let monsterCooldown = Math.max(0, record.combat.monsterCooldownSeconds);
 
   const pushEvent = (event: CombatEvent): void => {
     events.push(event);
@@ -188,6 +189,8 @@ export function simulateCombat(
       bossActive,
       bossDefeated,
       status,
+      playerCooldownSeconds: Math.max(0, playerCooldown),
+      monsterCooldownSeconds: Math.max(0, monsterCooldown),
       recoveringUntil:
         recoveryLeft > 0 ? new Date(nowMs + recoveryLeft * 1000).toISOString() : null,
       lastTickAt: new Date(nowMs).toISOString()
