@@ -5,6 +5,7 @@ import {
   clearAuthSession,
   clearStoredCharacterId,
   getAuthToken,
+  getLegacyPlayerId,
   getPlayerId,
   getStoredCharacterId,
   setAuthSession,
@@ -34,7 +35,7 @@ function showAuthentication(): void {
   hud = null;
   renderAuthScreen(root, async (mode, email, password) => {
     const session = mode === 'register'
-      ? await api.register(email, password)
+      ? await api.register(email, password, getLegacyPlayerId())
       : await api.login(email, password);
     setAuthSession(session.token, session.account.id);
     await bootstrap();
