@@ -136,6 +136,9 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
   let bannerTimer = 0;
 
   hpBar.fill.style.width = '100%';
+  hpBar.value.textContent = `${formatNumber(character.stats.maxHp)} / ${formatNumber(character.stats.maxHp)}`;
+  mpBar.fill.style.width = '100%';
+  mpBar.value.textContent = `${formatNumber(character.stats.maxMp)} / ${formatNumber(character.stats.maxMp)}`;
   xpBar.fill.style.width = '0%';
   goldEl.querySelector('.hud__gold-value')!.textContent = formatNumber(character.gold);
   metaEl.textContent = `${character.className} • Nível ${character.level}`;
