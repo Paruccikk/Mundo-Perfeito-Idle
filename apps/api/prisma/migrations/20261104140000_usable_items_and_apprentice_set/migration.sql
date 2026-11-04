@@ -39,6 +39,7 @@ CROSS JOIN LATERAL (
     ('mp-potion', 3),
     ('revive-potion', 1)
 ) AS starter("itemId","quantity")
-WHERE NOT EXISTS (
-  SELECT 1 FROM "InventoryItem" i WHERE i."characterId" = c."id" AND i."itemId" = starter."itemId"
-);
+WHERE (starter."itemId" <> 'mp-potion' OR c."classId" IN ('mage', 'priest'))
+  AND NOT EXISTS (
+    SELECT 1 FROM "InventoryItem" i WHERE i."characterId" = c."id" AND i."itemId" = starter."itemId"
+  );
