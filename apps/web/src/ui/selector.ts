@@ -101,7 +101,8 @@ function buildCharacterCard(
 
   const stats = el('dl', 'character-card__stats');
   appendStat(stats, 'Vida', formatNumber(character.stats.maxHp));
-  appendStat(stats, 'Ataque', formatDecimal(character.stats.attack));
+  const classDamage = character.classId === 'mage' || character.classId === 'priest' ? character.stats.magicDamage : character.stats.physicalDamage;
+  appendStat(stats, 'Dano', formatDecimal(classDamage));
   appendStat(stats, 'Ouro', formatNumber(character.gold));
 
   const xp = el('div', 'character-card__xp');
