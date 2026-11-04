@@ -50,7 +50,7 @@ export class CharacterService {
       currentStageId: STAGE_ONE.id,
       combat: {
         stageId: STAGE_ONE.id, monsterId: initialMonsterId, monsterHp: initialMonster.maxHp,
-        playerHp: stats.maxHp, killsInStage: 0, bossActive: false, bossDefeated: 0,
+        playerHp: stats.maxHp, playerMp: stats.maxMp, killsInStage: 0, bossActive: false, bossDefeated: 0,
         status: 'fighting', playerCooldownSeconds: 0, monsterCooldownSeconds: 0,
         recoveringUntil: null, lastTickAt: now
       },
@@ -105,19 +105,42 @@ export class CharacterService {
     return this.getInventory(id, playerId);
   }
 
+  async useItem(id: string, playerId: unknown, inventoryItemId: string) {
+    assertPlayerId(playerId);
+    const record = await this.findOwned(id, playerId);
+    const stats = statsForLevel(record.classId, record.level, record.attributes, record.equipmentBonuses);
+    const result = await this.repository.useItem(id, playerId, inventoryItemId, stats.maxHp, stats.maxMp);
+    if (result.error === 'not_found') throw new CharacterError('character_not_found', 404, 'Personagem não encontrado.');
+    if (result.error === 'no_effect') throw new CharacterError('no_effect', 400, 'Este item não teria efeito agora.');
+    if (result.error === 'character_dead') throw new CharacterError('character_dead', 400, 'Seu personagem foi derrotado. A Poção da Ressurreição é consumida automaticamente se estiver na mochila.');
+    if (result.error) throw new CharacterError('item_not_usable', 400, 'Este item não pode ser usado.');
+    return this.getInventory(id, playerId);
+  }
+
   async getCombat(id: string, playerId: unknown): Promise<CombatSnapshot> {
     assertPlayerId(playerId);
+    let returnToCity = false;
     for (let attempt = 0; attempt < 4; attempt += 1) {
-      const record = await this.findOwned(id, playerId);
+      let record = await this.findOwned(id, playerId);
+      if (record.combat.status === 'dead') {
+        let stageExists = true;
+        try { getStage(record.combat.stageId); } catch { stageExists = false; }
+        const stats = statsForLevel(record.classId, record.level, record.attributes, record.equipmentBonuses);
+        const resolved = await this.repository.resolveDeath(id, playerId, stats.maxHp, stats.maxMp, stageExists);
+        if (!resolved.record) throw new CharacterError('character_not_found', 404, 'Personagem não encontrado.');
+        record = resolved.record;
+        returnToCity = resolved.returnToCity;
+        if (returnToCity) return { ...toCombatSnapshot(record, [], 0), returnToCity: true };
+      }
       const simulation = simulateCombat(record, Date.now());
-      if (simulation.simulatedSeconds <= 0) return toCombatSnapshot(record, simulation.events, 0);
+      if (simulation.simulatedSeconds <= 0) return { ...toCombatSnapshot(record, simulation.events, 0), ...(returnToCity ? { returnToCity: true } : {}) };
       const drops = simulation.drops.map((drop, index) => ({
         ...drop,
         operationId: `drop:${id}:${record.combat.lastTickAt}:${index}`
       }));
       const saved = await this.repository.save(simulation.record, record.combat.lastTickAt, drops);
       if (saved) {
-        return toCombatSnapshot(simulation.record, simulation.events, simulation.simulatedSeconds);
+        return { ...toCombatSnapshot(simulation.record, simulation.events, simulation.simulatedSeconds), ...(returnToCity ? { returnToCity: true } : {}) };
       }
     }
     throw new CharacterError('combat_busy', 409, 'O personagem está sendo atualizado. Tente novamente em alguns segundos.');
@@ -151,6 +174,7 @@ export function toCombatSnapshot(record: CharacterRecord, events: CombatEvent[],
     combat: {
       stageId: stage.id, stageName: stage.name, monster: { ...monster, hp: Math.max(0, record.combat.monsterHp) },
       playerHp: Math.max(0, record.combat.playerHp), playerMaxHp: summary.stats.maxHp,
+      playerMp: Math.max(0, record.combat.playerMp ?? summary.stats.maxMp), playerMaxMp: summary.stats.maxMp,
       killsInStage: record.combat.killsInStage, killsRequiredForBoss: stage.killsRequiredForBoss,
       bossActive: record.combat.bossActive, bossDefeated: record.combat.bossDefeated, status: record.combat.status
     },
