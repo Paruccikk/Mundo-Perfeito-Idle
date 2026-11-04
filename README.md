@@ -116,7 +116,7 @@ O cliente consulta `GET /api/v1/characters/:id/combat` periodicamente. O servido
 - **Chefe:** após 10 abates na fase, aparece o Rei Slime.
 - **Recompensas por abate:** Slime 10 XP / 4 ouro; Javali 16 XP / 6 ouro; Lobo 20 XP / 8 ouro; Rei Slime 150 XP / 90 ouro.
 - **Cura:** 20% da vida máxima ao derrotar um monstro.
-- **Morte:** recuperação de 3 segundos e retorno com vida cheia.
+- **Morte:** usa automaticamente uma Poção da Ressurreição para retornar à mesma fase com metade de HP/MP; sem poção, retorna a Valedouro.
 - **Nível:** XP excedente transfere para o próximo nível e atributos crescem conforme a classe.
 - **Concorrência:** gravação condicional pelo último tick impede que duas requisições processem o mesmo intervalo e dupliquem recompensas.
 
