@@ -35,7 +35,11 @@ export class PrismaCharacterRepository implements CharacterRepository {
     });
   }
 
-  async save(record: CharacterRecord, expectedLastTickAt?: string): Promise<boolean> {
+  async save(
+    record: CharacterRecord,
+    expectedLastTickAt?: string,
+    drops: Array<{ itemId: string; quantity: number; operationId: string }> = []
+  ): Promise<boolean> {
     const data = {
       level: record.level, experience: BigInt(record.experience), gold: BigInt(record.gold),
       title: record.title, guildName: record.guildName,
@@ -45,14 +49,20 @@ export class PrismaCharacterRepository implements CharacterRepository {
       combat: record.combat as unknown as Prisma.InputJsonValue,
       lastSimulatedAt: new Date(record.combat.lastTickAt)
     };
-    if (expectedLastTickAt) {
-      const result = await this.prisma.character.updateMany({
-        where: { id: record.id, lastSimulatedAt: new Date(expectedLastTickAt) }, data
-      });
-      return result.count === 1;
-    }
-    await this.prisma.character.update({ where: { id: record.id }, data });
-    return true;
+    return this.prisma.$transaction(async (tx) => {
+      if (expectedLastTickAt) {
+        const result = await tx.character.updateMany({
+          where: { id: record.id, lastSimulatedAt: new Date(expectedLastTickAt) }, data
+        });
+        if (result.count !== 1) return false;
+      } else {
+        await tx.character.update({ where: { id: record.id }, data });
+      }
+      for (const drop of drops) {
+        await addDropInTransaction(tx, record.id, drop.itemId, drop.quantity, drop.operationId);
+      }
+      return true;
+    });
   }
 
   async findById(id: string): Promise<CharacterRecord | null> {
@@ -165,35 +175,9 @@ export class PrismaCharacterRepository implements CharacterRepository {
   }
 
   async addDrop(characterId: string, itemId: string, quantity: number, operationId: string): Promise<void> {
-    await this.prisma.$transaction(async (tx) => {
-      const exists = await tx.economyLedger.findUnique({ where: { operationId } });
-      if (exists) return;
-      const definition = await tx.itemDefinition.findUnique({ where: { id: itemId } });
-      if (!definition) return;
-      let remaining = quantity;
-      if (definition.stackable) {
-        const stacks = await tx.inventoryItem.findMany({ where: { characterId, itemId }, orderBy: { acquiredAt: 'asc' } });
-        for (const stack of stacks) {
-          if (remaining <= 0) break;
-          const room = Math.max(0, definition.maxStack - stack.quantity);
-          const added = Math.min(room, remaining);
-          if (added > 0) {
-            await tx.inventoryItem.update({ where: { id: stack.id }, data: { quantity: { increment: added } } });
-            remaining -= added;
-          }
-        }
-      }
-      while (remaining > 0) {
-        const stackQuantity = definition.stackable ? Math.min(definition.maxStack, remaining) : 1;
-        await tx.inventoryItem.create({ data: { characterId, itemId, quantity: stackQuantity } });
-        remaining -= stackQuantity;
-      }
-      await tx.economyLedger.create({ data: {
-        characterId, operationId, assetType: 'item', amount: BigInt(quantity), reason: `drop:${itemId}`
-      } });
-    });
+    await this.prisma.$transaction((tx) => addDropInTransaction(tx, characterId, itemId, quantity, operationId));
   }
-}
+}}
 
 function fromDb(row: DbCharacter): CharacterRecord {
   return {
@@ -218,4 +202,38 @@ function sumEquipmentBonuses(entries: Array<{ item: { stats: Prisma.JsonValue | 
     }
   }
   return totals;
+}
+
+async function addDropInTransaction(
+  tx: Prisma.TransactionClient,
+  characterId: string,
+  itemId: string,
+  quantity: number,
+  operationId: string
+): Promise<void> {
+  const exists = await tx.economyLedger.findUnique({ where: { operationId } });
+  if (exists) return;
+  const definition = await tx.itemDefinition.findUnique({ where: { id: itemId } });
+  if (!definition || quantity <= 0) return;
+  let remaining = quantity;
+  if (definition.stackable) {
+    const stacks = await tx.inventoryItem.findMany({ where: { characterId, itemId }, orderBy: { acquiredAt: 'asc' } });
+    for (const stack of stacks) {
+      if (remaining <= 0) break;
+      const room = Math.max(0, definition.maxStack - stack.quantity);
+      const added = Math.min(room, remaining);
+      if (added > 0) {
+        await tx.inventoryItem.update({ where: { id: stack.id }, data: { quantity: { increment: added } } });
+        remaining -= added;
+      }
+    }
+  }
+  while (remaining > 0) {
+    const stackQuantity = definition.stackable ? Math.min(definition.maxStack, remaining) : 1;
+    await tx.inventoryItem.create({ data: { characterId, itemId, quantity: stackQuantity } });
+    remaining -= stackQuantity;
+  }
+  await tx.economyLedger.create({ data: {
+    characterId, operationId, assetType: 'item', amount: BigInt(quantity), reason: `drop:${itemId}`
+  } });
 }
