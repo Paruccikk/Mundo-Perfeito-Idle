@@ -5,6 +5,7 @@ export function renderInventoryPanel(
   inventory: InventorySnapshot,
   onEquip: (inventoryItemId: string) => Promise<InventorySnapshot>,
   onUnequip: (slot: string) => Promise<InventorySnapshot>,
+  onUse: (inventoryItemId: string) => Promise<InventorySnapshot>,
   onClose: () => void
 ): void {
   root.querySelector('.game-panel-overlay')?.remove();
@@ -51,7 +52,7 @@ export function renderInventoryPanel(
       unequip.textContent = 'Retirar';
       unequip.addEventListener('click', async () => {
         unequip.disabled = true;
-        try { renderInventoryPanel(root, await onUnequip(slot), onEquip, onUnequip, onClose); }
+        try { renderInventoryPanel(root, await onUnequip(slot), onEquip, onUnequip, onUse, onClose); }
         catch (error) { unequip.disabled = false; unequip.textContent = error instanceof Error ? error.message : 'Erro'; }
       });
       card.append(unequip);
@@ -88,10 +89,20 @@ export function renderInventoryPanel(
       equip.addEventListener('click', async () => {
         equip.disabled = true;
         equip.textContent = 'Equipando…';
-        try { renderInventoryPanel(root, await onEquip(item.id), onEquip, onUnequip, onClose); }
+        try { renderInventoryPanel(root, await onEquip(item.id), onEquip, onUnequip, onUse, onClose); }
         catch (error) { equip.disabled = false; equip.textContent = error instanceof Error ? error.message : 'Erro ao equipar'; }
       });
       row.append(equip);
+    }
+    if (item.category === 'consumable') {
+      const use = document.createElement('button');
+      use.type = 'button'; use.className = 'ghost-button'; use.textContent = 'Usar';
+      use.addEventListener('click', async () => {
+        use.disabled = true; use.textContent = 'Usando…';
+        try { renderInventoryPanel(root, await onUse(item.id), onEquip, onUnequip, onUse, onClose); }
+        catch (error) { use.disabled = false; use.textContent = error instanceof Error ? error.message : 'Não foi possível usar'; }
+      });
+      row.append(use);
     }
     list.append(row);
   }
