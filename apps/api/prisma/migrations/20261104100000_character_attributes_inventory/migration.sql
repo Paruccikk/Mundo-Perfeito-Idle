@@ -10,6 +10,16 @@ ALTER TABLE "Character"
 -- Patrulheiro passa a se chamar Arqueiro sem perder o personagem existente.
 UPDATE "Character" SET "classId" = 'archer' WHERE "classId" = 'ranger';
 
+-- Converte os personagens existentes para os atributos iniciais da classe
+-- e concede os pontos que teriam recebido nos níveis já conquistados.
+UPDATE "Character" SET "constitution" = 8, "strength" = 8, "intelligence" = 2, "dexterity" = 4
+WHERE "classId" = 'warrior' AND "constitution" = 5 AND "strength" = 5 AND "intelligence" = 5 AND "dexterity" = 5;
+UPDATE "Character" SET "constitution" = 3, "strength" = 2, "intelligence" = 10, "dexterity" = 5
+WHERE "classId" = 'mage' AND "constitution" = 5 AND "strength" = 5 AND "intelligence" = 5 AND "dexterity" = 5;
+UPDATE "Character" SET "constitution" = 4, "strength" = 5, "intelligence" = 3, "dexterity" = 9
+WHERE "classId" = 'archer' AND "constitution" = 5 AND "strength" = 5 AND "intelligence" = 5 AND "dexterity" = 5;
+UPDATE "Character" SET "attributePoints" = GREATEST("attributePoints", ("level" - 1) * 5);
+
 ALTER TABLE "ItemDefinition"
   ADD COLUMN "description" TEXT NOT NULL DEFAULT '',
   ADD COLUMN "slot" TEXT,
