@@ -94,7 +94,7 @@ export function renderInventoryPanel(
       });
       row.append(equip);
     }
-    if (item.category === 'consumable') {
+    if (item.category === 'consumable' && item.itemId !== 'revive-potion') {
       const use = document.createElement('button');
       use.type = 'button'; use.className = 'ghost-button'; use.textContent = 'Usar';
       use.addEventListener('click', async () => {
