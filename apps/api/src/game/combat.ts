@@ -56,7 +56,7 @@ export function simulateCombat(
   let monsterHp = Math.min(record.combat.monsterHp, monster.maxHp);
 
   let playerHp = Math.min(Math.max(record.combat.playerHp, 0), stats.maxHp);
-  if (playerHp <= 0 && record.combat.status !== 'dead') playerHp = stats.maxHp;
+  if (playerHp <= 0) playerHp = stats.maxHp;
   let playerMp = Math.min(Math.max(record.combat.playerMp ?? stats.maxMp, 0), stats.maxMp);
 
   let killsInStage = record.combat.killsInStage;
