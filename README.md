@@ -106,7 +106,7 @@ A entrada do personagem agora começa na **Cidade de Valedouro**, uma cena isom�
 
 O personagem pode caminhar com WASD/setas ou clicar no chão. Clicar nos NPCs abre seus diálogos. O botão **Cidade** no HUD retorna ao hub a partir da área de combate.
 
-**Limite desta etapa:** a cidade já existe visualmente e os NPCs respondem localmente, mas a presença compartilhada de jogadores, chat, canais, WebSocket, grupos e instâncias ainda não foi implementada. A arquitetura multiplayer será adicionada em etapas posteriores; esta cena não deve ser confundida com uma cidade online compartilhada já pronta.
+**Multiplayer da cidade (primeira versão):** Valedouro usa WebSocket autenticado pela sessão JWT. Jogadores conectados com personagens diferentes aparecem na mesma cidade, com nome/nível, movimentação sincronizada, contador de presença e chat global. O servidor valida a conta e a posse do personagem, limita coordenadas à área da cidade, controla frequência de movimento e mensagens e encerra a presença ao desconectar. A presença é mantida em memória no processo da API (não é persistida); esta primeira versão usa uma única sala e até 50 conexões simultâneas por instância. Grupos, canais separados, reconexão entre múltiplas instâncias/servidores e sincronização de presença distribuída ainda serão etapas futuras.
 
 ## Combate automático
 
@@ -155,7 +155,8 @@ A autenticação é uma primeira versão: ainda faltam verificação de e-mail, 
 6. Inventário e equipamentos: itens iniciais, drops, slots, equipar/retirar, bônus de equipamento e persistência (em validação).
 7. Farm ativo e auditoria: processar combate somente com sessão do jogo ativa; encerrar o farm ao fechar/desconectar; tolerar minimização enquanto a conexão permanecer viva; auditar tempo ativo, XP, ouro, drops e transações; testar concorrência, reconexão e reinícios.
 8. Mercado entre jogadores, com transações atômicas, taxas e prevenção de duplicação.
-9. Cidade online compartilhada: WebSocket, presença, sincronização de movimento, canais e chat.
-10. NPC Mestre das Aventuras: seleção de fases e teleporte para regiões.
-11. Grupos e instâncias: farm solo ou em grupo com recompensas individuais validadas no servidor.
-12. Avaliar RMT somente depois de estabilidade econômica, antifraude e análise jurídica/financeira.
+9. ~~Cidade online compartilhada (primeira versão): WebSocket autenticado, presença, sincronização de movimento e chat global em uma sala.~~ ✅
+10. Cidade online escalável: canais, presença distribuída, reconexão e testes de carga.
+11. NPC Mestre das Aventuras: seleção de fases e teleporte para regiões.
+12. Grupos e instâncias: farm solo ou em grupo com recompensas individuais validadas no servidor.
+13. Avaliar RMT somente depois de estabilidade econômica, antifraude e análise jurídica/financeira.
