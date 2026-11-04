@@ -336,9 +336,9 @@ export class CityScene extends Phaser.Scene {
 
   private handleGroundClick(pointer: Phaser.Input.Pointer): void {
     if (this.dialogue || pointer.button !== 0) return;
-    const point = this.world.getLocalPoint(pointer.x, pointer.y);
-    const targetX = Phaser.Math.Clamp(point.x, -390, 390);
-    const targetY = Phaser.Math.Clamp(point.y, -235, 245);
+    const point = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+    const targetX = Phaser.Math.Clamp((point.x - this.world.x) / this.world.scaleX, -390, 390);
+    const targetY = Phaser.Math.Clamp((point.y - this.world.y) / this.world.scaleY, -235, 245);
     const distance = Phaser.Math.Distance.Between(this.avatar.root.x, this.avatar.root.y, targetX, targetY);
     this.avatar.setFacing(targetX >= this.avatar.root.x ? 1 : -1);
     this.tweens.add({
