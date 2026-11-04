@@ -3,7 +3,9 @@ import type {
   CharacterClassDefinition,
   CharacterClassId,
   CharacterSummary,
-  CombatSnapshot
+  CombatSnapshot,
+  InventoryItem,
+  EquipmentItem
 } from '@mundo-perfeito/shared';
 import { getAuthToken } from './player';
 
@@ -28,6 +30,8 @@ export class ApiError extends Error {
     this.details = details;
   }
 }
+
+export interface InventorySnapshot { items: InventoryItem[]; equipment: EquipmentItem[]; }
 
 interface RequestOptions {
   method?: 'GET' | 'POST';
@@ -100,5 +104,15 @@ export const api = {
   },
   async getCombat(id: string, _playerId?: string): Promise<CombatSnapshot> {
     return request<CombatSnapshot>(`/api/v1/characters/${encodeURIComponent(id)}/combat`);
+  },
+  async allocateAttributes(id: string, allocation: Partial<{ constitution: number; strength: number; intelligence: number; dexterity: number }>): Promise<CharacterSummary> {
+    const data = await request<{ character: CharacterSummary }>(`/api/v1/characters/${encodeURIComponent(id)}/attributes`, { method: 'POST', body: allocation });
+    return data.character;
+  },
+  async getInventory(id: string): Promise<InventorySnapshot> {
+    return request<InventorySnapshot>(`/api/v1/characters/${encodeURIComponent(id)}/inventory`);
+  },
+  async equipItem(id: string, inventoryItemId: string): Promise<InventorySnapshot> {
+    return request<InventorySnapshot>(`/api/v1/characters/${encodeURIComponent(id)}/equip`, { method: 'POST', body: { inventoryItemId } });
   }
 };
