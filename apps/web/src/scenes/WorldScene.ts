@@ -84,6 +84,7 @@ export class WorldScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
 
     this.hud?.setConnection('connecting');
+    this.hud?.setLocation('Clareira dos Aprendizes', 'Área de combate', false);
     this.hud?.pushFeed(`${this.character.name} entrou na Clareira dos Aprendizes.`, 'gold');
 
     void this.poll();
