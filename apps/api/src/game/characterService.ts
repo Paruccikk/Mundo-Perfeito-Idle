@@ -97,6 +97,14 @@ export class CharacterService {
     return this.getInventory(id, playerId);
   }
 
+  async unequipItem(id: string, playerId: unknown, slot: string) {
+    assertPlayerId(playerId);
+    const result = await this.repository.unequipItem(id, playerId, slot);
+    if (result.error === 'not_found') throw new CharacterError('character_not_found', 404, 'Personagem não encontrado.');
+    if (result.error) throw new CharacterError(result.error, 400, 'Não existe equipamento nesse espaço.');
+    return this.getInventory(id, playerId);
+  }
+
   async getCombat(id: string, playerId: unknown): Promise<CombatSnapshot> {
     assertPlayerId(playerId);
     for (let attempt = 0; attempt < 4; attempt += 1) {
