@@ -1,4 +1,4 @@
-import { CLASS_DEFINITIONS, MAX_LEVEL, experienceToNextLevel, statsForLevel } from './classes.js';
+import { ATTRIBUTE_POINTS_PER_LEVEL, CLASS_DEFINITIONS, MAX_LEVEL, experienceToNextLevel, statsForLevel } from './classes.js';
 import { getMonster, getStage, nextNormalMonster } from './monsters.js';
 import type { CharacterRecord, CombatEvent } from './types.js';
 
@@ -133,8 +133,8 @@ export function simulateCombat(
         while (level < MAX_LEVEL && experience >= experienceToNextLevel(level)) {
           experience -= experienceToNextLevel(level);
           level += 1;
-          attributePoints += 5;
-          stats = statsForLevel(record.classId, level, record.attributes);
+          attributePoints += ATTRIBUTE_POINTS_PER_LEVEL;
+          stats = statsForLevel(record.classId, level, record.attributes, record.equipmentBonuses);
           playerHp = stats.maxHp;
           pushEvent({ type: 'level_up', message: `Nível ${level}` });
         }
