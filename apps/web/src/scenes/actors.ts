@@ -38,7 +38,18 @@ const PALETTES: Record<CharacterClassId, Palette> = {
     hair: 0xf1ecdd,
     cape: 0x3b2a6e
   },
-  ranger: {
+  priest: {
+    primary: 0xd8e0e8,
+    secondary: 0x8499ac,
+    trim: 0xe7c168,
+    sleeve: 0xa8b9c8,
+    pants: 0x526477,
+    boot: 0x2c2622,
+    skin: 0xf0c7a6,
+    hair: 0x7a5b42,
+    cape: 0x4f7890
+  },
+  archer: {
     primary: 0x3f7d5f,
     secondary: 0x2e6049,
     trim: 0xc9a35f,
@@ -97,7 +108,7 @@ export class PlayerAvatar {
     const backArm = this.buildArm(-18, palette, false);
     this.flip.add(backArm);
 
-    if (classId === 'ranger') {
+    if (classId === 'archer') {
       this.flip.add(buildQuiver(scene));
     }
 
@@ -292,7 +303,7 @@ export class PlayerAvatar {
     g.fillStyle(palette.primary, 1);
     g.lineStyle(2.5, OUTLINE, 1);
 
-    if (classId === 'mage') {
+    if (classId === 'mage' || classId === 'priest') {
       g.fillPoints(
         [
           { x: -14, y: -66 },
@@ -358,7 +369,7 @@ export class PlayerAvatar {
   private buildHead(palette: Palette, classId: CharacterClassId): Phaser.GameObjects.Container {
     const head = this.scene.add.container(0, -84);
 
-    if (classId === 'ranger') {
+    if (classId === 'archer') {
       const hood = this.scene.add.graphics();
       hood.fillStyle(palette.cape, 1);
       hood.lineStyle(2.5, OUTLINE, 1);
@@ -420,7 +431,7 @@ export class PlayerAvatar {
       head.add(hat);
     }
 
-    if (classId === 'ranger') {
+    if (classId === 'archer') {
       const hoodTrim = this.scene.add.graphics();
       hoodTrim.fillStyle(palette.primary, 1);
       hoodTrim.lineStyle(2, OUTLINE, 1);
@@ -462,7 +473,7 @@ export class PlayerAvatar {
       g.fillRoundedRect(-2, 2, 4, 12, 2);
     }
 
-    if (classId === 'mage') {
+    if (classId === 'mage' || classId === 'priest') {
       g.fillStyle(0x5b3d2a, 1);
       g.lineStyle(2, OUTLINE, 1);
       g.fillRoundedRect(-2.5, -50, 5, 74, 2);
@@ -488,7 +499,7 @@ export class PlayerAvatar {
       });
     }
 
-    if (classId === 'ranger') {
+    if (classId === 'archer') {
       g.lineStyle(3.5, 0x8a6038, 1);
       g.beginPath();
       g.arc(0, 2, 25, Phaser.Math.DegToRad(-68), Phaser.Math.DegToRad(68), false);
@@ -962,7 +973,7 @@ function buildCape(
   classId: CharacterClassId
 ): Phaser.GameObjects.Graphics {
   const g = scene.add.graphics();
-  g.fillStyle(palette.cape, classId === 'mage' ? 0.9 : 0.95);
+  g.fillStyle(palette.cape, classId === 'mage' || classId === 'priest' ? 0.9 : 0.95);
   g.lineStyle(2, OUTLINE, 1);
 
   if (classId === 'warrior') {
