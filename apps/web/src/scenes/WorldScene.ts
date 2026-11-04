@@ -641,6 +641,11 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private applySnapshot(snapshot: CombatSnapshot): void {
+    if (snapshot.returnToCity) {
+      this.hud?.pushFeed('Você foi derrotado e não tinha Poção da Ressurreição. Retornando a Valedouro.', 'danger');
+      this.scene.start('CityScene');
+      return;
+    }
     const previousLevel = this.snapshot?.character.level ?? snapshot.character.level;
 
     this.snapshot = snapshot;
