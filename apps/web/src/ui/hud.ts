@@ -13,10 +13,12 @@ export interface GameHudOptions {
   onSwitch: () => void;
   onCharacter: () => void;
   onInventory: () => void;
+  onTown: () => void;
 }
 
 export interface GameHud {
   update(snapshot: CombatSnapshot): void;
+  setLocation(name: string, label: string, safeZone?: boolean): void;
   setConnection(state: HudConnectionState): void;
   pushFeed(text: string, tone?: HudFeedTone): void;
   showBanner(title: string, subtitle?: string, tone?: HudBannerTone): void;
@@ -56,7 +58,8 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
 
   // ---------- Cartão da fase ----------
   const stageCard = el('div', 'hud__card hud__card--stage');
-  stageCard.append(el('p', 'hud__eyebrow', 'Fase 1'));
+  const stageEyebrow = el('p', 'hud__eyebrow', 'Fase 1');
+  stageCard.append(stageEyebrow);
 
   const stageNameEl = el('strong', 'hud__stage-name', 'Clareira dos Aprendizes');
   const killsEl = el('span', 'hud__kills', '0 / 10 abates');
@@ -101,6 +104,9 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
   autoPill.append(el('span', 'hud__auto-dot'), el('span', 'hud__auto-text', 'Combate automático'));
 
   const tools = el('div', 'hud__tools');
+  const townButton = el('button', 'ghost-button', 'Cidade') as HTMLButtonElement;
+  townButton.type = 'button';
+  townButton.addEventListener('click', onTown);
   const switchButton = el('button', 'ghost-button', 'Trocar personagem') as HTMLButtonElement;
   switchButton.type = 'button';
   switchButton.addEventListener('click', onSwitch);
@@ -110,7 +116,7 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
   const inventoryButton = el('button', 'ghost-button', 'Inventário') as HTMLButtonElement;
   inventoryButton.type = 'button';
   inventoryButton.addEventListener('click', onInventory);
-  tools.append(characterButton, inventoryButton, switchButton);
+  tools.append(townButton, characterButton, inventoryButton, switchButton);
 
   hud.append(
     playerCard,
@@ -134,6 +140,16 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
   metaEl.textContent = `${character.className} • Nível ${character.level}`;
 
   return {
+    setLocation(name: string, label: string, safeZone = false): void {
+      stageNameEl.textContent = name;
+      stageEyebrow.textContent = label;
+      killsEl.hidden = safeZone;
+      progressTrack.hidden = safeZone;
+      bossesEl.hidden = safeZone;
+      bossBar.hidden = safeZone;
+      autoPill.hidden = safeZone;
+    },
+
     update(snapshot: CombatSnapshot): void {
       const summary = snapshot.character;
       const combat = snapshot.combat;
