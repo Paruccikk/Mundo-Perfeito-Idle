@@ -115,7 +115,7 @@ export class MemoryCharacterRepository implements CharacterRepository {
     const items = this.inventory.get(characterId) ?? [];
     const found = items.find((item) => item.itemId === itemId);
     if (found) found.quantity += quantity;
-    else items.push({ id: `drop-${operationId}`, itemId, name: itemId === 'slime-gel' ? 'Geleia de Slime' : itemId,
+    else items.push({ id: `drop-${operationId}`, itemId, name: itemId === 'slime-gel' ? 'Geleia de Slime' : itemId === 'boar-hide' ? 'Couro de Javali' : itemId === 'wolf-pelt' ? 'Pele de Lobo' : itemId,
       description: 'Item obtido em combate.', rarity: 'common', category: 'material', slot: null,
       quantity, levelReq: 1, stats: {} });
     this.inventory.set(characterId, items);
