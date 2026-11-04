@@ -11,7 +11,8 @@ export interface CharacterSelectorOptions {
 const CLASS_GLYPHS: Record<CharacterClassId, string> = {
   warrior: '⚔',
   mage: '✦',
-  ranger: '➶'
+  archer: '➶',
+  priest: '✚'
 };
 
 export function renderCharacterSelector(
