@@ -112,6 +112,9 @@ export const api = {
   async getInventory(id: string): Promise<InventorySnapshot> {
     return request<InventorySnapshot>(`/api/v1/characters/${encodeURIComponent(id)}/inventory`);
   },
+  async useItem(id: string, inventoryItemId: string): Promise<InventorySnapshot> {
+    return request<InventorySnapshot>(`/api/v1/characters/${encodeURIComponent(id)}/use-item`, { method: 'POST', body: { inventoryItemId } });
+  },
   async equipItem(id: string, inventoryItemId: string): Promise<InventorySnapshot> {
     return request<InventorySnapshot>(`/api/v1/characters/${encodeURIComponent(id)}/equip`, { method: 'POST', body: { inventoryItemId } });
   },
