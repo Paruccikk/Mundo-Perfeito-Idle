@@ -1,66 +1,41 @@
 import type {
+  CharacterAttributes,
   CharacterClassDefinition,
   CharacterClassId,
   CombatStats
 } from './types.js';
 
 export const MAX_LEVEL = 100;
-
+export const ATTRIBUTE_POINTS_PER_LEVEL = 5;
 const DEFAULT_STAGE_ID = 'clearing-01';
 
-/**
- * Classes iniciais do protótipo.
- *
- * Growth é por nível adicional (nível 1 já usa baseStats integral).
- * Números provisórios — o balanceamento real será feito com playtests.
- */
 export const CLASS_DEFINITIONS: Record<CharacterClassId, CharacterClassDefinition> = {
   warrior: {
-    id: 'warrior',
-    name: 'Guerreiro',
-    role: 'Linha de frente',
-    description: 'Muita vida e defesa. Erra pouco e aguenta pancada por mais tempo.',
-    baseStats: {
-      maxHp: 140,
-      attack: 12,
-      defense: 9,
-      attacksPerSecond: 1,
-      critChance: 0.05,
-      critMultiplier: 1.6
-    },
-    growthPerLevel: { maxHp: 22, attack: 2.2, defense: 1.6 },
+    id: 'warrior', name: 'Guerreiro', role: 'Tanque / dano físico',
+    description: 'Especialista em combate corpo a corpo, resistência e defesa física.',
+    baseAttributes: { constitution: 8, strength: 8, intelligence: 2, dexterity: 4 },
+    attributeGrowth: { constitution: 0, strength: 0, intelligence: 0, dexterity: 0 },
     startingGold: 40
   },
   mage: {
-    id: 'mage',
-    name: 'Mago',
-    role: 'Dano mágico',
-    description: 'Dano alto por golpe, mas frágil. Depende de matar antes de apanhar.',
-    baseStats: {
-      maxHp: 85,
-      attack: 19,
-      defense: 4,
-      attacksPerSecond: 0.8,
-      critChance: 0.08,
-      critMultiplier: 2
-    },
-    growthPerLevel: { maxHp: 12, attack: 3.4, defense: 0.9 },
+    id: 'mage', name: 'Mago', role: 'Dano mágico',
+    description: 'Grande poder mágico e crítico, mas exige cuidado com a defesa.',
+    baseAttributes: { constitution: 3, strength: 2, intelligence: 10, dexterity: 5 },
+    attributeGrowth: { constitution: 0, strength: 0, intelligence: 0, dexterity: 0 },
     startingGold: 30
   },
-  ranger: {
-    id: 'ranger',
-    name: 'Patrulheiro',
-    role: 'Dano ágil',
-    description: 'Ataca rápido e tem a maior chance de crítico. Equilíbrio entre vida e dano.',
-    baseStats: {
-      maxHp: 105,
-      attack: 15,
-      defense: 6,
-      attacksPerSecond: 1.25,
-      critChance: 0.12,
-      critMultiplier: 1.75
-    },
-    growthPerLevel: { maxHp: 16, attack: 2.7, defense: 1.2 },
+  priest: {
+    id: 'priest', name: 'Sacerdote', role: 'Suporte / magia',
+    description: 'Equilíbrio entre resistência e inteligência, preparado para suporte e magia.',
+    baseAttributes: { constitution: 6, strength: 3, intelligence: 8, dexterity: 3 },
+    attributeGrowth: { constitution: 0, strength: 0, intelligence: 0, dexterity: 0 },
+    startingGold: 35
+  },
+  archer: {
+    id: 'archer', name: 'Arqueiro', role: 'Dano à distância / crítico',
+    description: 'Agilidade, velocidade de ataque e alta chance de acerto crítico.',
+    baseAttributes: { constitution: 4, strength: 5, intelligence: 3, dexterity: 9 },
+    attributeGrowth: { constitution: 0, strength: 0, intelligence: 0, dexterity: 0 },
     startingGold: 35
   }
 };
@@ -68,7 +43,7 @@ export const CLASS_DEFINITIONS: Record<CharacterClassId, CharacterClassDefinitio
 export const CHARACTER_CLASS_IDS = Object.keys(CLASS_DEFINITIONS) as CharacterClassId[];
 
 export function isCharacterClassId(value: unknown): value is CharacterClassId {
-  return typeof value === 'string' && value in CLASS_DEFINITIONS;
+  return typeof value === 'string' && Object.prototype.hasOwnProperty.call(CLASS_DEFINITIONS, value);
 }
 
 export function getClassDefinition(id: CharacterClassId): CharacterClassDefinition {
@@ -79,26 +54,36 @@ export function getDefaultStageId(): string {
   return DEFAULT_STAGE_ID;
 }
 
-/** XP total necessária para sair do nível informado. */
 export function experienceToNextLevel(level: number): number {
   const safeLevel = Math.min(Math.max(Math.trunc(level), 1), MAX_LEVEL);
   return Math.floor(50 * Math.pow(safeLevel, 1.5));
 }
 
-/** Atributos derivados de classe + nível. */
-export function statsForLevel(classId: CharacterClassId, level: number): CombatStats {
-  const definition = CLASS_DEFINITIONS[classId];
-  const levelsGained = Math.max(0, Math.trunc(level) - 1);
-  const base = definition.baseStats;
-  const growth = definition.growthPerLevel;
+export function statsForLevel(
+  classId: CharacterClassId,
+  _level: number,
+  attributes: CharacterAttributes = CLASS_DEFINITIONS[classId].baseAttributes
+): CombatStats {
+  const { constitution, strength, intelligence, dexterity } = attributes;
+  const physicalDamage = round2(strength * 2.2 + dexterity * 0.3);
+  const physicalDefense = round2(constitution * 0.7 + strength * 0.8);
+  const magicDamage = round2(intelligence * 2.4);
+  const magicDefense = round2(constitution * 0.35 + intelligence * 0.8);
+  const maxHp = Math.round(80 + constitution * 18 + (classId === 'warrior' ? 20 : 0));
+  const critChance = Math.min(0.6, round2(0.03 + dexterity * 0.006));
+  const attacksPerSecond = Math.min(2.5, round2(0.8 + dexterity * 0.025));
 
   return {
-    maxHp: Math.round(base.maxHp + growth.maxHp * levelsGained),
-    attack: round2(base.attack + growth.attack * levelsGained),
-    defense: round2(base.defense + growth.defense * levelsGained),
-    attacksPerSecond: base.attacksPerSecond,
-    critChance: base.critChance,
-    critMultiplier: base.critMultiplier
+    maxHp,
+    physicalDamage,
+    physicalDefense,
+    magicDamage,
+    magicDefense,
+    critChance,
+    critMultiplier: 1.5 + (classId === 'archer' ? 0.25 : 0),
+    attacksPerSecond,
+    attack: physicalDamage,
+    defense: physicalDefense
   };
 }
 
