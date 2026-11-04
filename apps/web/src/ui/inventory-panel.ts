@@ -7,6 +7,7 @@ export function renderInventoryPanel(
   onUnequip: (slot: string) => Promise<InventorySnapshot>,
   onClose: () => void
 ): void {
+  root.querySelector('.game-panel-overlay')?.remove();
   const overlay = document.createElement('div');
   overlay.className = 'game-panel-overlay';
   const panel = document.createElement('section');
