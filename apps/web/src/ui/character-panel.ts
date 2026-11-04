@@ -44,6 +44,7 @@ export function renderCharacterPanel(
   derived.className = 'character-panel__derived';
   derived.append(
     statCard('HP máximo', character.stats.maxHp),
+    statCard('MP máximo', character.stats.maxMp),
     statCard('Dano físico', character.stats.physicalDamage),
     statCard('Defesa física', character.stats.physicalDefense),
     statCard('Dano mágico', character.stats.magicDamage),
