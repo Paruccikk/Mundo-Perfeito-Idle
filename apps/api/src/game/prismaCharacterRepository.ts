@@ -83,7 +83,7 @@ export class PrismaCharacterRepository implements CharacterRepository {
       if (total <= 0 || allowed.some((key) => !Number.isInteger(allocation[key] ?? 0) || (allocation[key] ?? 0) < 0) || total > row.attributePoints) {
         throw new Error('invalid_attribute_allocation');
       }
-      const updated = await tx.character.update({
+      await tx.character.update({
         where: { id: row.id },
         data: {
           constitution: { increment: allocation.constitution ?? 0 },
@@ -93,7 +93,10 @@ export class PrismaCharacterRepository implements CharacterRepository {
           attributePoints: { decrement: total }
         }
       });
-      return fromDb(updated);
+      const updated = await tx.character.findUnique({
+        where: { id: row.id }, include: { equipment: { include: { item: true } } }
+      });
+      return updated ? fromDb(updated) : null;
     });
   }
 
