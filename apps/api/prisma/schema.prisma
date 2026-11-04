@@ -21,9 +21,16 @@ model Character {
   name            String
   nameKey         String
   classId         String
+  title           String?
+  guildName       String?
   level           Int      @default(1)
   experience      BigInt   @default(0)
   gold            BigInt   @default(0)
+  constitution    Int      @default(5)
+  strength        Int      @default(5)
+  intelligence    Int      @default(5)
+  dexterity       Int      @default(5)
+  attributePoints Int      @default(0)
   currentStageId  String   @default("clearing-01")
   combat          Json
   lastSimulatedAt DateTime @default(now())
@@ -31,6 +38,7 @@ model Character {
   updatedAt       DateTime @updatedAt
   account         Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
   inventory       InventoryItem[]
+  equipment       CharacterEquipment[]
   ledger          EconomyLedger[]
 
   @@index([accountId])
@@ -38,22 +46,44 @@ model Character {
 }
 
 model ItemDefinition {
-  id        String @id
-  name      String
-  rarity    String
-  category  String
-  tradeable Boolean @default(false)
+  id          String   @id
+  name        String
+  description String   @default("")
+  rarity      String   @default("common")
+  category    String
+  slot        String?
+  stackable   Boolean  @default(true)
+  maxStack    Int      @default(99)
+  tradeable   Boolean  @default(false)
+  levelReq    Int      @default(1)
+  stats       Json?
+  inventory   InventoryItem[]
+  equipment   CharacterEquipment[]
 }
 
 model InventoryItem {
-  id          String    @id @default(cuid())
+  id          String        @id @default(cuid())
   characterId String
   itemId      String
-  quantity    Int       @default(1)
-  acquiredAt  DateTime  @default(now())
-  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  quantity    Int           @default(1)
+  acquiredAt  DateTime      @default(now())
+  character   Character     @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  item        ItemDefinition @relation(fields: [itemId], references: [id], onDelete: Restrict)
 
   @@index([characterId, itemId])
+}
+
+model CharacterEquipment {
+  id          String        @id @default(cuid())
+  characterId String
+  slot        String
+  itemId      String
+  equippedAt  DateTime      @default(now())
+  character   Character     @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  item        ItemDefinition @relation(fields: [itemId], references: [id], onDelete: Restrict)
+
+  @@unique([characterId, slot])
+  @@index([characterId])
 }
 
 model EconomyLedger {
