@@ -46,7 +46,7 @@ export function simulateCombat(
   let level = record.level;
   let experience = record.experience;
   let gold = record.gold;
-  let stats = statsForLevel(record.classId, level, record.attributes);
+  let stats = statsForLevel(record.classId, level, record.attributes, record.equipmentBonuses);
   let attributePoints = record.attributePoints;
 
   let monsterId = record.combat.monsterId;
