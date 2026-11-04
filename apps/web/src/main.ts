@@ -17,6 +17,8 @@ import { renderCharacterCreator } from './ui/creator';
 import { createGameHud, type GameHud } from './ui/hud';
 import { renderFatalError, renderLoading } from './ui/screens';
 import { renderCharacterSelector } from './ui/selector';
+import { renderCharacterPanel } from './ui/character-panel';
+import { renderInventoryPanel } from './ui/inventory-panel';
 import './style.css';
 
 const MAX_CHARACTERS = 3;
@@ -125,7 +127,12 @@ function startGame(character: CharacterSummary): void {
   hud?.destroy();
   root.replaceChildren();
 
-  hud = createGameHud(root, { character, onSwitch: openCharacterSelector });
+  hud = createGameHud(root, {
+    character,
+    onSwitch: openCharacterSelector,
+    onCharacter: () => void openCharacterPanel(character.id),
+    onInventory: () => void openInventoryPanel(character.id)
+  });
   const logout = document.createElement('button');
   logout.className = 'account-logout';
   logout.type = 'button';
@@ -161,6 +168,33 @@ function startGame(character: CharacterSummary): void {
     }
   };
   game = new Phaser.Game(config);
+}
+
+
+async function openCharacterPanel(characterId: string): Promise<void> {
+  closeGamePanel();
+  try {
+    const character = await api.getCharacter(characterId);
+    renderCharacterPanel(root, character, async (allocation) => {
+      return api.allocateAttributes(characterId, allocation);
+    }, closeGamePanel);
+  } catch (error) {
+    hud?.pushFeed(error instanceof Error ? error.message : 'Não foi possível carregar a ficha.', 'danger');
+  }
+}
+
+async function openInventoryPanel(characterId: string): Promise<void> {
+  closeGamePanel();
+  try {
+    const inventory = await api.getInventory(characterId);
+    renderInventoryPanel(root, inventory, (itemId) => api.equipItem(characterId, itemId), closeGamePanel);
+  } catch (error) {
+    hud?.pushFeed(error instanceof Error ? error.message : 'Não foi possível carregar o inventário.', 'danger');
+  }
+}
+
+function closeGamePanel(): void {
+  root.querySelector('.game-panel-overlay')?.remove();
 }
 
 function openCharacterSelector(): void {
