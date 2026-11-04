@@ -62,7 +62,7 @@ export class PrismaCharacterRepository implements CharacterRepository {
         await addDropInTransaction(tx, record.id, drop.itemId, drop.quantity, drop.operationId);
       }
       return true;
-    });
+    }, { maxWait: 10_000, timeout: 20_000 });
   }
 
   async findById(id: string): Promise<CharacterRecord | null> {
