@@ -111,15 +111,12 @@ export class CharacterService {
       const record = await this.findOwned(id, playerId);
       const simulation = simulateCombat(record, Date.now());
       if (simulation.simulatedSeconds <= 0) return toCombatSnapshot(record, simulation.events, 0);
-      const saved = await this.repository.save(simulation.record, record.combat.lastTickAt);
+      const drops = simulation.drops.map((drop, index) => ({
+        ...drop,
+        operationId: `drop:${id}:${record.combat.lastTickAt}:${index}`
+      }));
+      const saved = await this.repository.save(simulation.record, record.combat.lastTickAt, drops);
       if (saved) {
-        for (let index = 0; index < simulation.events.length; index += 1) {
-          const event = simulation.events[index]!;
-          if (event.type === 'item_drop') {
-            await this.repository.addDrop(id, event.message ?? 'slime-gel', event.amount ?? 1,
-              `drop:${id}:${record.combat.lastTickAt}:${index}`);
-          }
-        }
         return toCombatSnapshot(simulation.record, simulation.events, simulation.simulatedSeconds);
       }
     }
