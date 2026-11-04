@@ -24,7 +24,7 @@ export class MemoryCharacterRepository implements CharacterRepository {
   private readonly equipment = new Map<string, InventorySnapshot['equipment']>();
 
   async create(record: CharacterRecord): Promise<void> {
-    this.characters.set(record.id, clone(record));
+    this.characters.set(record.id, clone({ ...record, equipmentBonuses: {} }));
     this.equipment.set(record.id, []);
     this.inventory.set(record.id, [{
       id: `starter-${record.id}`, itemId: record.classId === 'mage' || record.classId === 'priest' ? 'apprentice-robe' : 'rusty-sword',
@@ -46,17 +46,17 @@ export class MemoryCharacterRepository implements CharacterRepository {
 
   async findById(id: string): Promise<CharacterRecord | null> {
     const record = this.characters.get(id);
-    return record ? clone(record) : null;
+    return record ? withEquipmentBonuses(clone(record), this.equipment.get(id) ?? []) : null;
   }
 
   async findByName(playerId: string, key: string): Promise<CharacterRecord | null> {
-    for (const record of this.characters.values()) if (record.playerId === playerId && record.nameKey === key) return clone(record);
+    for (const record of this.characters.values()) if (record.playerId === playerId && record.nameKey === key) return withEquipmentBonuses(clone(record), this.equipment.get(record.id) ?? []);
     return null;
   }
 
   async listByPlayer(playerId: string): Promise<CharacterRecord[]> {
     return [...this.characters.values()].filter((record) => record.playerId === playerId)
-      .sort((a, b) => a.createdAt.localeCompare(b.createdAt)).map(clone);
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt)).map((record) => withEquipmentBonuses(clone(record), this.equipment.get(record.id) ?? []));
   }
 
   async countByPlayer(playerId: string): Promise<number> {
@@ -125,5 +125,15 @@ export class MemoryCharacterRepository implements CharacterRepository {
 }
 
 function clone(record: CharacterRecord): CharacterRecord {
-  return { ...record, attributes: { ...record.attributes }, combat: { ...record.combat } };
+  return { ...record, attributes: { ...record.attributes }, equipmentBonuses: { ...record.equipmentBonuses }, combat: { ...record.combat } };
+}
+
+function withEquipmentBonuses(record: CharacterRecord, equipment: InventorySnapshot['equipment']): CharacterRecord {
+  const bonuses: Record<string, number> = {};
+  for (const entry of equipment) {
+    for (const [key, value] of Object.entries(entry.item.stats)) {
+      if (typeof value === 'number' && Number.isFinite(value)) bonuses[key] = (bonuses[key] ?? 0) + value;
+    }
+  }
+  return { ...record, equipmentBonuses: bonuses };
 }
