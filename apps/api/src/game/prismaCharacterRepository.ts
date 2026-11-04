@@ -129,11 +129,12 @@ export class PrismaCharacterRepository implements CharacterRepository {
         where: { characterId_slot: { characterId, slot: inventory.item.slot } }
       });
       if (existing) {
-        await tx.inventoryItem.upsert({
-          where: { id: existing.id }, update: {}, create: { characterId, itemId: existing.itemId, quantity: 1 }
-        }).catch(async () => {
+        const returned = await tx.inventoryItem.findFirst({ where: { characterId, itemId: existing.itemId } });
+        if (returned) {
+          await tx.inventoryItem.update({ where: { id: returned.id }, data: { quantity: { increment: 1 } } });
+        } else {
           await tx.inventoryItem.create({ data: { characterId, itemId: existing.itemId, quantity: 1 } });
-        });
+        }
         await tx.characterEquipment.delete({ where: { id: existing.id } });
       }
       await tx.characterEquipment.create({ data: { characterId, slot: inventory.item.slot, itemId: inventory.itemId } });
