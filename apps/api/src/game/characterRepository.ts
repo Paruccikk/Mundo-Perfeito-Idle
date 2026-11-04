@@ -32,7 +32,7 @@ export class MemoryCharacterRepository implements CharacterRepository {
       name: record.classId === 'mage' || record.classId === 'priest' ? 'Manto do Aprendiz' : 'Espada Enferrujada',
       description: 'Equipamento inicial.', rarity: 'common', category: 'equipment',
       slot: record.classId === 'mage' || record.classId === 'priest' ? 'chest' : 'weapon',
-      quantity: 1, levelReq: 1, stats: {}
+      quantity: 1, levelReq: 1, stats: record.classId === 'mage' || record.classId === 'priest' ? { intelligence: 1, magicDefense: 2 } : { strength: 1, physicalDamage: 2 }
     }, { id: `potions-${record.id}`, itemId: 'small-potion', name: 'Poção de Vida Pequena',
       description: 'Poção inicial.', rarity: 'common', category: 'consumable',
       slot: null, quantity: 3, levelReq: 1, stats: {} }]);
