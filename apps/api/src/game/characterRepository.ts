@@ -7,7 +7,7 @@ export interface InventorySnapshot {
 
 export interface CharacterRepository {
   create(record: CharacterRecord): Promise<void>;
-  save(record: CharacterRecord, expectedLastTickAt?: string): Promise<boolean>;
+  save(record: CharacterRecord, expectedLastTickAt?: string, drops?: Array<{ itemId: string; quantity: number; operationId: string }>): Promise<boolean>;
   findById(id: string): Promise<CharacterRecord | null>;
   findByName(playerId: string, nameKey: string): Promise<CharacterRecord | null>;
   listByPlayer(playerId: string): Promise<CharacterRecord[]>;
@@ -38,10 +38,11 @@ export class MemoryCharacterRepository implements CharacterRepository {
       slot: null, quantity: 3, levelReq: 1, stats: {} }]);
   }
 
-  async save(record: CharacterRecord, expectedLastTickAt?: string): Promise<boolean> {
+  async save(record: CharacterRecord, expectedLastTickAt?: string, drops: Array<{ itemId: string; quantity: number; operationId: string }> = []): Promise<boolean> {
     const current = this.characters.get(record.id);
     if (expectedLastTickAt && current?.combat.lastTickAt !== expectedLastTickAt) return false;
     this.characters.set(record.id, clone(record));
+    for (const drop of drops) await this.addDrop(record.id, drop.itemId, drop.quantity, drop.operationId);
     return true;
   }
 
