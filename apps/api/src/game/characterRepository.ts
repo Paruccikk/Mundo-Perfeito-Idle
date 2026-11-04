@@ -30,11 +30,11 @@ export class MemoryCharacterRepository implements CharacterRepository {
     this.characters.set(record.id, clone({ ...record, equipmentBonuses: {} }));
     this.equipment.set(record.id, []);
     const weapon = record.classId === 'mage' ? 'apprentice-staff' : record.classId === 'priest' ? 'apprentice-mace' : record.classId === 'archer' ? 'training-bow' : 'training-sword';
-    const weaponStats = record.classId === 'mage' ? { intelligence: 2, magicDamage: 5, maxMp: 8 }
+    const weaponStats: Record<string, number> = record.classId === 'mage' ? { intelligence: 2, magicDamage: 5, maxMp: 8 }
       : record.classId === 'priest' ? { intelligence: 1, constitution: 1, magicDamage: 3, physicalDefense: 1 }
       : record.classId === 'archer' ? { dexterity: 2, physicalDamage: 4, critChance: 0.01 }
       : { strength: 2, physicalDamage: 4 };
-    const gear = [
+    const gear: Array<{ id: string; itemId: string; name: string; slot: string; stats: Record<string, number> }> = [
       { id: 'starter-weapon', itemId: weapon, name: 'Arma de Aprendiz', slot: 'weapon', stats: weaponStats },
       { id: 'starter-head', itemId: 'apprentice-hood', name: 'Capuz do Aprendiz', slot: 'head', stats: { constitution: 1, magicDefense: 1 } },
       { id: 'starter-chest', itemId: 'apprentice-chest', name: 'Túnica do Aprendiz', slot: 'chest', stats: { constitution: 1, physicalDefense: 1, magicDefense: 1 } },
