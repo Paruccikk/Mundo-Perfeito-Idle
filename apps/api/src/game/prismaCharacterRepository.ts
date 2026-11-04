@@ -170,7 +170,24 @@ export class PrismaCharacterRepository implements CharacterRepository {
       if (exists) return;
       const definition = await tx.itemDefinition.findUnique({ where: { id: itemId } });
       if (!definition) return;
-      await tx.inventoryItem.create({ data: { characterId, itemId, quantity } });
+      let remaining = quantity;
+      if (definition.stackable) {
+        const stacks = await tx.inventoryItem.findMany({ where: { characterId, itemId }, orderBy: { acquiredAt: 'asc' } });
+        for (const stack of stacks) {
+          if (remaining <= 0) break;
+          const room = Math.max(0, definition.maxStack - stack.quantity);
+          const added = Math.min(room, remaining);
+          if (added > 0) {
+            await tx.inventoryItem.update({ where: { id: stack.id }, data: { quantity: { increment: added } } });
+            remaining -= added;
+          }
+        }
+      }
+      while (remaining > 0) {
+        const stackQuantity = definition.stackable ? Math.min(definition.maxStack, remaining) : 1;
+        await tx.inventoryItem.create({ data: { characterId, itemId, quantity: stackQuantity } });
+        remaining -= stackQuantity;
+      }
       await tx.economyLedger.create({ data: {
         characterId, operationId, assetType: 'item', amount: BigInt(quantity), reason: `drop:${itemId}`
       } });
