@@ -11,6 +11,8 @@ export type HudBannerTone = 'gold' | 'level' | 'danger' | 'boss';
 export interface GameHudOptions {
   character: CharacterSummary;
   onSwitch: () => void;
+  onCharacter: () => void;
+  onInventory: () => void;
 }
 
 export interface GameHud {
@@ -29,7 +31,7 @@ const CLASS_GLYPHS: Record<CharacterClassId, string> = {
 };
 
 export function createGameHud(root: HTMLElement, options: GameHudOptions): GameHud {
-  const { character, onSwitch } = options;
+  const { character, onSwitch, onCharacter, onInventory } = options;
 
   const hud = el('div', 'hud');
   hud.setAttribute('aria-live', 'polite');
@@ -102,7 +104,13 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
   const switchButton = el('button', 'ghost-button', 'Trocar personagem') as HTMLButtonElement;
   switchButton.type = 'button';
   switchButton.addEventListener('click', onSwitch);
-  tools.append(switchButton);
+  const characterButton = el('button', 'ghost-button', 'Personagem') as HTMLButtonElement;
+  characterButton.type = 'button';
+  characterButton.addEventListener('click', onCharacter);
+  const inventoryButton = el('button', 'ghost-button', 'Inventário') as HTMLButtonElement;
+  inventoryButton.type = 'button';
+  inventoryButton.addEventListener('click', onInventory);
+  tools.append(characterButton, inventoryButton, switchButton);
 
   hud.append(
     playerCard,
