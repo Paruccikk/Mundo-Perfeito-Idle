@@ -55,7 +55,7 @@ export function createCityRoutes(prisma: PrismaClient) {
       websocket: true,
       preValidation: async (request: FastifyRequest, reply: FastifyReply) => {
         const origin = request.headers.origin;
-        if (allowedOrigins.length > 0 && origin && !allowedOrigins.includes(origin)) {
+        if (allowedOrigins.length > 0 && !allowedOrigins.includes('*') && origin && !allowedOrigins.includes(origin)) {
           return reply.code(403).send({ error: 'Origin não autorizado.' });
         }
       }
@@ -139,7 +139,7 @@ export function createCityRoutes(prisma: PrismaClient) {
           if (!Number.isFinite(x) || !Number.isFinite(y)) return;
           const elapsed = player.lastMoveAt === 0 ? 1000 : now - player.lastMoveAt;
           const distance = Math.hypot(x - player.x, y - player.y);
-          if (distance > elapsed * 0.12 + 20) return;
+          if (distance > elapsed * 0.65 + 20) return;
           player.lastMoveAt = now;
           player.x = Math.max(-390, Math.min(390, x));
           player.y = Math.max(-235, Math.min(245, y));
