@@ -1,12 +1,14 @@
 import { execFileSync } from 'node:child_process';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import websocket from '@fastify/websocket';
 import jwt from '@fastify/jwt';
 import { PrismaClient } from '@prisma/client';
 import { MemoryCharacterRepository } from './game/characterRepository.js';
 import { PrismaCharacterRepository } from './game/prismaCharacterRepository.js';
 import { createAuthRoutes } from './routes/auth.js';
 import { createCharacterRoutes } from './routes/characters.js';
+import { createCityRoutes } from './routes/city.js';
 
 const app = Fastify({ logger: true });
 const startedAt = Date.now();
@@ -40,6 +42,8 @@ await app.register(cors, {
   allowedHeaders: ['Content-Type', 'Authorization']
 });
 
+await app.register(websocket, { options: { maxPayload: 4096 } });
+
 app.get('/health', async () => ({
   status: 'ok',
   project: 'mundo-perfeito',
@@ -69,6 +73,7 @@ const repository = prisma
   : new MemoryCharacterRepository();
 
 await app.register(createCharacterRoutes(repository));
+if (prisma) await app.register(createCityRoutes(prisma));
 
 app.addHook('onClose', async () => {
   await prisma?.$disconnect();
