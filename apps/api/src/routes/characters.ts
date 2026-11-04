@@ -48,6 +48,15 @@ export function createCharacterRoutes(repository: CharacterRepository) {
       } catch (error) { return sendError(reply, error); }
     });
 
+    app.post('/api/v1/characters/:id/use-item', { preHandler: authenticate }, async (request, reply) => {
+      try {
+        const { id } = request.params as { id: string };
+        const body = request.body as { inventoryItemId?: unknown } | null;
+        if (!body || typeof body.inventoryItemId !== 'string' || body.inventoryItemId.length > 128) throw new CharacterError('validation_error', 400, 'Informe o item que deseja usar.');
+        return reply.send(await service.useItem(id, accountId(request), body.inventoryItemId));
+      } catch (error) { return sendError(reply, error); }
+    });
+
     app.post('/api/v1/characters/:id/equip', { preHandler: authenticate }, async (request, reply) => {
       try {
         const { id } = request.params as { id: string };
