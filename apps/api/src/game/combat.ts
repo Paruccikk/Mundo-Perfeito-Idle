@@ -104,7 +104,10 @@ export function simulateCombat(
 
       const critical = Math.random() < stats.critChance;
       const usesMagic = record.classId === 'mage' || record.classId === 'priest';
-      const baseDamage = usesMagic ? stats.magicDamage : stats.physicalDamage;
+      const manaCost = usesMagic ? 3 : 0;
+      const canCastMagic = usesMagic && playerMp >= manaCost;
+      if (canCastMagic) playerMp -= manaCost;
+      const baseDamage = canCastMagic ? stats.magicDamage : stats.physicalDamage;
       const rawAttack = critical ? baseDamage * stats.critMultiplier : baseDamage;
       const damage = Math.max(1, Math.round(rawAttack - monster.defense));
 
@@ -141,6 +144,7 @@ export function simulateCombat(
           attributePoints += ATTRIBUTE_POINTS_PER_LEVEL;
           stats = statsForLevel(record.classId, level, record.attributes, record.equipmentBonuses);
           playerHp = stats.maxHp;
+          playerMp = stats.maxMp;
           pushEvent({ type: 'level_up', message: `Nível ${level}` });
         }
 
