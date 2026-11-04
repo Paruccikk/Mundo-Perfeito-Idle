@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import {
-  CLASS_DEFINITIONS, CHARACTER_CLASS_IDS, ATTRIBUTE_POINTS_PER_LEVEL,
+  CLASS_DEFINITIONS, CHARACTER_CLASS_IDS,
   experienceToNextLevel, statsForLevel
 } from './classes.js';
 import type { CharacterRepository } from './characterRepository.js';
