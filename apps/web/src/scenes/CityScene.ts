@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 import type { CharacterClassId, CharacterSummary } from '@mundo-perfeito/shared';
 import type { GameHud } from '../ui/hud';
 import { PlayerAvatar } from './actors';
+import { API_BASE_URL } from '../api';
+import { getAuthToken } from '../player';
 
 const FONT = '"Trebuchet MS", "Segoe UI", sans-serif';
 const TILE_W = 96;
@@ -28,6 +30,22 @@ const NPCS: NpcDefinition[] = [
   { id: 'keeper', name: 'Tomas', title: 'Guardião do Armazém', classId: 'archer', x: 20, y: 205, accent: 0x9bbbe8, greeting: 'Seus pertences estarão seguros comigo. O armazém será aberto em breve.' }
 ];
 
+interface CityPlayerPayload {
+  id: string;
+  name: string;
+  classId: CharacterClassId;
+  level: number;
+  x: number;
+  y: number;
+}
+
+interface RemoteCityPlayer {
+  avatar: PlayerAvatar;
+  label: Phaser.GameObjects.Text;
+  targetX: number;
+  targetY: number;
+}
+
 export class CityScene extends Phaser.Scene {
   private character!: CharacterSummary;
   private hud: GameHud | null = null;
@@ -41,6 +59,16 @@ export class CityScene extends Phaser.Scene {
   private keys!: { W: Phaser.Input.Keyboard.Key; A: Phaser.Input.Keyboard.Key; S: Phaser.Input.Keyboard.Key; D: Phaser.Input.Keyboard.Key };
   private moving = false;
   private alive = true;
+  private citySocket: WebSocket | null = null;
+  private remotePlayers = new Map<string, RemoteCityPlayer>();
+  private multiplayerPanel: HTMLElement | null = null;
+  private chatMessages: HTMLElement | null = null;
+  private chatInput: HTMLInputElement | null = null;
+  private chatStatus: HTMLElement | null = null;
+  private onlineCount: HTMLElement | null = null;
+  private lastSyncAt = 0;
+  private lastSentX = -9999;
+  private lastSentY = -9999;
 
   constructor() {
     super('CityScene');
@@ -75,13 +103,16 @@ export class CityScene extends Phaser.Scene {
     }
 
     this.input.on('pointerdown', this.handleGroundClick, this);
-    this.hud?.setConnection('online');
+    this.hud?.setConnection('connecting');
     this.hud?.setLocation('Cidade de Valedouro', 'Cidade segura', true);
     this.hud?.pushFeed(`${this.character.name} chegou à cidade de Valedouro.`, 'gold');
+    this.createMultiplayerPanel();
+    this.connectMultiplayer();
   }
 
   update(_time: number, delta: number): void {
-    if (!this.alive || !this.avatar || !this.keys) return;
+    if (!this.alive || !this.avatar) return;
+    if (this.keys && this.cursors) {
     const speed = Math.max(0.08, delta / 16.67) * 3.1;
     let dx = 0;
     let dy = 0;
@@ -99,6 +130,239 @@ export class CityScene extends Phaser.Scene {
     } else if (this.moving) {
       this.moving = false;
     }
+    }
+    this.syncLocalPosition();
+    this.updateRemotePlayers(delta);
+  }
+
+  private createMultiplayerPanel(): void {
+    const root = document.getElementById('ui-root');
+    if (!root) return;
+    const panel = document.createElement('section');
+    panel.className = 'city-online';
+    panel.setAttribute('aria-label', 'Chat da cidade');
+    const header = document.createElement('header');
+    header.className = 'city-online__header';
+    const title = document.createElement('strong');
+    title.textContent = 'Valedouro';
+    const status = document.createElement('span');
+    status.className = 'city-online__status';
+    status.textContent = 'Conectando…';
+    const count = document.createElement('span');
+    count.className = 'city-online__count';
+    count.textContent = '0 online';
+    header.append(title, status, count);
+
+    const messages = document.createElement('div');
+    messages.className = 'city-online__messages';
+    const form = document.createElement('form');
+    form.className = 'city-online__form';
+    const input = document.createElement('input');
+    input.className = 'city-online__input';
+    input.type = 'text';
+    input.maxLength = 180;
+    input.autocomplete = 'off';
+    input.placeholder = 'Mensagem para a cidade…';
+    input.setAttribute('aria-label', 'Mensagem para a cidade');
+    const submit = document.createElement('button');
+    submit.className = 'city-online__send';
+    submit.type = 'submit';
+    submit.textContent = 'Enviar';
+    form.append(input, submit);
+    panel.append(header, messages, form);
+    root.append(panel);
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const message = input.value.trim();
+      if (!message) return;
+      if (!this.citySocket || this.citySocket.readyState !== WebSocket.OPEN) {
+        this.appendChatMessage('Sistema', 'Chat indisponível. Reconectando…');
+        return;
+      }
+      this.citySocket.send(JSON.stringify({ type: 'chat', message }));
+      input.value = '';
+    });
+    this.multiplayerPanel = panel;
+    this.chatMessages = messages;
+    this.chatInput = input;
+    this.chatStatus = status;
+    this.onlineCount = count;
+  }
+
+  private connectMultiplayer(): void {
+    if (!this.alive || this.citySocket || !getAuthToken()) return;
+    const token = getAuthToken();
+    if (!token) return;
+    const url = new URL(API_BASE_URL);
+    url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+    url.pathname = '/api/v1/city/socket';
+    url.search = '';
+    url.searchParams.set('characterId', this.character.id);
+    let socket: WebSocket;
+    try {
+      socket = new WebSocket(url.toString(), [`mp-auth.${token}`]);
+    } catch {
+      this.scheduleReconnect();
+      return;
+    }
+    this.citySocket = socket;
+    socket.addEventListener('open', () => {
+      if (this.citySocket !== socket) return;
+      this.setChatStatus('Conectado');
+      this.hud?.setConnection('online');
+      this.appendChatMessage('Sistema', 'Conectado à cidade de Valedouro.');
+    });
+    socket.addEventListener('message', (event) => {
+      if (typeof event.data !== 'string') return;
+      try {
+        this.handleCityMessage(JSON.parse(event.data) as Record<string, unknown>);
+      } catch {
+        this.appendChatMessage('Sistema', 'Recebemos uma mensagem inválida do servidor.');
+      }
+    });
+    socket.addEventListener('close', () => {
+      if (this.citySocket === socket) this.citySocket = null;
+      this.clearRemotePlayers();
+      this.setOnlineCount(0);
+      if (!this.alive) return;
+      this.setChatStatus('Reconectando…');
+      this.hud?.setConnection('offline');
+      this.scheduleReconnect();
+    });
+    socket.addEventListener('error', () => {
+      this.setChatStatus('Falha de conexão');
+    });
+  }
+
+  private scheduleReconnect(): void {
+    if (!this.alive) return;
+    this.time.delayedCall(2500, () => this.connectMultiplayer());
+  }
+
+  private handleCityMessage(payload: Record<string, unknown>): void {
+    const type = payload.type;
+    if (type === 'welcome') {
+      const players = Array.isArray(payload.players) ? payload.players as CityPlayerPayload[] : [];
+      players.forEach((player) => this.addRemotePlayer(player));
+      this.setOnlineCount(Number(payload.onlineCount) || players.length + 1);
+      this.setChatStatus('Conectado');
+      return;
+    }
+    if (type === 'player_joined') {
+      const player = payload.player as CityPlayerPayload | undefined;
+      if (player?.id && player.id !== this.character.id) {
+        this.addRemotePlayer(player);
+        this.appendChatMessage('Sistema', `${player.name} entrou na cidade.`);
+      }
+      this.setOnlineCount(Number(payload.onlineCount) || this.remotePlayers.size + 1);
+      return;
+    }
+    if (type === 'player_left') {
+      const id = typeof payload.playerId === 'string' ? payload.playerId : '';
+      this.removeRemotePlayer(id);
+      if (typeof payload.name === 'string') this.appendChatMessage('Sistema', `${payload.name} saiu da cidade.`);
+      this.setOnlineCount(Number(payload.onlineCount) || Math.max(1, this.remotePlayers.size + 1));
+      return;
+    }
+    if (type === 'player_moved') {
+      const id = typeof payload.playerId === 'string' ? payload.playerId : '';
+      const remote = this.remotePlayers.get(id);
+      const x = Number(payload.x);
+      const y = Number(payload.y);
+      if (remote && Number.isFinite(x) && Number.isFinite(y)) {
+        remote.targetX = Phaser.Math.Clamp(x, -390, 390);
+        remote.targetY = Phaser.Math.Clamp(y, -235, 245);
+      }
+      return;
+    }
+    if (type === 'chat_message') {
+      const name = typeof payload.name === 'string' ? payload.name : 'Aventureiro';
+      const message = typeof payload.message === 'string' ? payload.message : '';
+      if (message) this.appendChatMessage(name, message);
+      return;
+    }
+    if (type === 'error' && typeof payload.message === 'string') {
+      this.appendChatMessage('Sistema', payload.message);
+    }
+  }
+
+  private addRemotePlayer(player: CityPlayerPayload): void {
+    if (!player || player.id === this.character.id || this.remotePlayers.has(player.id)) return;
+    if (!['warrior', 'mage', 'priest', 'archer'].includes(player.classId)) return;
+    const x = Phaser.Math.Clamp(Number(player.x) || 0, -390, 390);
+    const y = Phaser.Math.Clamp(Number(player.y) || 0, -235, 245);
+    const avatar = new PlayerAvatar(this, player.classId, x, y);
+    avatar.root.setDepth(300 + y);
+    this.world.add(avatar.root);
+    const label = this.add.text(x, y - 138, `${player.name} • Nv. ${player.level}`, {
+      fontFamily: FONT, fontSize: '11px', fontStyle: 'bold', color: '#d8ecff',
+      stroke: '#17221f', strokeThickness: 4, resolution: 2
+    }).setOrigin(0.5).setDepth(2200);
+    this.world.add(label);
+    this.remotePlayers.set(player.id, { avatar, label, targetX: x, targetY: y });
+  }
+
+  private removeRemotePlayer(id: string): void {
+    const remote = this.remotePlayers.get(id);
+    if (!remote) return;
+    remote.avatar.root.destroy(true);
+    remote.label.destroy();
+    this.remotePlayers.delete(id);
+  }
+
+  private clearRemotePlayers(): void {
+    for (const id of this.remotePlayers.keys()) this.removeRemotePlayer(id);
+  }
+
+  private updateRemotePlayers(delta: number): void {
+    const factor = Math.min(1, Math.max(0.08, delta / 85));
+    for (const remote of this.remotePlayers.values()) {
+      const dx = remote.targetX - remote.avatar.root.x;
+      const dy = remote.targetY - remote.avatar.root.y;
+      if (Math.abs(dx) > 0.2) remote.avatar.setFacing(dx > 0 ? 1 : -1);
+      remote.avatar.root.x += dx * factor;
+      remote.avatar.root.y += dy * factor;
+      remote.avatar.root.setDepth(300 + remote.avatar.root.y);
+      remote.label.setPosition(remote.avatar.root.x, remote.avatar.root.y - 138);
+    }
+  }
+
+  private syncLocalPosition(): void {
+    const socket = this.citySocket;
+    if (!socket || socket.readyState !== WebSocket.OPEN) return;
+    const x = this.avatar.root.x;
+    const y = this.avatar.root.y;
+    const now = this.time.now;
+    if (Math.abs(x - this.lastSentX) < 1.5 && Math.abs(y - this.lastSentY) < 1.5) return;
+    if (now - this.lastSyncAt < 90) return;
+    socket.send(JSON.stringify({ type: 'move', x, y }));
+    this.lastSentX = x;
+    this.lastSentY = y;
+    this.lastSyncAt = now;
+  }
+
+  private appendChatMessage(name: string, message: string): void {
+    if (!this.chatMessages) return;
+    const line = document.createElement('div');
+    line.className = 'city-online__message';
+    const author = document.createElement('strong');
+    author.textContent = name;
+    const text = document.createElement('span');
+    text.textContent = message;
+    line.append(author, text);
+    this.chatMessages.append(line);
+    while (this.chatMessages.children.length > 30) {
+      this.chatMessages.firstElementChild?.remove();
+    }
+    this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+  }
+
+  private setChatStatus(value: string): void {
+    if (this.chatStatus) this.chatStatus.textContent = value;
+  }
+
+  private setOnlineCount(value: number): void {
+    if (this.onlineCount) this.onlineCount.textContent = `${Math.max(0, value)} online`;
   }
 
   private layout(width: number, height: number): void {
@@ -414,5 +678,10 @@ export class CityScene extends Phaser.Scene {
     this.input.off('pointerdown', this.handleGroundClick, this);
     this.closeDialogue();
     this.npcAvatars = [];
+    this.citySocket?.close(1000, 'Saindo da cidade');
+    this.citySocket = null;
+    this.clearRemotePlayers();
+    this.multiplayerPanel?.remove();
+    this.multiplayerPanel = null;
   }
 }
