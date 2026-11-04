@@ -34,14 +34,14 @@ export class MemoryCharacterRepository implements CharacterRepository {
       : record.classId === 'priest' ? { intelligence: 1, constitution: 1, magicDamage: 3, physicalDefense: 1 }
       : record.classId === 'archer' ? { dexterity: 2, physicalDamage: 4, critChance: 0.01 }
       : { strength: 2, physicalDamage: 4 };
-    const gear: Array<{ id: string; itemId: string; name: string; slot: string; stats: Record<string, number> }> = [
+    const gear = ([
       { id: 'starter-weapon', itemId: weapon, name: 'Arma de Aprendiz', slot: 'weapon', stats: weaponStats },
       { id: 'starter-head', itemId: 'apprentice-hood', name: 'Capuz do Aprendiz', slot: 'head', stats: { constitution: 1, magicDefense: 1 } },
       { id: 'starter-chest', itemId: 'apprentice-chest', name: 'Túnica do Aprendiz', slot: 'chest', stats: { constitution: 1, physicalDefense: 1, magicDefense: 1 } },
       { id: 'starter-legs', itemId: 'apprentice-legs', name: 'Calças do Aprendiz', slot: 'legs', stats: { constitution: 1, physicalDefense: 1 } },
       { id: 'starter-boots', itemId: 'apprentice-boots', name: 'Botas do Aprendiz', slot: 'boots', stats: { dexterity: 1 } },
       { id: 'starter-ring', itemId: 'apprentice-ring', name: 'Anel do Aprendiz', slot: 'accessory', stats: { intelligence: 1, maxMp: 5 } }
-    ].map((item) => ({ ...item, description: 'Peça do Conjunto do Aprendiz.', rarity: 'common', category: item.slot === 'weapon' ? 'weapon' : 'armor', quantity: 1, levelReq: 1 }));
+    ] as Array<{ id: string; itemId: string; name: string; slot: string; stats: Record<string, number> }>).map((item) => ({ ...item, description: 'Peça do Conjunto do Aprendiz.', rarity: 'common', category: item.slot === 'weapon' ? 'weapon' : 'armor', quantity: 1, levelReq: 1 }));
     this.inventory.set(record.id, [
       ...gear,
       { id: `potions-${record.id}`, itemId: 'small-potion', name: 'Poção de Vida Pequena', description: 'Recupera 80 pontos de HP.', rarity: 'common', category: 'consumable', slot: null, quantity: 5, levelReq: 1, stats: { hpRestore: 80 } },
