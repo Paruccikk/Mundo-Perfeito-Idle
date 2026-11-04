@@ -162,21 +162,17 @@ export function renderCharacterCreator(
 }
 
 function buildStats(definition: CharacterClassDefinition): HTMLElement {
-  const stats = definition.baseStats;
+  const stats = definition.baseAttributes;
   const list = el('dl', 'class-card__stats');
-
   const entries: Array<[string, string]> = [
-    ['Vida', String(stats.maxHp)],
-    ['Ataque', String(stats.attack)],
-    ['Defesa', String(stats.defense)],
-    ['Ataques/s', stats.attacksPerSecond.toFixed(2).replace('.', ',')],
-    ['Crítico', `${Math.round(stats.critChance * 100)}%`]
+    ['Constituição', String(stats.constitution)],
+    ['Força', String(stats.strength)],
+    ['Inteligência', String(stats.intelligence)],
+    ['Destreza', String(stats.dexterity)]
   ];
-
   for (const [label, value] of entries) {
     list.append(el('dt', 'class-card__stat-label', label), el('dd', 'class-card__stat-value', value));
   }
-
   return list;
 }
 
