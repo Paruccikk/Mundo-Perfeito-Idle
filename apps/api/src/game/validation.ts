@@ -67,7 +67,7 @@ export function validateCreateCharacter(
 
   const classId = input.classId;
   if (!isClassId(classId)) {
-    details.classId = 'Classe inválida. Escolha warrior, mage ou ranger.';
+    details.classId = 'Classe inválida. Escolha warrior, mage, priest ou archer.';
   }
 
   if (Object.keys(details).length > 0) {
