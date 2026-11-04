@@ -6,36 +6,44 @@ export type Rarity =
   | 'legendary'
   | 'mythic';
 
+export interface CharacterAttributes {
+  constitution: number;
+  strength: number;
+  intelligence: number;
+  dexterity: number;
+}
+
 export interface CombatStats {
   maxHp: number;
-  attack: number;
-  defense: number;
+  physicalDamage: number;
+  physicalDefense: number;
+  magicDamage: number;
+  magicDefense: number;
   attacksPerSecond: number;
   critChance: number;
   critMultiplier: number;
-}
-
-export type CharacterClassId = 'warrior' | 'mage' | 'ranger';
-
-export interface ClassGrowth {
-  maxHp: number;
+  /** Alias mantidos para compatibilidade com o HUD/combate legado. */
   attack: number;
   defense: number;
 }
+
+export type CharacterClassId = 'warrior' | 'mage' | 'priest' | 'archer';
 
 export interface CharacterClassDefinition {
   id: CharacterClassId;
   name: string;
   role: string;
   description: string;
-  baseStats: CombatStats;
-  growthPerLevel: ClassGrowth;
+  baseAttributes: CharacterAttributes;
+  attributeGrowth: CharacterAttributes;
   startingGold: number;
 }
 
 export interface CharacterSummary {
   id: string;
   name: string;
+  title: string | null;
+  guildName: string | null;
   classId: CharacterClassId;
   className: string;
   level: number;
@@ -43,14 +51,40 @@ export interface CharacterSummary {
   experienceToNextLevel: number;
   gold: number;
   currentStageId: string;
+  attributes: CharacterAttributes;
+  attributePoints: number;
   stats: CombatStats;
   createdAt: string;
 }
 
+export interface InventoryItem {
+  id: string;
+  itemId: string;
+  name: string;
+  description: string;
+  rarity: Rarity;
+  category: string;
+  slot: string | null;
+  quantity: number;
+  levelReq: number;
+  stats: Record<string, number>;
+}
+
+export interface EquipmentItem {
+  slot: string;
+  item: InventoryItem;
+}
+
 export interface CreateCharacterInput {
-  playerId: string;
   name: string;
   classId: CharacterClassId;
+}
+
+export interface AttributeAllocation {
+  constitution?: number;
+  strength?: number;
+  intelligence?: number;
+  dexterity?: number;
 }
 
 export type MonsterSpriteId = 'slime' | 'boar' | 'wolf' | 'slime-king';
@@ -79,7 +113,8 @@ export type CombatEventType =
   | 'level_up'
   | 'boss_spawn'
   | 'boss_defeated'
-  | 'player_death';
+  | 'player_death'
+  | 'item_drop';
 
 export interface CombatEvent {
   type: CombatEventType;
