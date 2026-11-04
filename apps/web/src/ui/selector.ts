@@ -32,7 +32,7 @@ export function renderCharacterSelector(
     el(
       'p',
       'selector__subtitle',
-      'Seu progresso continua de onde parou. O servidor calcula cada abate, mesmo quando você fecha a aba.'
+      'Seu progresso é salvo no servidor. O combate só acontece enquanto o jogo estiver aberto e conectado.'
     )
   );
 
