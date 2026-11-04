@@ -49,7 +49,9 @@ INSERT INTO "ItemDefinition" ("id","name","description","rarity","category","slo
 ('rusty-sword','Espada Enferrujada','Uma espada simples para aventureiros iniciantes.','common','weapon','weapon',false,1,false,1,'{"strength":1,"physicalDamage":2}'::jsonb),
 ('apprentice-robe','Manto do Aprendiz','Um manto leve com proteção mágica.','common','armor','chest',false,1,false,1,'{"intelligence":1,"magicDefense":2}'::jsonb),
 ('small-potion','Poção de Vida Pequena','Recupera vida quando o sistema de consumíveis for ativado.','common','consumable',NULL,true,99,false,1,'{}'::jsonb),
-('slime-gel','Geleia de Slime','Material viscoso deixado por Slimes.','common','material',NULL,true,99,false,1,'{}'::jsonb)
+('slime-gel','Geleia de Slime','Material viscoso deixado por Slimes.','common','material',NULL,true,99,false,1,'{}'::jsonb),
+('boar-hide','Couro de Javali','Couro resistente deixado por javalis.','common','material',NULL,true,99,false,1,'{}'::jsonb),
+('wolf-pelt','Pele de Lobo','Pele macia deixada por lobos.','common','material',NULL,true,99,false,1,'{}'::jsonb)
 ON CONFLICT ("id") DO NOTHING;
 
 -- Equipamento inicial fica disponível no inventário; o jogador escolhe quando equipar.
