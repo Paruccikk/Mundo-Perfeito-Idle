@@ -38,7 +38,7 @@ export class CityScene extends Phaser.Scene {
   private dialogue: Phaser.GameObjects.Container | null = null;
   private npcAvatars: PlayerAvatar[] = [];
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
-  private keys!: Record<string, Phaser.Input.Keyboard.Key>;
+  private keys!: { W: Phaser.Input.Keyboard.Key; A: Phaser.Input.Keyboard.Key; S: Phaser.Input.Keyboard.Key; D: Phaser.Input.Keyboard.Key };
   private moving = false;
   private alive = true;
 
@@ -66,7 +66,12 @@ export class CityScene extends Phaser.Scene {
 
     if (this.input.keyboard) {
       this.cursors = this.input.keyboard.createCursorKeys();
-      this.keys = this.input.keyboard.addKeys('W,A,S,D') as Record<string, Phaser.Input.Keyboard.Key>;
+      this.keys = {
+        W: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W),
+        A: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A),
+        S: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S),
+        D: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D)
+      };
     }
 
     this.input.on('pointerdown', this.handleGroundClick, this);
@@ -80,10 +85,10 @@ export class CityScene extends Phaser.Scene {
     const speed = Math.max(0.08, delta / 16.67) * 3.1;
     let dx = 0;
     let dy = 0;
-    if (this.cursors.left.isDown || this.keys.A?.isDown) { dx -= 1; dy += 0.5; }
-    if (this.cursors.right.isDown || this.keys.D?.isDown) { dx += 1; dy -= 0.5; }
-    if (this.cursors.up.isDown || this.keys.W?.isDown) { dx -= 1; dy -= 0.5; }
-    if (this.cursors.down.isDown || this.keys.S?.isDown) { dx += 1; dy += 0.5; }
+    if (this.cursors.left.isDown || this.keys.A.isDown) { dx -= 1; dy += 0.5; }
+    if (this.cursors.right.isDown || this.keys.D.isDown) { dx += 1; dy -= 0.5; }
+    if (this.cursors.up.isDown || this.keys.W.isDown) { dx -= 1; dy -= 0.5; }
+    if (this.cursors.down.isDown || this.keys.S.isDown) { dx += 1; dy += 0.5; }
     if (dx !== 0 || dy !== 0) {
       this.moving = true;
       this.avatar.root.x = Phaser.Math.Clamp(this.avatar.root.x + dx * speed, -390, 390);
