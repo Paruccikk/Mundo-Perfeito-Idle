@@ -15,6 +15,7 @@ export interface CharacterRepository {
   allocateAttributes(characterId: string, accountId: string, allocation: Record<string, number>): Promise<CharacterRecord | null>;
   getInventory(characterId: string, accountId: string): Promise<InventorySnapshot | null>;
   equipItem(characterId: string, accountId: string, inventoryItemId: string): Promise<{ error: string | null }>;
+  unequipItem(characterId: string, accountId: string, slot: string): Promise<{ error: string | null }>;
   addDrop(characterId: string, itemId: string, quantity: number, operationId: string): Promise<void>;
 }
 
@@ -106,6 +107,22 @@ export class MemoryCharacterRepository implements CharacterRepository {
     equipped.push({ slot: item.slot!, item: { ...item, quantity: 1 } });
     this.inventory.set(characterId, items);
     this.equipment.set(characterId, equipped);
+    return { error: null };
+  }
+
+  async unequipItem(characterId: string, accountId: string, slot: string): Promise<{ error: string | null }> {
+    const record = this.characters.get(characterId);
+    if (!record || record.playerId !== accountId) return { error: 'not_found' };
+    const equipped = this.equipment.get(characterId) ?? [];
+    const index = equipped.findIndex((entry) => entry.slot === slot);
+    if (index < 0) return { error: 'not_equipped' };
+    const [removed] = equipped.splice(index, 1);
+    const items = this.inventory.get(characterId) ?? [];
+    const existing = items.find((item) => item.itemId === removed!.item.itemId);
+    if (existing) existing.quantity += 1;
+    else items.push({ ...removed!.item, id: `unequipped-${Date.now()}`, quantity: 1 });
+    this.equipment.set(characterId, equipped);
+    this.inventory.set(characterId, items);
     return { error: null };
   }
 
