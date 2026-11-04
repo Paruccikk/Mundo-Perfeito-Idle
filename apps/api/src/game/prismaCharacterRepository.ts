@@ -8,6 +8,7 @@ type DbCharacter = {
   experience: bigint; gold: bigint; constitution: number; strength: number;
   intelligence: number; dexterity: number; attributePoints: number;
   currentStageId: string; combat: Prisma.JsonValue; createdAt: Date;
+  equipment?: Array<{ item: { stats: Prisma.JsonValue | null } }>;
 };
 
 export class PrismaCharacterRepository implements CharacterRepository {
@@ -55,7 +56,7 @@ export class PrismaCharacterRepository implements CharacterRepository {
   }
 
   async findById(id: string): Promise<CharacterRecord | null> {
-    const row = await this.prisma.character.findUnique({ where: { id } });
+    const row = await this.prisma.character.findUnique({ where: { id }, include: { equipment: { include: { item: true } } } });
     return row ? fromDb(row) : null;
   }
 
@@ -65,7 +66,7 @@ export class PrismaCharacterRepository implements CharacterRepository {
   }
 
   async listByPlayer(playerId: string): Promise<CharacterRecord[]> {
-    const rows = await this.prisma.character.findMany({ where: { accountId: playerId }, orderBy: { createdAt: 'asc' } });
+    const rows = await this.prisma.character.findMany({ where: { accountId: playerId }, include: { equipment: { include: { item: true } } }, orderBy: { createdAt: 'asc' } });
     return rows.map(fromDb);
   }
 
@@ -166,7 +167,19 @@ function fromDb(row: DbCharacter): CharacterRecord {
     level: row.level, experience: Number(row.experience), gold: Number(row.gold),
     attributes: { constitution: row.constitution, strength: row.strength,
       intelligence: row.intelligence, dexterity: row.dexterity },
-    attributePoints: row.attributePoints, currentStageId: row.currentStageId,
+    attributePoints: row.attributePoints, equipmentBonuses: sumEquipmentBonuses(row.equipment ?? []), currentStageId: row.currentStageId,
     combat: row.combat as unknown as CharacterRecord['combat'], createdAt: row.createdAt.toISOString()
   };
+}
+
+function sumEquipmentBonuses(entries: Array<{ item: { stats: Prisma.JsonValue | null } }>): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const entry of entries) {
+    const stats = entry.item.stats;
+    if (!stats || typeof stats !== 'object' || Array.isArray(stats)) continue;
+    for (const [key, value] of Object.entries(stats)) {
+      if (typeof value === 'number' && Number.isFinite(value)) totals[key] = (totals[key] ?? 0) + value;
+    }
+  }
+  return totals;
 }
