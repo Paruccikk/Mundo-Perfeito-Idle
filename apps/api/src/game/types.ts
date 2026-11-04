@@ -160,6 +160,7 @@ export interface CharacterRecord {
   gold: number;
   attributes: CharacterAttributes;
   attributePoints: number;
+  equipmentBonuses: Record<string, number>;
   currentStageId: string;
   combat: CombatStateRecord;
   createdAt: string;
