@@ -108,7 +108,7 @@ export class CharacterService {
         for (let index = 0; index < simulation.events.length; index += 1) {
           const event = simulation.events[index]!;
           if (event.type === 'item_drop') {
-            await this.repository.addDrop(id, 'slime-gel', 1,
+            await this.repository.addDrop(id, event.message ?? 'slime-gel', event.amount ?? 1,
               `drop:${id}:${record.combat.lastTickAt}:${index}`);
           }
         }
