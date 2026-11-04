@@ -57,13 +57,41 @@ A sessão atual expira após 7 dias. O token fica no armazenamento local do nave
 | `POST` | `/api/v1/characters` | Cria personagem autenticado (`name`, `classId`) |
 | `GET` | `/api/v1/characters` | Lista personagens da conta autenticada |
 | `GET` | `/api/v1/characters/:id` | Busca personagem pertencente à conta |
+| `POST` | `/api/v1/characters/:id/attributes` | Distribui pontos disponíveis nos quatro atributos |
+| `GET` | `/api/v1/characters/:id/inventory` | Consulta mochila e equipamentos |
+| `POST` | `/api/v1/characters/:id/equip` | Equipa um item da mochila |
+| `POST` | `/api/v1/characters/:id/unequip` | Retira um item equipado para a mochila |
 | `GET` | `/api/v1/characters/:id/combat` | Avança simulação e retorna o combate |
 
 Regras:
 - Nome entre 3 e 16 caracteres, único por conta.
 - Até 3 personagens por conta.
-- Classes: Guerreiro, Mago e Patrulheiro.
+- Classes: Guerreiro, Mago, Sacerdote e Arqueiro.
+- Cada nível conquistado concede 5 pontos de atributo para distribuição manual.
+- Atributos base: Constituição, Força, Inteligência e Destreza; os atributos derivados incluem HP, dano/defesa físicos e mágicos, crítico e velocidade de ataque.
 - As rotas de personagens respondem 401 sem token válido e 404 quando o personagem não pertence à conta.
+
+## Classes e atributos
+
+Cada classe começa com uma distribuição própria de atributos. O jogador recebe **5 pontos por nível** e decide onde investir:
+
+| Atributo | Efeito principal |
+| --- | --- |
+| Constituição | HP máximo, defesa física e mágica |
+| Força | Dano físico e defesa física |
+| Inteligência | Dano mágico e defesa mágica |
+| Destreza | Velocidade de ataque e chance de crítico |
+
+O servidor calcula os atributos derivados. O cliente não pode escolher os próprios valores finais nem gastar mais pontos do que possui. Equipamentos podem adicionar atributos ou bônus derivados.
+
+- **Guerreiro:** resistência e combate físico.
+- **Mago:** dano mágico.
+- **Sacerdote:** equilíbrio entre resistência e magia (habilidades de cura/suporte ainda serão desenvolvidas).
+- **Arqueiro:** velocidade e crítico. Personagens antigos Patrulheiros são convertidos para Arqueiros na migration, mantendo o progresso.
+
+## Inventário e equipamentos
+
+O inventário é persistido por personagem. A criação concede um equipamento inicial e três poções de vida. Drops são sorteados no servidor durante abates; materiais possuem pilhas limitadas por maxStack. Equipamentos ocupam slots (arma, cabeça, peitoral, pernas, botas e acessório), podem ser equipados/retirados e seus bônus entram no cálculo de combate. O ledger registra cada drop com uma chave de operação para evitar duplicação.
 
 ## Combate automático
 
@@ -81,7 +109,7 @@ O cliente consulta `GET /api/v1/characters/:id/combat` periodicamente. O servido
 
 A API usa Prisma e PostgreSQL quando `DATABASE_URL` está configurada. Personagens, conta proprietária, classe, nível, XP, ouro, estágio e estado de combate são persistidos. As migrations ficam em `apps/api/prisma/migrations`.
 
-O schema já reserva tabelas para inventário e auditoria econômica, mas **o sistema de itens/inventário ainda não está implementado no jogo**. Não confundir a existência dessas tabelas com drops funcionando.
+O schema mantém definições de itens, mochila, equipamentos e ledger econômico. A migration de atributos e inventário cria os campos de distribuição, slots e itens iniciais.
 
 ## Publicação de teste no Render
 
@@ -98,7 +126,7 @@ O arquivo `render.yaml` prepara o cliente e a API. Consulte [docs/DEPLOY_RENDER.
 - `docs`: documentação de design e implantação.
 
 ## Estado atual
-Protótipo com tela de cadastro/login, sessão JWT, seleção e criação de personagens, três classes, cenário isométrico, combate automático, monstros e chefe, XP, níveis, ouro, cura, morte e recuperação. A API persiste personagens e combate no PostgreSQL. O cadastro tenta preservar progresso de visitante antigo quando o identificador local ainda está disponível.
+Protótipo com cadastro/login, sessão JWT, seleção e criação de personagens, quatro classes, ficha do personagem, distribuição de atributos, inventário, equipamentos, drops, cenário isométrico e combate autoritativo com monstros, chefe, XP, níveis, ouro, cura, morte e recuperação. A API persiste personagens, combate e itens no PostgreSQL. O cadastro tenta preservar progresso de visitante antigo quando o identificador local ainda está disponível.
 
 A autenticação é uma primeira versão: ainda faltam verificação de e-mail, recuperação de senha, proteção anti-abuso mais completa e armazenamento de sessão HttpOnly. O identificador de visitante antigo não é uma identidade segura até ser convertido em uma conta.
 
@@ -109,7 +137,7 @@ A autenticação é uma primeira versão: ainda faltam verificação de e-mail, 
 3. ~~Combate automático no servidor, chefe, XP, níveis e ouro (atualmente com simulação por intervalo; regra final será apenas farm ativo).~~ ✅
 4. ~~Persistência de personagens e progresso de combate em PostgreSQL.~~ ✅
 5. **Autenticação e contas:** cadastro/login com JWT implementados; concluir verificação de e-mail, recuperação de senha, sessão HttpOnly, rate limiting e testes de autorização.
-6. Inventário e equipamentos: implementar drops, itens, slots, atributos e persistência real dos itens.
+6. Inventário e equipamentos: itens iniciais, drops, slots, equipar/retirar, bônus de equipamento e persistência (em validação).
 7. Farm ativo e auditoria: processar combate somente com sessão do jogo ativa; encerrar o farm ao fechar/desconectar; tolerar minimização enquanto a conexão permanecer viva; auditar tempo ativo, XP, ouro, drops e transações; testar concorrência, reconexão e reinícios.
 8. Mercado entre jogadores, com transações atômicas, taxas e prevenção de duplicação.
 9. Avaliar RMT somente depois de estabilidade econômica, antifraude e análise jurídica/financeira.
