@@ -148,6 +148,22 @@ export class PrismaCharacterRepository implements CharacterRepository {
     });
   }
 
+  async unequipItem(characterId: string, accountId: string, slot: string): Promise<{ error: string | null }> {
+    return this.prisma.$transaction(async (tx) => {
+      const character = await tx.character.findFirst({ where: { id: characterId, accountId }, select: { id: true } });
+      if (!character) return { error: 'not_found' };
+      const equipped = await tx.characterEquipment.findUnique({
+        where: { characterId_slot: { characterId, slot } }
+      });
+      if (!equipped) return { error: 'not_equipped' };
+      const stack = await tx.inventoryItem.findFirst({ where: { characterId, itemId: equipped.itemId } });
+      if (stack) await tx.inventoryItem.update({ where: { id: stack.id }, data: { quantity: { increment: 1 } } });
+      else await tx.inventoryItem.create({ data: { characterId, itemId: equipped.itemId, quantity: 1 } });
+      await tx.characterEquipment.delete({ where: { id: equipped.id } });
+      return { error: null };
+    });
+  }
+
   async addDrop(characterId: string, itemId: string, quantity: number, operationId: string): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
       const exists = await tx.economyLedger.findUnique({ where: { operationId } });
