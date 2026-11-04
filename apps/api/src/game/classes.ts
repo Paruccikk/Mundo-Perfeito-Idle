@@ -62,16 +62,20 @@ export function experienceToNextLevel(level: number): number {
 export function statsForLevel(
   classId: CharacterClassId,
   _level: number,
-  attributes: CharacterAttributes = CLASS_DEFINITIONS[classId].baseAttributes
+  attributes: CharacterAttributes = CLASS_DEFINITIONS[classId].baseAttributes,
+  bonuses: Record<string, number> = {}
 ): CombatStats {
-  const { constitution, strength, intelligence, dexterity } = attributes;
-  const physicalDamage = round2(strength * 2.2 + dexterity * 0.3);
-  const physicalDefense = round2(constitution * 0.7 + strength * 0.8);
-  const magicDamage = round2(intelligence * 2.4);
-  const magicDefense = round2(constitution * 0.35 + intelligence * 0.8);
-  const maxHp = Math.round(80 + constitution * 18 + (classId === 'warrior' ? 20 : 0));
-  const critChance = Math.min(0.6, round2(0.03 + dexterity * 0.006));
-  const attacksPerSecond = Math.min(2.5, round2(0.8 + dexterity * 0.025));
+  const constitution = attributes.constitution + (bonuses.constitution ?? 0);
+  const strength = attributes.strength + (bonuses.strength ?? 0);
+  const intelligence = attributes.intelligence + (bonuses.intelligence ?? 0);
+  const dexterity = attributes.dexterity + (bonuses.dexterity ?? 0);
+  const physicalDamage = round2(strength * 2.2 + dexterity * 0.3 + (bonuses.physicalDamage ?? 0));
+  const physicalDefense = round2(constitution * 0.7 + strength * 0.8 + (bonuses.physicalDefense ?? 0));
+  const magicDamage = round2(intelligence * 2.4 + (bonuses.magicDamage ?? 0));
+  const magicDefense = round2(constitution * 0.35 + intelligence * 0.8 + (bonuses.magicDefense ?? 0));
+  const maxHp = Math.round(80 + constitution * 18 + (classId === 'warrior' ? 20 : 0) + (bonuses.maxHp ?? 0));
+  const critChance = Math.min(0.6, round2(0.03 + dexterity * 0.006 + (bonuses.critChance ?? 0)));
+  const attacksPerSecond = Math.min(2.5, round2(0.8 + dexterity * 0.025 + (bonuses.attacksPerSecond ?? 0)));
 
   return {
     maxHp,
