@@ -685,6 +685,15 @@ export class WorldScene extends Phaser.Scene {
             'normal'
           );
           break;
+        case 'item_drop': {
+          const names: Record<string, string> = {
+            'slime-gel': 'Geleia de Slime',
+            'boar-hide': 'Couro de Javali',
+            'wolf-pelt': 'Pele de Lobo'
+          };
+          this.hud?.pushFeed(`Item encontrado: ${names[event.message ?? ''] ?? event.message ?? 'Material'}`, 'gold');
+          break;
+        }
         case 'level_up':
           this.hud?.pushFeed(`Subiu para ${event.message ?? 'um novo nível'}!`, 'gold');
           if (!compact) {
