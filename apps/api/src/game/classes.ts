@@ -74,11 +74,13 @@ export function statsForLevel(
   const magicDamage = round2(intelligence * 2.4 + (bonuses.magicDamage ?? 0));
   const magicDefense = round2(constitution * 0.35 + intelligence * 0.8 + (bonuses.magicDefense ?? 0));
   const maxHp = Math.round(80 + constitution * 18 + (classId === 'warrior' ? 20 : 0) + (bonuses.maxHp ?? 0));
+  const maxMp = Math.round(30 + intelligence * 12 + (bonuses.maxMp ?? 0));
   const critChance = Math.min(0.6, round2(0.03 + dexterity * 0.006 + (bonuses.critChance ?? 0)));
   const attacksPerSecond = Math.min(2.5, round2(0.8 + dexterity * 0.025 + (bonuses.attacksPerSecond ?? 0)));
 
   return {
     maxHp,
+    maxMp,
     physicalDamage,
     physicalDefense,
     magicDamage,
