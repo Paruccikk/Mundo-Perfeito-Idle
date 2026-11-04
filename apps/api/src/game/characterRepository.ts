@@ -41,7 +41,7 @@ export class MemoryCharacterRepository implements CharacterRepository {
     this.inventory.set(record.id, [
       ...gear,
       { id: `potions-${record.id}`, itemId: 'small-potion', name: 'Poção de Vida Pequena', description: 'Recupera 80 pontos de HP.', rarity: 'common', category: 'consumable', slot: null, quantity: 5, levelReq: 1, stats: { hpRestore: 80 } },
-      { id: `mp-potions-${record.id}`, itemId: 'mp-potion', name: 'Poção de Mana Pequena', description: 'Recupera 60 pontos de MP.', rarity: 'common', category: 'consumable', slot: null, quantity: 3, levelReq: 1, stats: { mpRestore: 60 } },
+      ...(record.classId === 'mage' || record.classId === 'priest' ? [{ id: `mp-potions-${record.id}`, itemId: 'mp-potion', name: 'Poção de Mana Pequena', description: 'Recupera 60 pontos de MP.', rarity: 'common', category: 'consumable', slot: null, quantity: 3, levelReq: 1, stats: { mpRestore: 60 } }] : []),
       { id: `revive-${record.id}`, itemId: 'revive-potion', name: 'Poção da Ressurreição', description: 'Ao ser derrotado, revive no mesmo local.', rarity: 'uncommon', category: 'consumable', slot: null, quantity: 1, levelReq: 1, stats: { revive: 1 } }
     ]);
   }
@@ -167,7 +167,9 @@ export class MemoryCharacterRepository implements CharacterRepository {
       this.inventory.set(characterId, items);
     }
     const now = new Date().toISOString();
-    record.combat = { ...record.combat, playerHp: revive ? Math.max(1, Math.round(maxHp * 0.5)) : maxHp, playerMp: revive ? Math.max(0, Math.round(maxMp * 0.5)) : maxMp, status: 'fighting', recoveringUntil: null, playerCooldownSeconds: 0, monsterCooldownSeconds: 0.5, lastTickAt: now };
+    const stageId = allowRevive ? record.combat.stageId : 'clearing-01';
+    record.currentStageId = stageId;
+    record.combat = { ...record.combat, stageId, monsterId: allowRevive ? record.combat.monsterId : 'slime', monsterHp: allowRevive ? record.combat.monsterHp : 45, playerHp: revive ? Math.max(1, Math.round(maxHp * 0.5)) : maxHp, playerMp: revive ? Math.max(0, Math.round(maxMp * 0.5)) : maxMp, status: 'fighting', recoveringUntil: null, playerCooldownSeconds: 0, monsterCooldownSeconds: 0.5, lastTickAt: now };
     this.characters.set(characterId, record);
     return { record: withEquipmentBonuses(clone(record), this.equipment.get(characterId) ?? []), returnToCity: !revive };
   }
@@ -197,6 +199,14 @@ function withEquipmentBonuses(record: CharacterRecord, equipment: InventorySnaps
     for (const [key, value] of Object.entries(entry.item.stats)) {
       if (typeof value === 'number' && Number.isFinite(value)) bonuses[key] = (bonuses[key] ?? 0) + value;
     }
+  }
+  const equippedIds = new Set(equipment.map((entry) => entry.item.itemId));
+  const apprenticeSet = ['apprentice-hood', 'apprentice-chest', 'apprentice-legs', 'apprentice-boots', 'apprentice-ring'];
+  if (apprenticeSet.every((id) => equippedIds.has(id))) {
+    bonuses.maxHp = (bonuses.maxHp ?? 0) + 30;
+    bonuses.maxMp = (bonuses.maxMp ?? 0) + 15;
+    bonuses.physicalDefense = (bonuses.physicalDefense ?? 0) + 2;
+    bonuses.magicDefense = (bonuses.magicDefense ?? 0) + 2;
   }
   return { ...record, equipmentBonuses: bonuses };
 }
