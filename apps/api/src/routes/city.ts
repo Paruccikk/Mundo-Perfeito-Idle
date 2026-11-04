@@ -1,6 +1,8 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { PrismaClient } from '@prisma/client';
-import type { CharacterClassId } from '@mundo-perfeito/shared';
+import type { WebSocket } from 'ws';
+
+type CharacterClassId = 'warrior' | 'mage' | 'priest' | 'archer';
 
 interface CityPlayer {
   id: string;
@@ -13,14 +15,7 @@ interface CityPlayer {
 
 interface ConnectedPlayer extends CityPlayer {
   accountId: string;
-  socket: {
-    readyState: number;
-    send(data: string): void;
-    close(code?: number, reason?: string): void;
-    on(event: 'message', listener: (data: { toString(): string }) => void): void;
-    on(event: 'close', listener: () => void): void;
-    on(event: 'error', listener: () => void): void;
-  };
+  socket: WebSocket;
   lastMoveAt: number;
   lastChatAt: number;
 }
@@ -142,6 +137,9 @@ export function createCityRoutes(prisma: PrismaClient) {
           const x = Number(message.x);
           const y = Number(message.y);
           if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+          const elapsed = player.lastMoveAt === 0 ? 1000 : now - player.lastMoveAt;
+          const distance = Math.hypot(x - player.x, y - player.y);
+          if (distance > elapsed * 0.12 + 20) return;
           player.lastMoveAt = now;
           player.x = Math.max(-390, Math.min(390, x));
           player.y = Math.max(-235, Math.min(245, y));
