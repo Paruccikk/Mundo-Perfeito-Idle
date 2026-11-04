@@ -799,7 +799,7 @@ export class WorldScene extends Phaser.Scene {
     const targetX = MONSTER_HOME.x;
     const targetY = MONSTER_HOME.y - (this.monster?.height ?? 64) * 0.5;
 
-    if (classId === 'mage') {
+    if (classId === 'mage' || classId === 'priest') {
       const orb = this.add.circle(startX, startY, critical ? 7 : 5, critical ? 0xffd76a : 0x7fe7ff);
       orb.setBlendMode(Phaser.BlendModes.ADD);
       orb.setDepth(1900);
@@ -819,7 +819,7 @@ export class WorldScene extends Phaser.Scene {
       return;
     }
 
-    if (classId === 'ranger') {
+    if (classId === 'archer') {
       const arrow = this.add.rectangle(startX, startY, 22, 3, 0xe7d7ad);
       arrow.setOrigin(0, 0.5);
       arrow.setRotation(Phaser.Math.Angle.Between(startX, startY, targetX, targetY));
