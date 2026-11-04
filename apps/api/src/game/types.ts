@@ -1,26 +1,36 @@
 /**
- * Tipos de domínio espelhados de `packages/shared`.
- *
- * O pacote compartilhado é consumido diretamente pelo cliente (Vite compila TS),
- * mas a API builda com `tsc` para `dist/` e roda em Node puro. Importar o pacote
- * compartilhado aqui exigiria publicá-lo como build separado, então mantemos
- * este espelho. Ao mudar o contrato, atualize os dois arquivos.
+ * Tipos de domínio da API. O contrato público correspondente fica em packages/shared.
  */
-export interface CombatStats {
-  maxHp: number;
-  attack: number;
-  defense: number;
-  attacksPerSecond: number;
-  critChance: number;
-  critMultiplier: number;
+export interface CharacterAttributes {
+  constitution: number;
+  strength: number;
+  intelligence: number;
+  dexterity: number;
 }
 
-export type CharacterClassId = 'warrior' | 'mage' | 'ranger';
+export interface DerivedStats {
+  maxHp: number;
+  physicalDamage: number;
+  physicalDefense: number;
+  magicDamage: number;
+  magicDefense: number;
+  critChance: number;
+  critMultiplier: number;
+  attacksPerSecond: number;
+  attack: number;
+  defense: number;
+}
+
+export interface CombatStats extends DerivedStats {}
+
+export type CharacterClassId = 'warrior' | 'mage' | 'priest' | 'archer';
 
 export interface ClassGrowth {
   maxHp: number;
-  attack: number;
-  defense: number;
+  physicalDamage: number;
+  physicalDefense: number;
+  magicDamage: number;
+  magicDefense: number;
 }
 
 export interface CharacterClassDefinition {
@@ -28,14 +38,34 @@ export interface CharacterClassDefinition {
   name: string;
   role: string;
   description: string;
-  baseStats: CombatStats;
-  growthPerLevel: ClassGrowth;
+  baseAttributes: CharacterAttributes;
+  attributeGrowth: CharacterAttributes;
   startingGold: number;
+}
+
+export interface InventoryItemRecord {
+  id: string;
+  itemId: string;
+  name: string;
+  description: string;
+  rarity: string;
+  category: string;
+  slot: string | null;
+  quantity: number;
+  levelReq: number;
+  stats: Record<string, number>;
+}
+
+export interface EquipmentRecord {
+  slot: string;
+  item: InventoryItemRecord;
 }
 
 export interface CharacterSummary {
   id: string;
   name: string;
+  title: string | null;
+  guildName: string | null;
   classId: CharacterClassId;
   className: string;
   level: number;
@@ -43,6 +73,8 @@ export interface CharacterSummary {
   experienceToNextLevel: number;
   gold: number;
   currentStageId: string;
+  attributes: CharacterAttributes;
+  attributePoints: number;
   stats: CombatStats;
   createdAt: string;
 }
@@ -88,7 +120,8 @@ export type CombatEventType =
   | 'level_up'
   | 'boss_spawn'
   | 'boss_defeated'
-  | 'player_death';
+  | 'player_death'
+  | 'item_drop';
 
 export interface CombatEvent {
   type: CombatEventType;
@@ -119,11 +152,16 @@ export interface CharacterRecord {
   playerId: string;
   name: string;
   nameKey: string;
+  title: string | null;
+  guildName: string | null;
   classId: CharacterClassId;
   level: number;
   experience: number;
   gold: number;
+  attributes: CharacterAttributes;
+  attributePoints: number;
   currentStageId: string;
   combat: CombatStateRecord;
   createdAt: string;
 }
+
