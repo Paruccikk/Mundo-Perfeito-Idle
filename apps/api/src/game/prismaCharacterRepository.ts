@@ -177,7 +177,7 @@ export class PrismaCharacterRepository implements CharacterRepository {
   async addDrop(characterId: string, itemId: string, quantity: number, operationId: string): Promise<void> {
     await this.prisma.$transaction((tx) => addDropInTransaction(tx, characterId, itemId, quantity, operationId));
   }
-}}
+}
 
 function fromDb(row: DbCharacter): CharacterRecord {
   return {
