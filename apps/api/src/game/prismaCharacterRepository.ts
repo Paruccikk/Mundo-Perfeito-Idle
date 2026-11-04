@@ -29,9 +29,9 @@ export class PrismaCharacterRepository implements CharacterRepository {
           lastSimulatedAt: new Date(record.combat.lastTickAt), createdAt: new Date(record.createdAt)
         }
       });
-      const starter = record.classId === 'mage' || record.classId === 'priest' ? 'apprentice-robe' : 'rusty-sword';
-      await tx.inventoryItem.create({ data: { characterId: record.id, itemId: starter, quantity: 1 } });
-      await tx.inventoryItem.create({ data: { characterId: record.id, itemId: 'small-potion', quantity: 3 } });
+      const weapon = record.classId === 'mage' ? 'apprentice-staff' : record.classId === 'priest' ? 'apprentice-mace' : record.classId === 'archer' ? 'training-bow' : 'training-sword';
+      const starterItems = [[weapon, 1], ['apprentice-hood', 1], ['apprentice-chest', 1], ['apprentice-legs', 1], ['apprentice-boots', 1], ['apprentice-ring', 1], ['small-potion', 5], ['mp-potion', 3], ['revive-potion', 1]] as const;
+      await tx.inventoryItem.createMany({ data: starterItems.map(([itemId, quantity]) => ({ characterId: record.id, itemId, quantity })) });
     });
   }
 
@@ -172,6 +172,48 @@ export class PrismaCharacterRepository implements CharacterRepository {
       await tx.characterEquipment.delete({ where: { id: equipped.id } });
       return { error: null };
     });
+  }
+
+  async useItem(characterId: string, accountId: string, inventoryItemId: string, maxHp: number, maxMp: number): Promise<{ error: string | null }> {
+    return this.prisma.$transaction(async (tx) => {
+      const character = await tx.character.findFirst({ where: { id: characterId, accountId } });
+      if (!character) return { error: 'not_found' };
+      const inventory = await tx.inventoryItem.findFirst({ where: { id: inventoryItemId, characterId }, include: { item: true } });
+      if (!inventory || inventory.item.category !== 'consumable') return { error: 'not_usable' };
+      const combat = character.combat as unknown as CharacterRecord['combat'];
+      if (combat.status === 'dead') return { error: 'character_dead' };
+      const effects = (inventory.item.stats ?? {}) as Record<string, number>;
+      const hpBefore = combat.playerHp;
+      const mpBefore = combat.playerMp ?? maxMp;
+      const hpAfter = Math.min(maxHp, hpBefore + Math.max(0, effects.hpRestore ?? 0));
+      const mpAfter = Math.min(maxMp, mpBefore + Math.max(0, effects.mpRestore ?? 0));
+      if (hpAfter === hpBefore && mpAfter === mpBefore) return { error: 'no_effect' };
+      const updatedCombat = { ...combat, playerHp: hpAfter, playerMp: mpAfter, lastTickAt: new Date().toISOString() };
+      await tx.character.update({ where: { id: characterId }, data: { combat: updatedCombat as unknown as Prisma.InputJsonValue, lastSimulatedAt: new Date(updatedCombat.lastTickAt) } });
+      if (inventory.quantity <= 1) await tx.inventoryItem.delete({ where: { id: inventory.id } });
+      else await tx.inventoryItem.update({ where: { id: inventory.id }, data: { quantity: { decrement: 1 } } });
+      return { error: null };
+    }, { maxWait: 10_000, timeout: 20_000 });
+  }
+
+  async resolveDeath(characterId: string, accountId: string, maxHp: number, maxMp: number, allowRevive: boolean): Promise<{ record: CharacterRecord | null; returnToCity: boolean }> {
+    const returnToCity = await this.prisma.$transaction(async (tx) => {
+      const character = await tx.character.findFirst({ where: { id: characterId, accountId } });
+      if (!character) return null;
+      const combat = character.combat as unknown as CharacterRecord['combat'];
+      if (combat.status !== 'dead') return false;
+      const revive = allowRevive ? await tx.inventoryItem.findFirst({ where: { characterId, itemId: 'revive-potion', quantity: { gt: 0 } } }) : null;
+      if (revive) {
+        if (revive.quantity <= 1) await tx.inventoryItem.delete({ where: { id: revive.id } });
+        else await tx.inventoryItem.update({ where: { id: revive.id }, data: { quantity: { decrement: 1 } } });
+      }
+      const now = new Date().toISOString();
+      const updatedCombat = { ...combat, playerHp: revive ? Math.max(1, Math.round(maxHp * 0.5)) : maxHp, playerMp: revive ? Math.max(0, Math.round(maxMp * 0.5)) : maxMp, status: 'fighting' as const, recoveringUntil: null, playerCooldownSeconds: 0, monsterCooldownSeconds: 0.5, lastTickAt: now };
+      await tx.character.update({ where: { id: characterId }, data: { combat: updatedCombat as unknown as Prisma.InputJsonValue, lastSimulatedAt: new Date(now) } });
+      return !revive;
+    }, { maxWait: 10_000, timeout: 20_000 });
+    if (returnToCity === null) return { record: null, returnToCity: false };
+    return { record: await this.findById(characterId), returnToCity };
   }
 
   async addDrop(characterId: string, itemId: string, quantity: number, operationId: string): Promise<void> {
