@@ -59,6 +59,18 @@ export function createCharacterRoutes(repository: CharacterRepository) {
       } catch (error) { return sendError(reply, error); }
     });
 
+    app.post('/api/v1/characters/:id/unequip', { preHandler: authenticate }, async (request, reply) => {
+      try {
+        const { id } = request.params as { id: string };
+        const body = request.body as { slot?: unknown } | null;
+        const slots = ['weapon', 'head', 'chest', 'legs', 'boots', 'accessory'];
+        if (!body || typeof body.slot !== 'string' || !slots.includes(body.slot)) {
+          throw new CharacterError('validation_error', 400, 'Informe um espaço de equipamento válido.');
+        }
+        return reply.send(await service.unequipItem(id, accountId(request), body.slot));
+      } catch (error) { return sendError(reply, error); }
+    });
+
     app.post('/api/v1/characters/:id/attributes', { preHandler: authenticate }, async (request, reply) => {
       try {
         const { id } = request.params as { id: string };
