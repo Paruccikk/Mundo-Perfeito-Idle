@@ -24,7 +24,8 @@ export interface GameHud {
 const CLASS_GLYPHS: Record<CharacterClassId, string> = {
   warrior: '⚔',
   mage: '✦',
-  ranger: '➶'
+  archer: '➶',
+  priest: '✚'
 };
 
 export function createGameHud(root: HTMLElement, options: GameHudOptions): GameHud {
