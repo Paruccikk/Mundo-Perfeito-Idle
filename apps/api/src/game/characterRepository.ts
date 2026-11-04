@@ -17,6 +17,8 @@ export interface CharacterRepository {
   equipItem(characterId: string, accountId: string, inventoryItemId: string): Promise<{ error: string | null }>;
   unequipItem(characterId: string, accountId: string, slot: string): Promise<{ error: string | null }>;
   addDrop(characterId: string, itemId: string, quantity: number, operationId: string): Promise<void>;
+  useItem(characterId: string, accountId: string, inventoryItemId: string, maxHp: number, maxMp: number): Promise<{ error: string | null }>;
+  resolveDeath(characterId: string, accountId: string, maxHp: number, maxMp: number, allowRevive: boolean): Promise<{ record: CharacterRecord | null; returnToCity: boolean }>;
 }
 
 export class MemoryCharacterRepository implements CharacterRepository {
@@ -27,15 +29,21 @@ export class MemoryCharacterRepository implements CharacterRepository {
   async create(record: CharacterRecord): Promise<void> {
     this.characters.set(record.id, clone({ ...record, equipmentBonuses: {} }));
     this.equipment.set(record.id, []);
-    this.inventory.set(record.id, [{
-      id: `starter-${record.id}`, itemId: record.classId === 'mage' || record.classId === 'priest' ? 'apprentice-robe' : 'rusty-sword',
-      name: record.classId === 'mage' || record.classId === 'priest' ? 'Manto do Aprendiz' : 'Espada Enferrujada',
-      description: 'Equipamento inicial.', rarity: 'common', category: 'equipment',
-      slot: record.classId === 'mage' || record.classId === 'priest' ? 'chest' : 'weapon',
-      quantity: 1, levelReq: 1, stats: record.classId === 'mage' || record.classId === 'priest' ? { intelligence: 1, magicDefense: 2 } : { strength: 1, physicalDamage: 2 }
-    }, { id: `potions-${record.id}`, itemId: 'small-potion', name: 'Poção de Vida Pequena',
-      description: 'Poção inicial.', rarity: 'common', category: 'consumable',
-      slot: null, quantity: 3, levelReq: 1, stats: {} }]);
+    const weapon = record.classId === 'mage' ? 'apprentice-staff' : record.classId === 'priest' ? 'apprentice-mace' : record.classId === 'archer' ? 'training-bow' : 'training-sword';
+    const gear = [
+      { id: 'starter-weapon', itemId: weapon, name: 'Arma de Aprendiz', slot: 'weapon', stats: { strength: 1, physicalDamage: 2, magicDamage: 2 } },
+      { id: 'starter-head', itemId: 'apprentice-hood', name: 'Capuz do Aprendiz', slot: 'head', stats: { constitution: 1, magicDefense: 1 } },
+      { id: 'starter-chest', itemId: 'apprentice-chest', name: 'Túnica do Aprendiz', slot: 'chest', stats: { constitution: 1, physicalDefense: 1, magicDefense: 1 } },
+      { id: 'starter-legs', itemId: 'apprentice-legs', name: 'Calças do Aprendiz', slot: 'legs', stats: { constitution: 1, physicalDefense: 1 } },
+      { id: 'starter-boots', itemId: 'apprentice-boots', name: 'Botas do Aprendiz', slot: 'boots', stats: { dexterity: 1 } },
+      { id: 'starter-ring', itemId: 'apprentice-ring', name: 'Anel do Aprendiz', slot: 'accessory', stats: { intelligence: 1, maxMp: 5 } }
+    ].map((item) => ({ ...item, description: 'Peça do Conjunto do Aprendiz.', rarity: 'common', category: 'armor', quantity: 1, levelReq: 1 }));
+    this.inventory.set(record.id, [
+      ...gear,
+      { id: `potions-${record.id}`, itemId: 'small-potion', name: 'Poção de Vida Pequena', description: 'Recupera 80 pontos de HP.', rarity: 'common', category: 'consumable', slot: null, quantity: 5, levelReq: 1, stats: { hpRestore: 80 } },
+      { id: `mp-potions-${record.id}`, itemId: 'mp-potion', name: 'Poção de Mana Pequena', description: 'Recupera 60 pontos de MP.', rarity: 'common', category: 'consumable', slot: null, quantity: 3, levelReq: 1, stats: { mpRestore: 60 } },
+      { id: `revive-${record.id}`, itemId: 'revive-potion', name: 'Poção da Ressurreição', description: 'Ao ser derrotado, revive no mesmo local.', rarity: 'uncommon', category: 'consumable', slot: null, quantity: 1, levelReq: 1, stats: { revive: 1 } }
+    ]);
   }
 
   async save(record: CharacterRecord, expectedLastTickAt?: string, drops: Array<{ itemId: string; quantity: number; operationId: string }> = []): Promise<boolean> {
@@ -125,6 +133,43 @@ export class MemoryCharacterRepository implements CharacterRepository {
     this.equipment.set(characterId, equipped);
     this.inventory.set(characterId, items);
     return { error: null };
+  }
+
+  async useItem(characterId: string, accountId: string, inventoryItemId: string, maxHp: number, maxMp: number): Promise<{ error: string | null }> {
+    const record = this.characters.get(characterId);
+    if (!record || record.playerId !== accountId) return { error: 'not_found' };
+    const items = this.inventory.get(characterId) ?? [];
+    const item = items.find((entry) => entry.id === inventoryItemId);
+    if (!item || item.category !== 'consumable') return { error: 'not_usable' };
+    if (record.combat.status === 'dead') return { error: 'character_dead' };
+    const hpBefore = record.combat.playerHp;
+    const mpBefore = record.combat.playerMp ?? maxMp;
+    const hpAfter = Math.min(maxHp, hpBefore + Math.max(0, item.stats.hpRestore ?? 0));
+    const mpAfter = Math.min(maxMp, mpBefore + Math.max(0, item.stats.mpRestore ?? 0));
+    if (hpAfter === hpBefore && mpAfter === mpBefore) return { error: 'no_effect' };
+    record.combat = { ...record.combat, playerHp: hpAfter, playerMp: mpAfter, lastTickAt: new Date().toISOString() };
+    item.quantity -= 1;
+    if (item.quantity <= 0) items.splice(items.indexOf(item), 1);
+    this.inventory.set(characterId, items);
+    this.characters.set(characterId, record);
+    return { error: null };
+  }
+
+  async resolveDeath(characterId: string, accountId: string, maxHp: number, maxMp: number, allowRevive: boolean): Promise<{ record: CharacterRecord | null; returnToCity: boolean }> {
+    const record = this.characters.get(characterId);
+    if (!record || record.playerId !== accountId) return { record: null, returnToCity: false };
+    if (record.combat.status !== 'dead') return { record: withEquipmentBonuses(clone(record), this.equipment.get(characterId) ?? []), returnToCity: false };
+    const items = this.inventory.get(characterId) ?? [];
+    const revive = allowRevive ? items.find((item) => item.itemId === 'revive-potion' && item.quantity > 0) : undefined;
+    if (revive) {
+      revive.quantity -= 1;
+      if (revive.quantity <= 0) items.splice(items.indexOf(revive), 1);
+      this.inventory.set(characterId, items);
+    }
+    const now = new Date().toISOString();
+    record.combat = { ...record.combat, playerHp: revive ? Math.max(1, Math.round(maxHp * 0.5)) : maxHp, playerMp: revive ? Math.max(0, Math.round(maxMp * 0.5)) : maxMp, status: 'fighting', recoveringUntil: null, playerCooldownSeconds: 0, monsterCooldownSeconds: 0.5, lastTickAt: now };
+    this.characters.set(characterId, record);
+    return { record: withEquipmentBonuses(clone(record), this.equipment.get(characterId) ?? []), returnToCity: !revive };
   }
 
   async addDrop(characterId: string, itemId: string, quantity: number, operationId: string): Promise<void> {
