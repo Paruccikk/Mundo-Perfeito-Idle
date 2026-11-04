@@ -13,6 +13,7 @@ export interface CombatSimulation {
   record: CharacterRecord;
   events: CombatEvent[];
   simulatedSeconds: number;
+  drops: Array<{ itemId: string; quantity: number }>;
 }
 
 /**
@@ -28,6 +29,7 @@ export function simulateCombat(
   maxSeconds = MAX_SIMULATION_SECONDS
 ): CombatSimulation {
   const events: CombatEvent[] = [];
+  const drops: Array<{ itemId: string; quantity: number }> = [];
   const lastTickMs = Date.parse(record.combat.lastTickAt);
   const elapsedRaw = Number.isFinite(lastTickMs) ? (nowMs - lastTickMs) / 1000 : 0;
   const elapsed = Math.min(Math.max(elapsedRaw, 0), maxSeconds);
@@ -36,7 +38,8 @@ export function simulateCombat(
     return {
       record,
       events,
-      simulatedSeconds: 0
+      simulatedSeconds: 0,
+      drops
     };
   }
 
@@ -125,6 +128,7 @@ export function simulateCombat(
         if (Math.random() < (defeated.isBoss ? 1 : 0.22)) {
           const dropId = defeated.id === 'boar' ? 'boar-hide'
             : defeated.id === 'wolf' ? 'wolf-pelt' : 'slime-gel';
+          drops.push({ itemId: dropId, quantity: 1 });
           pushEvent({ type: 'item_drop', amount: 1, message: dropId });
         }
         playerHp = Math.min(stats.maxHp, playerHp + Math.round(stats.maxHp * HEAL_ON_KILL_RATIO));
@@ -212,6 +216,7 @@ export function simulateCombat(
   return {
     record: updated,
     events,
-    simulatedSeconds: elapsed
+    simulatedSeconds: elapsed,
+    drops
   };
 }
