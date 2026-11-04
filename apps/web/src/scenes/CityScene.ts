@@ -63,7 +63,6 @@ export class CityScene extends Phaser.Scene {
   private remotePlayers = new Map<string, RemoteCityPlayer>();
   private multiplayerPanel: HTMLElement | null = null;
   private chatMessages: HTMLElement | null = null;
-  private chatInput: HTMLInputElement | null = null;
   private chatStatus: HTMLElement | null = null;
   private onlineCount: HTMLElement | null = null;
   private lastSyncAt = 0;
@@ -184,7 +183,6 @@ export class CityScene extends Phaser.Scene {
     });
     this.multiplayerPanel = panel;
     this.chatMessages = messages;
-    this.chatInput = input;
     this.chatStatus = status;
     this.onlineCount = count;
   }
