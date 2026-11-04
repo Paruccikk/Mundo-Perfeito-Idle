@@ -4,6 +4,7 @@ export function renderInventoryPanel(
   root: HTMLElement,
   inventory: InventorySnapshot,
   onEquip: (inventoryItemId: string) => Promise<InventorySnapshot>,
+  onUnequip: (slot: string) => Promise<InventorySnapshot>,
   onClose: () => void
 ): void {
   const overlay = document.createElement('div');
@@ -42,6 +43,18 @@ export function renderInventoryPanel(
     const item = document.createElement('strong');
     item.textContent = entry?.item.name ?? 'Vazio';
     card.append(label, item);
+    if (entry) {
+      const unequip = document.createElement('button');
+      unequip.type = 'button';
+      unequip.className = 'ghost-button';
+      unequip.textContent = 'Retirar';
+      unequip.addEventListener('click', async () => {
+        unequip.disabled = true;
+        try { renderInventoryPanel(root, await onUnequip(slot), onEquip, onUnequip, onClose); }
+        catch (error) { unequip.disabled = false; unequip.textContent = error instanceof Error ? error.message : 'Erro'; }
+      });
+      card.append(unequip);
+    }
     equipped.append(card);
   }
 
@@ -74,7 +87,7 @@ export function renderInventoryPanel(
       equip.addEventListener('click', async () => {
         equip.disabled = true;
         equip.textContent = 'Equipando…';
-        try { renderInventoryPanel(root, await onEquip(item.id), onEquip, onClose); }
+        try { renderInventoryPanel(root, await onEquip(item.id), onEquip, onUnequip, onClose); }
         catch (error) { equip.disabled = false; equip.textContent = error instanceof Error ? error.message : 'Erro ao equipar'; }
       });
       row.append(equip);
