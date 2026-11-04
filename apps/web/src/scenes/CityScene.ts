@@ -76,7 +76,7 @@ export class CityScene extends Phaser.Scene {
 
     this.input.on('pointerdown', this.handleGroundClick, this);
     this.hud?.setConnection('online');
-    this.hud?.setLocation('Cidade de Valedouro', 'Cidade segura');
+    this.hud?.setLocation('Cidade de Valedouro', 'Cidade segura', true);
     this.hud?.pushFeed(`${this.character.name} chegou à cidade de Valedouro.`, 'gold');
   }
 
