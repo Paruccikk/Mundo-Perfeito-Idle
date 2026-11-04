@@ -51,8 +51,9 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
 
   const bars = el('div', 'hud__bars');
   const hpBar = buildBar('HP', 'hp');
+  const mpBar = buildBar('MP', 'mp');
   const xpBar = buildBar('XP', 'xp');
-  bars.append(hpBar.root, xpBar.root);
+  bars.append(hpBar.root, mpBar.root, xpBar.root);
 
   playerCard.append(crest, identity, bars);
 
@@ -162,6 +163,10 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
       hpBar.fill.style.width = `${hpRatio * 100}%`;
       hpBar.value.textContent = `${formatNumber(combat.playerHp)} / ${formatNumber(combat.playerMaxHp)}`;
       hpBar.row.classList.toggle('is-low', hpRatio <= 0.3);
+
+      const mpRatio = clampRatio(combat.playerMp / Math.max(1, combat.playerMaxMp));
+      mpBar.fill.style.width = `${mpRatio * 100}%`;
+      mpBar.value.textContent = `${formatNumber(combat.playerMp)} / ${formatNumber(combat.playerMaxMp)}`;
 
       const xpRatio = clampRatio(summary.experience / Math.max(1, summary.experienceToNextLevel));
       xpBar.fill.style.width = `${xpRatio * 100}%`;
