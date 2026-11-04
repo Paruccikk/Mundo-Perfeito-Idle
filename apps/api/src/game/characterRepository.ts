@@ -75,7 +75,7 @@ export class MemoryCharacterRepository implements CharacterRepository {
     for (const key of keys) updated.attributes[key] += allocation[key] ?? 0;
     updated.attributePoints -= total;
     this.characters.set(characterId, updated);
-    return clone(updated);
+    return withEquipmentBonuses(clone(updated), this.equipment.get(characterId) ?? []);
   }
 
   async getInventory(characterId: string, accountId: string): Promise<InventorySnapshot | null> {
