@@ -61,6 +61,7 @@ A sessão atual expira após 7 dias. O token fica no armazenamento local do nave
 | `GET` | `/api/v1/characters/:id/inventory` | Consulta mochila e equipamentos |
 | `POST` | `/api/v1/characters/:id/equip` | Equipa um item da mochila |
 | `POST` | `/api/v1/characters/:id/unequip` | Retira um item equipado para a mochila |
+| `POST` | `/api/v1/characters/:id/use-item` | Usa poções de HP e MP, consumidas no servidor |
 | `GET` | `/api/v1/characters/:id/combat` | Avança simulação e retorna o combate |
 
 Regras:
@@ -91,7 +92,7 @@ O servidor calcula os atributos derivados. O cliente não pode escolher os próp
 
 ## Inventário e equipamentos
 
-O inventário é persistido por personagem. O Conjunto do Aprendiz inclui arma específica por classe, capuz, túnica, calças, botas e anel; todas as peças podem ser equipadas e seus bônus entram no cálculo de combate. A mochila oferece Poção de Vida (80 HP), Poção de Mana (60 MP) e Poção da Ressurreição. Poções de HP/MP são usadas pelo inventário e consumidas somente quando geram efeito. Ao morrer, uma Poção da Ressurreição é consumida automaticamente para retornar à mesma fase com 50% de HP/MP; sem ela, o personagem retorna à Cidade de Valedouro. Personagens existentes recebem o conjunto e os consumíveis pela migration. Drops e consumos são processados no servidor.
+O inventário é persistido por personagem. O Conjunto do Aprendiz inclui arma específica por classe, capuz, túnica, calças, botas e anel; todas as peças podem ser equipadas e seus bônus entram no cálculo de combate. Ao equipar as cinco peças de armadura e acessórios juntas, o personagem recebe bônus de conjunto de HP, MP e defesas. A mochila oferece Poção de Vida (80 HP), Poção de Mana (60 MP) e Poção da Ressurreição. Poções de HP/MP são usadas pelo inventário e consumidas somente quando geram efeito. Ao morrer, uma Poção da Ressurreição é consumida automaticamente para retornar à mesma fase com 50% de HP/MP; sem ela, o personagem retorna à Cidade de Valedouro. Personagens existentes recebem o conjunto e os consumíveis pela migration. Drops e consumos são processados no servidor.
 
 ## Cidade medieval
 
