@@ -123,7 +123,9 @@ export function simulateCombat(
 
         gold += defeated.goldReward;
         if (Math.random() < (defeated.isBoss ? 1 : 0.22)) {
-          pushEvent({ type: 'item_drop', amount: 1, message: 'Geleia de Slime' });
+          const dropId = defeated.id === 'boar' ? 'boar-hide'
+            : defeated.id === 'wolf' ? 'wolf-pelt' : 'slime-gel';
+          pushEvent({ type: 'item_drop', amount: 1, message: dropId });
         }
         playerHp = Math.min(stats.maxHp, playerHp + Math.round(stats.maxHp * HEAL_ON_KILL_RATIO));
 
