@@ -63,7 +63,7 @@ export function simulateCombat(
   let bossActive = record.combat.bossActive;
   let bossDefeated = record.combat.bossDefeated;
 
-  let status = playerHp > 0 ? record.combat.status : 'fighting';
+  let status: CharacterRecord['combat']['status'] = playerHp > 0 ? record.combat.status : 'fighting';
   let recoveryLeft = record.combat.recoveringUntil
     ? Math.max(0, (Date.parse(record.combat.recoveringUntil) - lastTickMs) / 1000)
     : 0;
