@@ -268,7 +268,7 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
   };
 }
 
-function buildBar(label: string, tone: 'hp' | 'xp'): {
+function buildBar(label: string, tone: 'hp' | 'mp' | 'xp'): {
   root: HTMLElement;
   row: HTMLElement;
   fill: HTMLElement;
