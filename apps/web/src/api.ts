@@ -114,5 +114,8 @@ export const api = {
   },
   async equipItem(id: string, inventoryItemId: string): Promise<InventorySnapshot> {
     return request<InventorySnapshot>(`/api/v1/characters/${encodeURIComponent(id)}/equip`, { method: 'POST', body: { inventoryItemId } });
+  },
+  async unequipItem(id: string, slot: string): Promise<InventorySnapshot> {
+    return request<InventorySnapshot>(`/api/v1/characters/${encodeURIComponent(id)}/unequip`, { method: 'POST', body: { slot } });
   }
 };
