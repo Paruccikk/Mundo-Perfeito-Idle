@@ -133,7 +133,7 @@ export function simulateCombat(
           pushEvent({ type: 'item_drop', amount: 1, message: dropId });
         }
         if (!defeated.isBoss && Math.random() < 0.06) drops.push({ itemId: 'small-potion', quantity: 1 });
-        if (!defeated.isBoss && Math.random() < 0.04) drops.push({ itemId: 'mp-potion', quantity: 1 });
+        if ((record.classId === 'mage' || record.classId === 'priest') && !defeated.isBoss && Math.random() < 0.04) drops.push({ itemId: 'mp-potion', quantity: 1 });
         if (defeated.isBoss && Math.random() < 0.35) drops.push({ itemId: 'revive-potion', quantity: 1 });
         playerHp = Math.min(stats.maxHp, playerHp + Math.round(stats.maxHp * HEAL_ON_KILL_RATIO));
 
