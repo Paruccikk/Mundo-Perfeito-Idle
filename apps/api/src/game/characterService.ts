@@ -46,7 +46,7 @@ export class CharacterService {
     const record: CharacterRecord = {
       id: randomUUID(), playerId: payload.playerId, name: payload.name, nameKey: key,
       title: null, guildName: null, classId: payload.classId, level: 1, experience: 0,
-      gold: CLASS_DEFINITIONS[payload.classId].startingGold, attributes, attributePoints: 0,
+      gold: CLASS_DEFINITIONS[payload.classId].startingGold, attributes, attributePoints: 0, equipmentBonuses: {},
       currentStageId: STAGE_ONE.id,
       combat: {
         stageId: STAGE_ONE.id, monsterId: initialMonsterId, monsterHp: initialMonster.maxHp,
@@ -133,7 +133,7 @@ export function toSummary(record: CharacterRecord): CharacterSummary {
     experience: record.experience, experienceToNextLevel: experienceToNextLevel(record.level),
     gold: record.gold, currentStageId: record.currentStageId,
     attributes: { ...record.attributes }, attributePoints: record.attributePoints,
-    stats: statsForLevel(record.classId, record.level, record.attributes), createdAt: record.createdAt
+    stats: statsForLevel(record.classId, record.level, record.attributes, record.equipmentBonuses), createdAt: record.createdAt
   };
 }
 
