@@ -21,9 +21,11 @@ export interface CharacterRepository {
 export class MemoryCharacterRepository implements CharacterRepository {
   private readonly characters = new Map<string, CharacterRecord>();
   private readonly inventory = new Map<string, InventorySnapshot['items']>();
+  private readonly equipment = new Map<string, InventorySnapshot['equipment']>();
 
   async create(record: CharacterRecord): Promise<void> {
     this.characters.set(record.id, clone(record));
+    this.equipment.set(record.id, []);
     this.inventory.set(record.id, [{
       id: `starter-${record.id}`, itemId: record.classId === 'mage' || record.classId === 'priest' ? 'apprentice-robe' : 'rusty-sword',
       name: record.classId === 'mage' || record.classId === 'priest' ? 'Manto do Aprendiz' : 'Espada Enferrujada',
@@ -79,7 +81,7 @@ export class MemoryCharacterRepository implements CharacterRepository {
   async getInventory(characterId: string, accountId: string): Promise<InventorySnapshot | null> {
     const record = this.characters.get(characterId);
     if (!record || record.playerId !== accountId) return null;
-    return { items: (this.inventory.get(characterId) ?? []).map((item) => ({ ...item, stats: { ...item.stats } })), equipment: [] };
+    return { items: (this.inventory.get(characterId) ?? []).map((item) => ({ ...item, stats: { ...item.stats } })), equipment: (this.equipment.get(characterId) ?? []).map((entry) => ({ ...entry, item: { ...entry.item, stats: { ...entry.item.stats } } })) };
   }
 
   async equipItem(characterId: string, accountId: string, inventoryItemId: string): Promise<{ error: string | null }> {
@@ -90,9 +92,20 @@ export class MemoryCharacterRepository implements CharacterRepository {
     if (index < 0) return { error: 'item_not_equippable' };
     const item = items[index]!;
     if (record.level < item.levelReq) return { error: 'level_required' };
+    const equipped = this.equipment.get(characterId) ?? [];
+    const previous = equipped.findIndex((entry) => entry.slot === item.slot);
+    if (previous >= 0) {
+      const oldItem = equipped[previous]!.item;
+      const returned = items.find((entry) => entry.itemId === oldItem.itemId);
+      if (returned) returned.quantity += 1;
+      else items.push({ ...oldItem, id: `returned-${Date.now()}`, quantity: 1 });
+      equipped.splice(previous, 1);
+    }
     if (item.quantity <= 1) items.splice(index, 1);
     else item.quantity -= 1;
+    equipped.push({ slot: item.slot!, item: { ...item, quantity: 1 } });
     this.inventory.set(characterId, items);
+    this.equipment.set(characterId, equipped);
     return { error: null };
   }
 
