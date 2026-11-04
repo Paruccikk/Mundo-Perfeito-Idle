@@ -1313,6 +1313,9 @@ canvas {
   .hud__tools {
     right: 12px;
     bottom: 12px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    max-width: calc(100vw - 24px);
   }
 
   .hud__connection {
