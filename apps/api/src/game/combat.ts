@@ -46,7 +46,8 @@ export function simulateCombat(
   let level = record.level;
   let experience = record.experience;
   let gold = record.gold;
-  let stats = statsForLevel(record.classId, level);
+  let stats = statsForLevel(record.classId, level, record.attributes);
+  let attributePoints = record.attributePoints;
 
   let monsterId = record.combat.monsterId;
   let monster = getMonster(monsterId);
@@ -119,13 +120,17 @@ export function simulateCombat(
         });
 
         gold += defeated.goldReward;
+        if (Math.random() < (defeated.isBoss ? 1 : 0.22)) {
+          pushEvent({ type: 'item_drop', amount: 1, message: 'Geleia de Slime' });
+        }
         playerHp = Math.min(stats.maxHp, playerHp + Math.round(stats.maxHp * HEAL_ON_KILL_RATIO));
 
         experience += defeated.experienceReward;
         while (level < MAX_LEVEL && experience >= experienceToNextLevel(level)) {
           experience -= experienceToNextLevel(level);
           level += 1;
-          stats = statsForLevel(record.classId, level);
+          attributePoints += 5;
+          stats = statsForLevel(record.classId, level, record.attributes);
           playerHp = stats.maxHp;
           pushEvent({ type: 'level_up', message: `Nível ${level}` });
         }
@@ -178,6 +183,7 @@ export function simulateCombat(
   const updated: CharacterRecord = {
     ...record,
     level,
+    attributePoints,
     experience,
     gold,
     combat: {
