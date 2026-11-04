@@ -102,7 +102,9 @@ export function simulateCombat(
       playerCooldown += 1 / attacksPerSecond;
 
       const critical = Math.random() < stats.critChance;
-      const rawAttack = critical ? stats.attack * stats.critMultiplier : stats.attack;
+      const usesMagic = record.classId === 'mage' || record.classId === 'priest';
+      const baseDamage = usesMagic ? stats.magicDamage : stats.physicalDamage;
+      const rawAttack = critical ? baseDamage * stats.critMultiplier : baseDamage;
       const damage = Math.max(1, Math.round(rawAttack - monster.defense));
 
       monsterHp -= damage;
@@ -164,7 +166,9 @@ export function simulateCombat(
       const attacksPerSecond = monster.attacksPerSecond > 0 ? monster.attacksPerSecond : 1;
       monsterCooldown += 1 / attacksPerSecond;
 
-      const damage = Math.max(1, Math.round(monster.attack - stats.defense));
+      const usesMagic = record.classId === 'mage' || record.classId === 'priest';
+      const playerDefense = usesMagic ? stats.magicDefense : stats.physicalDefense;
+      const damage = Math.max(1, Math.round(monster.attack - playerDefense));
       playerHp -= damage;
       pushEvent({ type: 'monster_hit', amount: damage });
 
