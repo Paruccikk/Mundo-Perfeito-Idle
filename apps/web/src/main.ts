@@ -187,7 +187,7 @@ async function openInventoryPanel(characterId: string): Promise<void> {
   closeGamePanel();
   try {
     const inventory = await api.getInventory(characterId);
-    renderInventoryPanel(root, inventory, (itemId) => api.equipItem(characterId, itemId), closeGamePanel);
+    renderInventoryPanel(root, inventory, (itemId) => api.equipItem(characterId, itemId), (slot) => api.unequipItem(characterId, slot), closeGamePanel);
   } catch (error) {
     hud?.pushFeed(error instanceof Error ? error.message : 'Não foi possível carregar o inventário.', 'danger');
   }
