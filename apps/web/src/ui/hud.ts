@@ -33,7 +33,7 @@ const CLASS_GLYPHS: Record<CharacterClassId, string> = {
 };
 
 export function createGameHud(root: HTMLElement, options: GameHudOptions): GameHud {
-  const { character, onSwitch, onCharacter, onInventory } = options;
+  const { character, onSwitch, onCharacter, onInventory, onTown } = options;
 
   const hud = el('div', 'hud');
   hud.setAttribute('aria-live', 'polite');
