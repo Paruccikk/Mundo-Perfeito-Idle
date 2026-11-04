@@ -93,6 +93,21 @@ O servidor calcula os atributos derivados. O cliente não pode escolher os próp
 
 O inventário é persistido por personagem. A criação concede um equipamento inicial e três poções de vida. Drops são sorteados no servidor durante abates; materiais possuem pilhas limitadas por maxStack. Equipamentos ocupam slots (arma, cabeça, peitoral, pernas, botas e acessório), podem ser equipados/retirados e seus bônus entram no cálculo de combate. O ledger registra cada drop com uma chave de operação para evitar duplicação.
 
+## Cidade medieval
+
+A entrada do personagem agora começa na **Cidade de Valedouro**, uma cena isométrica segura que funciona como hub do mundo. A cidade contém praça central com fonte, ruas de pedra, portal de saída, construções identificadas e NPCs interativos:
+
+- **Alden — Mestre das Aventuras:** abre o diálogo e permite partir para a Clareira dos Aprendizes.
+- **Brom — Ferreiro:** ponto de referência para o futuro sistema de equipamentos.
+- **Mira — Mercadora:** ponto de referência para lojas e comércio.
+- **Elowen — Alquimista:** ponto de referência para poções e consumíveis.
+- **Tomas — Guardião do Armazém:** ponto de referência para armazenamento.
+- **Quadro de Missões:** cenário preparado para futuras missões.
+
+O personagem pode caminhar com WASD/setas ou clicar no chão. Clicar nos NPCs abre seus diálogos. O botão **Cidade** no HUD retorna ao hub a partir da área de combate.
+
+**Limite desta etapa:** a cidade já existe visualmente e os NPCs respondem localmente, mas a presença compartilhada de jogadores, chat, canais, WebSocket, grupos e instâncias ainda não foi implementada. A arquitetura multiplayer será adicionada em etapas posteriores; esta cena não deve ser confundida com uma cidade online compartilhada já pronta.
+
 ## Combate automático
 
 O cliente consulta `GET /api/v1/characters/:id/combat` periodicamente. O servidor é a autoridade do combate, mas a intenção de design é farmar apenas durante uma sessão ativa com o jogo aberto e conectado. Fechar o jogo encerra o farm; o tempo em que o jogo ficou fechado não deve gerar XP, ouro ou itens. O comportamento atual ainda usa uma janela de simulação de até 8 horas e será substituído por controle de sessão/heartbeat antes de considerar essa regra concluída. Cooldowns de ataque são persistidos para não reiniciar artificialmente a cadência entre chamadas.
@@ -126,7 +141,7 @@ O arquivo `render.yaml` prepara o cliente e a API. Consulte [docs/DEPLOY_RENDER.
 - `docs`: documentação de design e implantação.
 
 ## Estado atual
-Protótipo com cadastro/login, sessão JWT, seleção e criação de personagens, quatro classes, ficha do personagem, distribuição de atributos, inventário, equipamentos, drops, cenário isométrico e combate autoritativo com monstros, chefe, XP, níveis, ouro, cura, morte e recuperação. A API persiste personagens, combate e itens no PostgreSQL. O cadastro tenta preservar progresso de visitante antigo quando o identificador local ainda está disponível.
+Protótipo com cadastro/login, sessão JWT, seleção e criação de personagens, quatro classes, ficha do personagem, distribuição de atributos, inventário, equipamentos, drops, cidade medieval isométrica com NPCs interativos, área de combate e combate autoritativo com monstros, chefe, XP, níveis, ouro, cura, morte e recuperação. A API persiste personagens, combate e itens no PostgreSQL. O cadastro tenta preservar progresso de visitante antigo quando o identificador local ainda está disponível.
 
 A autenticação é uma primeira versão: ainda faltam verificação de e-mail, recuperação de senha, proteção anti-abuso mais completa e armazenamento de sessão HttpOnly. O identificador de visitante antigo não é uma identidade segura até ser convertido em uma conta.
 
@@ -140,4 +155,7 @@ A autenticação é uma primeira versão: ainda faltam verificação de e-mail, 
 6. Inventário e equipamentos: itens iniciais, drops, slots, equipar/retirar, bônus de equipamento e persistência (em validação).
 7. Farm ativo e auditoria: processar combate somente com sessão do jogo ativa; encerrar o farm ao fechar/desconectar; tolerar minimização enquanto a conexão permanecer viva; auditar tempo ativo, XP, ouro, drops e transações; testar concorrência, reconexão e reinícios.
 8. Mercado entre jogadores, com transações atômicas, taxas e prevenção de duplicação.
-9. Avaliar RMT somente depois de estabilidade econômica, antifraude e análise jurídica/financeira.
+9. Cidade online compartilhada: WebSocket, presença, sincronização de movimento, canais e chat.
+10. NPC Mestre das Aventuras: seleção de fases e teleporte para regiões.
+11. Grupos e instâncias: farm solo ou em grupo com recompensas individuais validadas no servidor.
+12. Avaliar RMT somente depois de estabilidade econômica, antifraude e análise jurídica/financeira.
