@@ -21,6 +21,7 @@ import { renderCharacterSelector } from './ui/selector';
 import { renderCharacterPanel } from './ui/character-panel';
 import { renderInventoryPanel } from './ui/inventory-panel';
 import './style.css';
+import './city-multiplayer.css';
 
 const MAX_CHARACTERS = 3;
 const uiRoot = document.getElementById('ui-root');
