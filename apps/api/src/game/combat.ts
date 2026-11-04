@@ -4,7 +4,6 @@ import type { CharacterRecord, CombatEvent } from './types.js';
 
 const STEP_SECONDS = 0.2;
 const MAX_EVENTS = 60;
-const RECOVERY_SECONDS = 3;
 const HEAL_ON_KILL_RATIO = 0.2;
 // Limite de progresso offline por sessão. Deve acompanhar /game/config.
 const MAX_SIMULATION_SECONDS = 8 * 60 * 60;
@@ -34,7 +33,7 @@ export function simulateCombat(
   const elapsedRaw = Number.isFinite(lastTickMs) ? (nowMs - lastTickMs) / 1000 : 0;
   const elapsed = Math.min(Math.max(elapsedRaw, 0), maxSeconds);
 
-  if (elapsed <= 0) {
+  if (elapsed <= 0 || record.combat.status === 'dead') {
     return {
       record,
       events,
@@ -57,9 +56,8 @@ export function simulateCombat(
   let monsterHp = Math.min(record.combat.monsterHp, monster.maxHp);
 
   let playerHp = Math.min(Math.max(record.combat.playerHp, 0), stats.maxHp);
-  if (playerHp <= 0) {
-    playerHp = stats.maxHp;
-  }
+  if (playerHp <= 0 && record.combat.status !== 'dead') playerHp = stats.maxHp;
+  let playerMp = Math.min(Math.max(record.combat.playerMp ?? stats.maxMp, 0), stats.maxMp);
 
   let killsInStage = record.combat.killsInStage;
   let bossActive = record.combat.bossActive;
@@ -131,6 +129,9 @@ export function simulateCombat(
           drops.push({ itemId: dropId, quantity: 1 });
           pushEvent({ type: 'item_drop', amount: 1, message: dropId });
         }
+        if (!defeated.isBoss && Math.random() < 0.06) drops.push({ itemId: 'small-potion', quantity: 1 });
+        if (!defeated.isBoss && Math.random() < 0.04) drops.push({ itemId: 'mp-potion', quantity: 1 });
+        if (defeated.isBoss && Math.random() < 0.35) drops.push({ itemId: 'revive-potion', quantity: 1 });
         playerHp = Math.min(stats.maxHp, playerHp + Math.round(stats.maxHp * HEAL_ON_KILL_RATIO));
 
         experience += defeated.experienceReward;
@@ -181,11 +182,11 @@ export function simulateCombat(
       if (playerHp <= 0) {
         playerHp = 0;
         pushEvent({ type: 'player_death', message: classDefinition.name });
-        status = 'recovering';
-        recoveryLeft = RECOVERY_SECONDS;
-        playerHp = stats.maxHp;
+        status = 'dead';
+        recoveryLeft = 0;
         playerCooldown = 0;
         monsterCooldown = 0;
+        break;
       }
     }
   }
@@ -201,6 +202,7 @@ export function simulateCombat(
       monsterId,
       monsterHp: Math.max(1, Math.round(monsterHp)),
       playerHp: Math.max(0, Math.round(playerHp)),
+      playerMp: Math.max(0, Math.round(playerMp)),
       killsInStage,
       bossActive,
       bossDefeated,
