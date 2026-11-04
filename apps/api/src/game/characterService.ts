@@ -5,7 +5,7 @@ import {
 } from './classes.js';
 import type { CharacterRepository } from './characterRepository.js';
 import { simulateCombat } from './combat.js';
-import { STAGE_ONE, getMonster, getStage, nextNormalMonster } from './monsters.js';
+import { STAGE_ONE, STAGES, getMonster, getStage, nextNormalMonster } from './monsters.js';
 import type {
   CharacterClassDefinition, CharacterRecord, CharacterSummary, CombatEvent, CombatSnapshot
 } from './types.js';
@@ -123,8 +123,7 @@ export class CharacterService {
     for (let attempt = 0; attempt < 4; attempt += 1) {
       let record = await this.findOwned(id, playerId);
       if (record.combat.status === 'dead') {
-        let stageExists = true;
-        try { getStage(record.combat.stageId); } catch { stageExists = false; }
+        const stageExists = Object.prototype.hasOwnProperty.call(STAGES, record.combat.stageId);
         const stats = statsForLevel(record.classId, record.level, record.attributes, record.equipmentBonuses);
         const resolved = await this.repository.resolveDeath(id, playerId, stats.maxHp, stats.maxMp, stageExists);
         if (!resolved.record) throw new CharacterError('character_not_found', 404, 'Personagem não encontrado.');
