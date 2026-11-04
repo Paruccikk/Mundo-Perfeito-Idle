@@ -1,0 +1,85 @@
+.city-online {
+  position: fixed;
+  left: 18px;
+  bottom: 18px;
+  z-index: 120;
+  display: flex;
+  flex-direction: column;
+  width: min(340px, calc(100vw - 36px));
+  height: 250px;
+  overflow: hidden;
+  border: 1px solid rgba(204, 173, 112, 0.5);
+  border-radius: 13px;
+  background: linear-gradient(180deg, rgba(17, 29, 39, 0.96), rgba(9, 17, 25, 0.96));
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.38);
+  color: #dce8f2;
+  pointer-events: auto;
+  backdrop-filter: blur(8px);
+}
+.city-online__header {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(204, 173, 112, 0.2);
+  font-size: 12px;
+}
+.city-online__header strong { color: #f4d58d; font-size: 13px; }
+.city-online__status { color: #9db3c5; font-size: 10px; flex: 1; }
+.city-online__count { color: #a9dfb2; font-size: 10px; white-space: nowrap; }
+.city-online__messages {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+  padding: 9px 11px;
+  scrollbar-width: thin;
+}
+.city-online__message {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+  line-height: 1.35;
+}
+.city-online__message strong { color: #f0cf89; flex: 0 0 auto; }
+.city-online__message span { color: #d5e0e9; }
+.city-online__form {
+  display: flex;
+  gap: 7px;
+  padding: 8px;
+  border-top: 1px solid rgba(204, 173, 112, 0.2);
+}
+.city-online__input {
+  min-width: 0;
+  flex: 1;
+  padding: 8px 9px;
+  border: 1px solid #34485a;
+  border-radius: 8px;
+  outline: none;
+  background: #0a1420;
+  color: #edf4fa;
+  font: inherit;
+  font-size: 11px;
+}
+.city-online__input:focus { border-color: #d0ad6e; }
+.city-online__send {
+  border: 1px solid #a17d45;
+  border-radius: 8px;
+  padding: 0 11px;
+  background: #6c522f;
+  color: #fff0cf;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.city-online__send:hover { background: #82643a; }
+@media (max-width: 680px) {
+  .city-online { left: 10px; bottom: 10px; width: min(300px, calc(100vw - 20px)); height: 190px; }
+  .city-online__header { padding: 7px 9px; }
+  .city-online__messages { padding: 6px 8px; }
+  .city-online__form { padding: 6px; }
+}
