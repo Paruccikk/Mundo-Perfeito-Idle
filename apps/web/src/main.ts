@@ -11,6 +11,7 @@ import {
   setAuthSession,
   storeCharacterId
 } from './player';
+import { CityScene } from './scenes/CityScene';
 import { WorldScene } from './scenes/WorldScene';
 import { renderAuthScreen } from './ui/auth';
 import { renderCharacterCreator } from './ui/creator';
@@ -131,7 +132,8 @@ function startGame(character: CharacterSummary): void {
     character,
     onSwitch: openCharacterSelector,
     onCharacter: () => void openCharacterPanel(character.id),
-    onInventory: () => void openInventoryPanel(character.id)
+    onInventory: () => void openInventoryPanel(character.id),
+    onTown: () => game?.scene.start('CityScene')
   });
   const logout = document.createElement('button');
   logout.className = 'account-logout';
@@ -157,7 +159,7 @@ function startGame(character: CharacterSummary): void {
       width: 960,
       height: 600
     },
-    scene: [WorldScene],
+    scene: [CityScene, WorldScene],
     render: { pixelArt: false, antialias: true, roundPixels: false },
     callbacks: {
       preBoot: (instance) => {
