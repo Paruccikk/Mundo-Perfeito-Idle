@@ -14,6 +14,7 @@ export function renderCharacterPanel(
   onAllocate: (allocation: Partial<Record<AttributeKey, number>>) => Promise<CharacterSummary>,
   onClose: () => void
 ): void {
+  root.querySelector('.game-panel-overlay')?.remove();
   const overlay = document.createElement('div');
   overlay.className = 'game-panel-overlay';
   const panel = document.createElement('section');
