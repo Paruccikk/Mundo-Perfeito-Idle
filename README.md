@@ -82,7 +82,7 @@ Cada classe começa com uma distribuição própria de atributos. O jogador rece
 | Inteligência | Dano mágico e defesa mágica |
 | Destreza | Velocidade de ataque e chance de crítico |
 
-O servidor calcula os atributos derivados. O cliente não pode escolher os próprios valores finais nem gastar mais pontos do que possui. Equipamentos podem adicionar atributos ou bônus derivados.
+O servidor calcula os atributos derivados. O cliente não pode escolher os próprios valores finais nem gastar mais pontos do que possui. Equipamentos podem adicionar atributos ou bônus derivados. A mana máxima é calculada a partir da Inteligência e dos bônus de equipamento; habilidades ainda serão implementadas.
 
 - **Guerreiro:** resistência e combate físico.
 - **Mago:** dano mágico.
@@ -91,7 +91,7 @@ O servidor calcula os atributos derivados. O cliente não pode escolher os próp
 
 ## Inventário e equipamentos
 
-O inventário é persistido por personagem. A criação concede um equipamento inicial e três poções de vida. Drops são sorteados no servidor durante abates; materiais possuem pilhas limitadas por maxStack. Equipamentos ocupam slots (arma, cabeça, peitoral, pernas, botas e acessório), podem ser equipados/retirados e seus bônus entram no cálculo de combate. O ledger registra cada drop com uma chave de operação para evitar duplicação.
+O inventário é persistido por personagem. O Conjunto do Aprendiz inclui arma específica por classe, capuz, túnica, calças, botas e anel; todas as peças podem ser equipadas e seus bônus entram no cálculo de combate. A mochila oferece Poção de Vida (80 HP), Poção de Mana (60 MP) e Poção da Ressurreição. Poções de HP/MP são usadas pelo inventário e consumidas somente quando geram efeito. Ao morrer, uma Poção da Ressurreição é consumida automaticamente para retornar à mesma fase com 50% de HP/MP; sem ela, o personagem retorna à Cidade de Valedouro. Personagens existentes recebem o conjunto e os consumíveis pela migration. Drops e consumos são processados no servidor.
 
 ## Cidade medieval
 
@@ -152,7 +152,7 @@ A autenticação é uma primeira versão: ainda faltam verificação de e-mail, 
 3. ~~Combate automático no servidor, chefe, XP, níveis e ouro (atualmente com simulação por intervalo; regra final será apenas farm ativo).~~ ✅
 4. ~~Persistência de personagens e progresso de combate em PostgreSQL.~~ ✅
 5. **Autenticação e contas:** cadastro/login com JWT implementados; concluir verificação de e-mail, recuperação de senha, sessão HttpOnly, rate limiting e testes de autorização.
-6. Inventário e equipamentos: itens iniciais, drops, slots, equipar/retirar, bônus de equipamento e persistência (em validação).
+6. Inventário funcional: armas por classe, Conjunto do Aprendiz, poções de HP/MP e ressurreição com retorno à fase ou cidade (implementado em `dev`; migration e deploy pendentes de validação).
 7. Farm ativo e auditoria: processar combate somente com sessão do jogo ativa; encerrar o farm ao fechar/desconectar; tolerar minimização enquanto a conexão permanecer viva; auditar tempo ativo, XP, ouro, drops e transações; testar concorrência, reconexão e reinícios.
 8. Mercado entre jogadores, com transações atômicas, taxas e prevenção de duplicação.
 9. Cidade online compartilhada (primeira versão): WebSocket autenticado, presença, sincronização de movimento e chat global em uma sala (implementado em `dev`; build e deploy ainda em validação).
