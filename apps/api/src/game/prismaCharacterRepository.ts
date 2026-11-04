@@ -8,7 +8,7 @@ type DbCharacter = {
   experience: bigint; gold: bigint; constitution: number; strength: number;
   intelligence: number; dexterity: number; attributePoints: number;
   currentStageId: string; combat: Prisma.JsonValue; createdAt: Date;
-  equipment?: Array<{ item: { stats: Prisma.JsonValue | null } }>;
+  equipment?: Array<{ item: { id: string; stats: Prisma.JsonValue | null } }>;
 };
 
 export class PrismaCharacterRepository implements CharacterRepository {
@@ -30,7 +30,8 @@ export class PrismaCharacterRepository implements CharacterRepository {
         }
       });
       const weapon = record.classId === 'mage' ? 'apprentice-staff' : record.classId === 'priest' ? 'apprentice-mace' : record.classId === 'archer' ? 'training-bow' : 'training-sword';
-      const starterItems = [[weapon, 1], ['apprentice-hood', 1], ['apprentice-chest', 1], ['apprentice-legs', 1], ['apprentice-boots', 1], ['apprentice-ring', 1], ['small-potion', 5], ['mp-potion', 3], ['revive-potion', 1]] as const;
+      const starterItems: Array<[string, number]> = [[weapon, 1], ['apprentice-hood', 1], ['apprentice-chest', 1], ['apprentice-legs', 1], ['apprentice-boots', 1], ['apprentice-ring', 1], ['small-potion', 5], ['revive-potion', 1]];
+      if (record.classId === 'mage' || record.classId === 'priest') starterItems.push(['mp-potion', 3]);
       await tx.inventoryItem.createMany({ data: starterItems.map(([itemId, quantity]) => ({ characterId: record.id, itemId, quantity })) });
     });
   }
@@ -208,8 +209,9 @@ export class PrismaCharacterRepository implements CharacterRepository {
         else await tx.inventoryItem.update({ where: { id: revive.id }, data: { quantity: { decrement: 1 } } });
       }
       const now = new Date().toISOString();
-      const updatedCombat = { ...combat, playerHp: revive ? Math.max(1, Math.round(maxHp * 0.5)) : maxHp, playerMp: revive ? Math.max(0, Math.round(maxMp * 0.5)) : maxMp, status: 'fighting' as const, recoveringUntil: null, playerCooldownSeconds: 0, monsterCooldownSeconds: 0.5, lastTickAt: now };
-      await tx.character.update({ where: { id: characterId }, data: { combat: updatedCombat as unknown as Prisma.InputJsonValue, lastSimulatedAt: new Date(now) } });
+      const stageId = allowRevive ? combat.stageId : 'clearing-01';
+      const updatedCombat = { ...combat, stageId, monsterId: allowRevive ? combat.monsterId : 'slime', monsterHp: allowRevive ? combat.monsterHp : 45, playerHp: revive ? Math.max(1, Math.round(maxHp * 0.5)) : maxHp, playerMp: revive ? Math.max(0, Math.round(maxMp * 0.5)) : maxMp, status: 'fighting' as const, recoveringUntil: null, playerCooldownSeconds: 0, monsterCooldownSeconds: 0.5, lastTickAt: now };
+      await tx.character.update({ where: { id: characterId }, data: { currentStageId: stageId, combat: updatedCombat as unknown as Prisma.InputJsonValue, lastSimulatedAt: new Date(now) } });
       return !revive;
     }, { maxWait: 10_000, timeout: 20_000 });
     if (returnToCity === null) return { record: null, returnToCity: false };
@@ -234,7 +236,7 @@ function fromDb(row: DbCharacter): CharacterRecord {
   };
 }
 
-function sumEquipmentBonuses(entries: Array<{ item: { stats: Prisma.JsonValue | null } }>): Record<string, number> {
+function sumEquipmentBonuses(entries: Array<{ item: { id: string; stats: Prisma.JsonValue | null } }>): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of entries) {
     const stats = entry.item.stats;
@@ -242,6 +244,14 @@ function sumEquipmentBonuses(entries: Array<{ item: { stats: Prisma.JsonValue | 
     for (const [key, value] of Object.entries(stats)) {
       if (typeof value === 'number' && Number.isFinite(value)) totals[key] = (totals[key] ?? 0) + value;
     }
+  }
+  const equippedIds = new Set(entries.map((entry) => entry.item.id));
+  const apprenticeSet = ['apprentice-hood', 'apprentice-chest', 'apprentice-legs', 'apprentice-boots', 'apprentice-ring'];
+  if (apprenticeSet.every((id) => equippedIds.has(id))) {
+    totals.maxHp = (totals.maxHp ?? 0) + 30;
+    totals.maxMp = (totals.maxMp ?? 0) + 15;
+    totals.physicalDefense = (totals.physicalDefense ?? 0) + 2;
+    totals.magicDefense = (totals.magicDefense ?? 0) + 2;
   }
   return totals;
 }
