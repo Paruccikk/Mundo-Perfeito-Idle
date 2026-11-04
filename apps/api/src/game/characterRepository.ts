@@ -1,10 +1,10 @@
 import type { CharacterRecord } from './types.js';
 
-/**
- * Contrato de persistência de personagens.
- * O save de combate usa o último tick esperado para impedir que duas
- * requisições simultâneas concedam duas vezes as mesmas recompensas offline.
- */
+export interface InventorySnapshot {
+  items: Array<{ id: string; itemId: string; name: string; description: string; rarity: string; category: string; slot: string | null; quantity: number; levelReq: number; stats: Record<string, number> }>;
+  equipment: Array<{ slot: string; item: { id: string; itemId: string; name: string; description: string; rarity: string; category: string; slot: string | null; quantity: number; levelReq: number; stats: Record<string, number> } }>;
+}
+
 export interface CharacterRepository {
   create(record: CharacterRecord): Promise<void>;
   save(record: CharacterRecord, expectedLastTickAt?: string): Promise<boolean>;
@@ -12,13 +12,27 @@ export interface CharacterRepository {
   findByName(playerId: string, nameKey: string): Promise<CharacterRecord | null>;
   listByPlayer(playerId: string): Promise<CharacterRecord[]>;
   countByPlayer(playerId: string): Promise<number>;
+  allocateAttributes(characterId: string, accountId: string, allocation: Record<string, number>): Promise<CharacterRecord | null>;
+  getInventory(characterId: string, accountId: string): Promise<InventorySnapshot | null>;
+  equipItem(characterId: string, accountId: string, inventoryItemId: string): Promise<{ error: string | null }>;
+  addDrop(characterId: string, itemId: string, quantity: number, operationId: string): Promise<void>;
 }
 
 export class MemoryCharacterRepository implements CharacterRepository {
   private readonly characters = new Map<string, CharacterRecord>();
+  private readonly inventory = new Map<string, InventorySnapshot['items']>();
 
   async create(record: CharacterRecord): Promise<void> {
     this.characters.set(record.id, clone(record));
+    this.inventory.set(record.id, [{
+      id: `starter-${record.id}`, itemId: record.classId === 'mage' || record.classId === 'priest' ? 'apprentice-robe' : 'rusty-sword',
+      name: record.classId === 'mage' || record.classId === 'priest' ? 'Manto do Aprendiz' : 'Espada Enferrujada',
+      description: 'Equipamento inicial.', rarity: 'common', category: 'equipment',
+      slot: record.classId === 'mage' || record.classId === 'priest' ? 'chest' : 'weapon',
+      quantity: 1, levelReq: 1, stats: {}
+    }, { id: `potions-${record.id}`, itemId: 'small-potion', name: 'Poção de Vida Pequena',
+      description: 'Poção inicial.', rarity: 'common', category: 'consumable',
+      slot: null, quantity: 3, levelReq: 1, stats: {} }]);
   }
 
   async save(record: CharacterRecord, expectedLastTickAt?: string): Promise<boolean> {
@@ -33,29 +47,70 @@ export class MemoryCharacterRepository implements CharacterRepository {
     return record ? clone(record) : null;
   }
 
-  async findByName(playerId: string, nameKey: string): Promise<CharacterRecord | null> {
-    for (const record of this.characters.values()) {
-      if (record.playerId === playerId && record.nameKey === nameKey) return clone(record);
-    }
+  async findByName(playerId: string, key: string): Promise<CharacterRecord | null> {
+    for (const record of this.characters.values()) if (record.playerId === playerId && record.nameKey === key) return clone(record);
     return null;
   }
 
   async listByPlayer(playerId: string): Promise<CharacterRecord[]> {
-    return [...this.characters.values()]
-      .filter((record) => record.playerId === playerId)
-      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
-      .map(clone);
+    return [...this.characters.values()].filter((record) => record.playerId === playerId)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt)).map(clone);
   }
 
   async countByPlayer(playerId: string): Promise<number> {
-    let count = 0;
-    for (const record of this.characters.values()) {
-      if (record.playerId === playerId) count += 1;
-    }
-    return count;
+    return [...this.characters.values()].filter((record) => record.playerId === playerId).length;
   }
+
+  async allocateAttributes(characterId: string, accountId: string, allocation: Record<string, number>): Promise<CharacterRecord | null> {
+    const record = this.characters.get(characterId);
+    if (!record || record.playerId !== accountId) return null;
+    const keys = ['constitution', 'strength', 'intelligence', 'dexterity'] as const;
+    const total = keys.reduce((sum, key) => sum + (allocation[key] ?? 0), 0);
+    if (total <= 0 || total > record.attributePoints || keys.some((key) => !Number.isInteger(allocation[key] ?? 0) || (allocation[key] ?? 0) < 0)) {
+      throw new Error('invalid_attribute_allocation');
+    }
+    const updated = clone(record);
+    for (const key of keys) updated.attributes[key] += allocation[key] ?? 0;
+    updated.attributePoints -= total;
+    this.characters.set(characterId, updated);
+    return clone(updated);
+  }
+
+  async getInventory(characterId: string, accountId: string): Promise<InventorySnapshot | null> {
+    const record = this.characters.get(characterId);
+    if (!record || record.playerId !== accountId) return null;
+    return { items: (this.inventory.get(characterId) ?? []).map((item) => ({ ...item, stats: { ...item.stats } })), equipment: [] };
+  }
+
+  async equipItem(characterId: string, accountId: string, inventoryItemId: string): Promise<{ error: string | null }> {
+    const record = this.characters.get(characterId);
+    if (!record || record.playerId !== accountId) return { error: 'not_found' };
+    const items = this.inventory.get(characterId) ?? [];
+    const index = items.findIndex((item) => item.id === inventoryItemId && item.slot);
+    if (index < 0) return { error: 'item_not_equippable' };
+    const item = items[index]!;
+    if (record.level < item.levelReq) return { error: 'level_required' };
+    if (item.quantity <= 1) items.splice(index, 1);
+    else item.quantity -= 1;
+    this.inventory.set(characterId, items);
+    return { error: null };
+  }
+
+  async addDrop(characterId: string, itemId: string, quantity: number, operationId: string): Promise<void> {
+    if (this.dropOperations.has(operationId)) return;
+    this.dropOperations.add(operationId);
+    const items = this.inventory.get(characterId) ?? [];
+    const found = items.find((item) => item.itemId === itemId);
+    if (found) found.quantity += quantity;
+    else items.push({ id: `drop-${operationId}`, itemId, name: itemId === 'slime-gel' ? 'Geleia de Slime' : itemId,
+      description: 'Item obtido em combate.', rarity: 'common', category: 'material', slot: null,
+      quantity, levelReq: 1, stats: {} });
+    this.inventory.set(characterId, items);
+  }
+
+  private readonly dropOperations = new Set<string>();
 }
 
 function clone(record: CharacterRecord): CharacterRecord {
-  return { ...record, combat: { ...record.combat } };
+  return { ...record, attributes: { ...record.attributes }, combat: { ...record.combat } };
 }
