@@ -15,6 +15,7 @@ export interface CharacterAttributes {
 
 export interface CombatStats {
   maxHp: number;
+  maxMp: number;
   physicalDamage: number;
   physicalDefense: number;
   magicDamage: number;
@@ -103,7 +104,7 @@ export interface MonsterDefinition {
   sprite: MonsterSpriteId;
 }
 
-export type CombatStatus = 'fighting' | 'recovering';
+export type CombatStatus = 'fighting' | 'recovering' | 'dead';
 
 export type CombatEventType =
   | 'player_hit'
@@ -130,6 +131,8 @@ export interface CombatSnapshot {
     monster: MonsterDefinition & { hp: number };
     playerHp: number;
     playerMaxHp: number;
+    playerMp: number;
+    playerMaxMp: number;
     killsInStage: number;
     killsRequiredForBoss: number;
     bossActive: boolean;
@@ -138,6 +141,7 @@ export interface CombatSnapshot {
   };
   events: CombatEvent[];
   simulatedSeconds: number;
+  returnToCity?: boolean;
 }
 
 export interface ApiErrorBody {
