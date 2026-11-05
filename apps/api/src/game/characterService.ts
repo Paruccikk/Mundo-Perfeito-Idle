@@ -5,7 +5,10 @@ import {
 } from './classes.js';
 import type { CharacterRepository } from './characterRepository.js';
 import { simulateCombat } from './combat.js';
-import { STAGE_ONE, STAGES, getMonster, getStage, nextNormalMonster } from './monsters.js';
+import {
+  STAGE_ONE, STAGES, getMonster, getStage, isStageUnlocked, nextNormalMonster, stageCatalog,
+  type StageCatalog
+} from './monsters.js';
 import type {
   CharacterClassDefinition, CharacterRecord, CharacterSummary, CombatEvent, CombatSnapshot
 } from './types.js';
@@ -27,6 +30,53 @@ export class CharacterService {
 
   listClasses(): CharacterClassDefinition[] {
     return CHARACTER_CLASS_IDS.map((id) => CLASS_DEFINITIONS[id]);
+  }
+
+  listStages(): StageCatalog {
+    return stageCatalog();
+  }
+
+  async travel(id: string, playerId: unknown, stageId: string): Promise<CombatSnapshot> {
+    assertPlayerId(playerId);
+    const stage = STAGES[stageId];
+    if (!stage) throw new CharacterError('stage_not_found', 404, 'Essa fase não existe nos mapas do reino.');
+    let record = await this.findOwned(id, playerId);
+    if (record.combat.status === 'dead') {
+      throw new CharacterError('character_dead', 400, 'Seu personagem foi derrotado. Ressuscite antes de viajar.');
+    }
+    if (!isStageUnlocked(stage, record.level)) {
+      throw new CharacterError('stage_locked', 403,
+        `Esta fase recomenda nível ${stage.recommendedLevel}. Continue treinando para desbloqueá-la.`);
+    }
+    if (record.combat.stageId === stage.id) {
+      return toCombatSnapshot(record, [], 0);
+    }
+
+    // Consolida o combate pendente antes de trocar de fase, para que a viagem
+    // não descarte XP, ouro ou drops acumulados desde o último tick.
+    const simulation = simulateCombat(record, Date.now());
+    if (simulation.simulatedSeconds > 0) {
+      const drops = simulation.drops.map((drop, index) => ({
+        ...drop,
+        operationId: `drop:${id}:${record.combat.lastTickAt}:${index}`
+      }));
+      await this.repository.save(simulation.record, record.combat.lastTickAt, drops);
+      record = await this.findOwned(id, playerId);
+    }
+    if (record.combat.status === 'dead') {
+      throw new CharacterError('character_dead', 400, 'Seu personagem foi derrotado durante o combate. Ressuscite antes de viajar.');
+    }
+    if (!isStageUnlocked(stage, record.level)) {
+      throw new CharacterError('stage_locked', 403,
+        `Esta fase recomenda nível ${stage.recommendedLevel}. Continue treinando para desbloqueá-la.`);
+    }
+    if (record.combat.stageId === stage.id) {
+      return toCombatSnapshot(record, [], 0);
+    }
+
+    const updated = await this.repository.travel(id, playerId, stage.id);
+    if (!updated) throw new CharacterError('character_not_found', 404, 'Personagem não encontrado.');
+    return toCombatSnapshot(updated, [], 0);
   }
 
   async createCharacter(payload: CreateCharacterPayload): Promise<CharacterSummary> {
@@ -168,17 +218,18 @@ export function toCombatSnapshot(record: CharacterRecord, events: CombatEvent[],
   const summary = toSummary(record);
   const stage = getStage(record.combat.stageId);
   const monster = getMonster(record.combat.monsterId);
-  return {
-    character: summary,
-    combat: {
-      stageId: stage.id, stageName: stage.name, monster: { ...monster, hp: Math.max(0, record.combat.monsterHp) },
-      playerHp: Math.max(0, record.combat.playerHp), playerMaxHp: summary.stats.maxHp,
-      playerMp: Math.max(0, record.combat.playerMp ?? summary.stats.maxMp), playerMaxMp: summary.stats.maxMp,
-      killsInStage: record.combat.killsInStage, killsRequiredForBoss: stage.killsRequiredForBoss,
-      bossActive: record.combat.bossActive, bossDefeated: record.combat.bossDefeated, status: record.combat.status
-    },
-    events, simulatedSeconds
-  };
+    return {
+      character: summary,
+      combat: {
+        stageId: stage.id, stageName: stage.name, stage,
+        monster: { ...monster, hp: Math.max(0, record.combat.monsterHp) },
+        playerHp: Math.max(0, record.combat.playerHp), playerMaxHp: summary.stats.maxHp,
+        playerMp: Math.max(0, record.combat.playerMp ?? summary.stats.maxMp), playerMaxMp: summary.stats.maxMp,
+        killsInStage: record.combat.killsInStage, killsRequiredForBoss: stage.killsRequiredForBoss,
+        bossActive: record.combat.bossActive, bossDefeated: record.combat.bossDefeated, status: record.combat.status
+      },
+      events, simulatedSeconds
+    };
 }
 
 function assertPlayerId(playerId: unknown): asserts playerId is string {

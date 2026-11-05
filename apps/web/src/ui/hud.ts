@@ -3,6 +3,7 @@ import type {
   CharacterSummary,
   CombatSnapshot
 } from '@mundo-perfeito/shared';
+import { isAudioMuted, sfxClick, toggleAudioMuted } from '../audio';
 
 export type HudConnectionState = 'connecting' | 'online' | 'offline';
 export type HudFeedTone = 'normal' | 'gold' | 'danger' | 'boss';
@@ -14,6 +15,7 @@ export interface GameHudOptions {
   onCharacter: () => void;
   onInventory: () => void;
   onTown: () => void;
+  onMap: () => void;
 }
 
 export interface GameHud {
@@ -33,7 +35,7 @@ const CLASS_GLYPHS: Record<CharacterClassId, string> = {
 };
 
 export function createGameHud(root: HTMLElement, options: GameHudOptions): GameHud {
-  const { character, onSwitch, onCharacter, onInventory, onTown } = options;
+  const { character, onSwitch, onCharacter, onInventory, onTown, onMap } = options;
 
   const hud = el('div', 'hud');
   hud.setAttribute('aria-live', 'polite');
@@ -74,7 +76,8 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
   const bossesEl = el('span', 'hud__bosses', 'Chefes: 0');
   stageBottom.append(goldEl, bossesEl);
 
-  stageCard.append(stageNameEl, killsEl, progressTrack, stageBottom);
+  const farmEl = el('span', 'hud__farm', 'Farm: —');
+  stageCard.append(stageNameEl, killsEl, progressTrack, farmEl, stageBottom);
 
   // ---------- Barra do chefe ----------
   const bossBar = el('div', 'hud__boss');
@@ -105,6 +108,12 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
   autoPill.append(el('span', 'hud__auto-dot'), el('span', 'hud__auto-text', 'Combate automático'));
 
   const tools = el('div', 'hud__tools');
+  const mapButton = el('button', 'ghost-button', 'Mapa') as HTMLButtonElement;
+  mapButton.type = 'button';
+  mapButton.addEventListener('click', () => {
+    sfxClick();
+    onMap();
+  });
   const townButton = el('button', 'ghost-button', 'Cidade') as HTMLButtonElement;
   townButton.type = 'button';
   townButton.addEventListener('click', onTown);
@@ -117,7 +126,16 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
   const inventoryButton = el('button', 'ghost-button', 'Inventário') as HTMLButtonElement;
   inventoryButton.type = 'button';
   inventoryButton.addEventListener('click', onInventory);
-  tools.append(townButton, characterButton, inventoryButton, switchButton);
+  const soundButton = el('button', 'ghost-button hud__sound', isAudioMuted() ? 'Som: mudo' : 'Som: ligado') as HTMLButtonElement;
+  soundButton.type = 'button';
+  soundButton.setAttribute('aria-pressed', isAudioMuted() ? 'false' : 'true');
+  soundButton.addEventListener('click', () => {
+    const nowMuted = toggleAudioMuted();
+    soundButton.textContent = nowMuted ? 'Som: mudo' : 'Som: ligado';
+    soundButton.setAttribute('aria-pressed', nowMuted ? 'false' : 'true');
+    if (!nowMuted) sfxClick();
+  });
+  tools.append(mapButton, townButton, characterButton, inventoryButton, switchButton, soundButton);
 
   hud.append(
     playerCard,
@@ -147,9 +165,11 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
     setLocation(name: string, label: string, safeZone = false): void {
       stageNameEl.textContent = name;
       stageEyebrow.textContent = label;
+      hud.classList.toggle('hud--safe', safeZone);
       killsEl.hidden = safeZone;
       progressTrack.hidden = safeZone;
       bossesEl.hidden = safeZone;
+      farmEl.hidden = safeZone;
       bossBar.hidden = safeZone;
       autoPill.hidden = safeZone;
     },
@@ -161,6 +181,9 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
       nameEl.textContent = summary.name;
       metaEl.textContent = `${summary.className} • Nível ${summary.level}`;
       stageNameEl.textContent = combat.stageName;
+      stageEyebrow.textContent = `${combat.stage.region} · Fase ${combat.stage.order + 1}`;
+      farmEl.textContent = `Farm: ${combat.stage.farm.name}`;
+      farmEl.hidden = false;
 
       const hpRatio = clampRatio(combat.playerHp / Math.max(1, combat.playerMaxHp));
       hpBar.fill.style.width = `${hpRatio * 100}%`;

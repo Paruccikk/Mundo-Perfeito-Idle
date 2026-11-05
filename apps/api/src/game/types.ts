@@ -80,7 +80,45 @@ export interface CharacterSummary {
   createdAt: string;
 }
 
-export type MonsterSpriteId = 'slime' | 'boar' | 'wolf' | 'slime-king';
+export type MonsterSpriteId =
+  | 'slime'
+  | 'boar'
+  | 'wolf'
+  | 'slime-king'
+  | 'beast'
+  | 'humanoid'
+  | 'undead'
+  | 'spirit'
+  | 'construct'
+  | 'dragon'
+  | 'demon';
+
+export type MonsterVariant =
+  | 'wolf'
+  | 'boar'
+  | 'bear'
+  | 'spider'
+  | 'scorpion'
+  | 'serpent'
+  | 'yeti'
+  | 'bandit'
+  | 'knight'
+  | 'cultist'
+  | 'mummy'
+  | 'pharaoh'
+  | 'angel'
+  | 'skeleton'
+  | 'ghoul'
+  | 'lich'
+  | 'wraith'
+  | 'elemental'
+  | 'voidling'
+  | 'golem'
+  | 'treant'
+  | 'dragon'
+  | 'hydra'
+  | 'imp'
+  | 'demon';
 
 export interface MonsterDefinition {
   id: string;
@@ -94,6 +132,56 @@ export interface MonsterDefinition {
   goldReward: number;
   isBoss: boolean;
   sprite: MonsterSpriteId;
+  /** Paleta principal do monstro (0xRRGGBB). */
+  tint?: number;
+  /** Cor de detalhe, olhos, magia ou armadura. */
+  accent?: number;
+  /** Aparência específica dentro do arquétipo. */
+  variant?: MonsterVariant;
+  /** Multiplicador visual do ator. */
+  visualScale?: number;
+  /** Material de farm garantido pela fase. */
+  materialId?: string;
+  /** Chance de o material cair em cada abate. */
+  dropChance?: number;
+  /** Troféu de chefe. */
+  trophyId?: string;
+}
+
+export type EnvironmentId =
+  | 'forest'
+  | 'ruins'
+  | 'swamp'
+  | 'desert'
+  | 'ice'
+  | 'volcano'
+  | 'abyss'
+  | 'sky'
+  | 'void'
+  | 'legend';
+
+export interface StageFarm {
+  itemId: string;
+  name: string;
+  description: string;
+  rarity: string;
+}
+
+export interface StageDefinition {
+  id: string;
+  name: string;
+  region: string;
+  regionId: string;
+  description: string;
+  recommendedLevel: number;
+  maxRecommendedLevel: number;
+  environment: EnvironmentId;
+  monsterIds: string[];
+  bossId: string;
+  killsRequiredForBoss: number;
+  farm: StageFarm;
+  trophy: StageFarm;
+  order: number;
 }
 
 export type CombatStatus = 'fighting' | 'recovering' | 'dead';
@@ -136,6 +224,7 @@ export interface CombatSnapshot {
   combat: {
     stageId: string;
     stageName: string;
+    stage: StageDefinition;
     monster: MonsterDefinition & { hp: number };
     playerHp: number;
     playerMaxHp: number;
@@ -170,4 +259,3 @@ export interface CharacterRecord {
   combat: CombatStateRecord;
   createdAt: string;
 }
-

@@ -1,11 +1,13 @@
 import Phaser from 'phaser';
-import type { CharacterClassId, CharacterSummary } from '@mundo-perfeito/shared';
+import type { CharacterClassId, CharacterSummary, CombatSnapshot } from '@mundo-perfeito/shared';
 import type { GameHud } from '../ui/hud';
-import { PlayerAvatar } from './actors';
+import { HorseView, PlayerAvatar } from './actors';
 import { API_BASE_URL } from '../api';
 import { getAuthToken } from '../player';
+import { sfxClick } from '../audio';
+import { closeStageMap, openStageMap } from '../ui/stage-map';
 
-const FONT = '"Trebuchet MS", "Segoe UI", sans-serif';
+const FONT = '"Cinzel", "MedievalSharp", Georgia, "Times New Roman", serif';
 const TILE_W = 96;
 const TILE_H = 48;
 
@@ -68,6 +70,8 @@ export class CityScene extends Phaser.Scene {
   private lastSyncAt = 0;
   private lastSentX = -9999;
   private lastSentY = -9999;
+  private stableHorses: HorseView[] = [];
+  private mountedPatrol: HorseView | null = null;
 
   constructor() {
     super('CityScene');
@@ -426,6 +430,8 @@ export class CityScene extends Phaser.Scene {
     this.buildTrees();
     this.buildBarrels(-390, 145);
     this.buildBarrels(390, 10);
+    this.buildStable(-270, 192);
+    this.buildBanners();
   }
 
   private addBuilding(x: number, y: number, scale: number, wallColor: number, roofColor: number, sign: string): void {
@@ -548,6 +554,130 @@ export class CityScene extends Phaser.Scene {
     this.world.add(barrels);
   }
 
+  private buildStable(x: number, y: number): void {
+    const stable = this.add.container(x, y).setDepth(80 + y);
+    const g = this.add.graphics();
+    g.fillStyle(0x08110e, 0.35);
+    g.fillEllipse(0, 14, 310, 74);
+
+    // Estrutura de madeira e telhado de palha.
+    g.fillStyle(0x3c2a1e, 1);
+    for (const px of [-132, -46, 46, 132]) {
+      g.fillRoundedRect(px - 5, -88, 10, 96, 3);
+    }
+    g.fillStyle(0x5a4027, 1);
+    g.fillRect(-140, -92, 280, 8);
+    g.fillStyle(0x8a6a3e, 1);
+    g.fillPoints([{ x: -154, y: -92 }, { x: 0, y: -146 }, { x: 154, y: -92 }], true);
+    g.lineStyle(3, 0x3c2a1e, 1);
+    g.strokePoints([{ x: -154, y: -92 }, { x: 0, y: -146 }, { x: 154, y: -92 }], true);
+    g.lineStyle(2, 0x6b4f2c, 0.7);
+    for (let i = -3; i <= 3; i += 1) {
+      g.lineBetween(i * 38, -92 - Math.abs(i) * 2, i * 18, -140 + Math.abs(i) * 15);
+    }
+
+    // Baias, feno e cocho.
+    g.fillStyle(0x4a3524, 1);
+    g.fillRect(-132, -70, 264, 62);
+    g.lineStyle(2, 0x2a1d14, 1);
+    for (let i = -1; i <= 1; i += 1) {
+      g.lineBetween(i * 88, -70, i * 88, -8);
+    }
+    g.fillStyle(0xd9b96a, 1);
+    g.fillRoundedRect(-116, -24, 42, 24, 6);
+    g.fillRoundedRect(74, -26, 44, 26, 6);
+    g.lineStyle(1.5, 0x9a7a3c, 0.8);
+    for (let i = 0; i < 5; i += 1) {
+      g.lineBetween(-116, -20 + i * 4, -74, -22 + i * 4);
+    }
+    g.fillStyle(0x5c4a33, 1);
+    g.fillRoundedRect(-8, -18, 46, 14, 4);
+    g.fillStyle(0x3c7a8a, 0.9);
+    g.fillRoundedRect(-5, -16, 40, 8, 3);
+    stable.add(g);
+
+    const plaque = this.add.text(0, -158, 'ESTÁBULO DE VALEDOURO', {
+      fontFamily: FONT, fontSize: '11px', fontStyle: 'bold', color: '#f6dfaa',
+      stroke: '#35271f', strokeThickness: 4, letterSpacing: 1
+    }).setOrigin(0.5);
+    stable.add(plaque);
+    this.world.add(stable);
+
+    const horseSpecs: Array<{ x: number; y: number; color: number; mane: number; saddle: number; scale: number }> = [
+      { x: -76, y: 8, color: 0x8a5a32, mane: 0x2c1d12, saddle: 0x8a3b42, scale: 0.82 },
+      { x: 196, y: 10, color: 0x3f3a34, mane: 0x15120f, saddle: 0x3b5c8a, scale: 0.78 },
+      { x: 274, y: 44, color: 0xc9b48c, mane: 0x6b5a42, saddle: 0x5c3b6e, scale: 0.74 }
+    ];
+    for (const spec of horseSpecs) {
+      const horse = new HorseView(this, x + spec.x, y + spec.y, {
+        color: spec.color, mane: spec.mane, saddle: spec.saddle, scale: spec.scale
+      });
+      horse.setFacing(-1);
+      horse.root.setDepth(100 + y + spec.y);
+      this.world.add(horse.root);
+      this.stableHorses.push(horse);
+    }
+
+    const patrol = new HorseView(this, x - 20, y + 96, {
+      color: 0x4a3a2c,
+      mane: 0x1c140e,
+      saddle: 0x8a3b42,
+      scale: 0.9,
+      rider: true,
+      riderColor: 0x8794a8,
+      riderAccent: 0x9b2f35
+    });
+    patrol.root.setDepth(100 + y + 96);
+    this.world.add(patrol.root);
+    this.mountedPatrol = patrol;
+    this.startMountedPatrol(patrol, x - 250, x + 330, y + 96);
+  }
+
+  private startMountedPatrol(horse: HorseView, fromX: number, toX: number, y: number): void {
+    if (!this.alive) return;
+    horse.walkTo(toX, y, 9500);
+    this.time.delayedCall(9800, () => {
+      if (!this.alive) return;
+      horse.walkTo(fromX, y, 9500);
+      this.time.delayedCall(9800, () => this.startMountedPatrol(horse, fromX, toX, y));
+    });
+  }
+
+  private buildBanners(): void {
+    const spots: Array<[number, number, number]> = [
+      [-92, -366, 0x8a3b42],
+      [92, -366, 0x8a3b42],
+      [-444, -210, 0x3b5c8a],
+      [444, -210, 0x3b5c8a]
+    ];
+    for (const [x, y, color] of spots) {
+      const banner = this.add.container(x, y).setDepth(120 + y);
+      const g = this.add.graphics();
+      g.fillStyle(0x3a2a1e, 1);
+      g.fillRoundedRect(-3, -108, 6, 112, 2);
+      g.fillStyle(color, 1);
+      g.lineStyle(2, 0x2a1416, 1);
+      g.fillPoints([
+        { x: 3, y: -102 }, { x: 46, y: -102 }, { x: 46, y: -44 },
+        { x: 24, y: -56 }, { x: 3, y: -44 }
+      ], true);
+      g.fillStyle(0xe7c168, 1);
+      g.fillCircle(24, -76, 7);
+      g.fillStyle(0x2a1416, 1);
+      g.fillCircle(24, -76, 3);
+      banner.add(g);
+      this.world.add(banner);
+      this.tweens.add({
+        targets: banner,
+        angle: { from: -0.7, to: 0.7 },
+        duration: Phaser.Math.Between(2400, 3600),
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+      });
+    }
+  }
+
   private buildPlayer(): void {
     this.avatar = new PlayerAvatar(this, this.character.classId, -45, 105);
     this.avatar.root.setDepth(405);
@@ -621,6 +751,7 @@ export class CityScene extends Phaser.Scene {
 
   private openNpc(npc: NpcDefinition): void {
     this.closeDialogue();
+    sfxClick();
     const panel = this.add.container(this.scale.width / 2, this.scale.height - 118).setScrollFactor(0).setDepth(5000);
     const bg = this.add.rectangle(0, 0, Math.min(560, this.scale.width - 28), 150, 0x101b25, 0.96).setStrokeStyle(2, npc.accent, 0.9);
     const heading = this.add.text(-bg.width / 2 + 18, -55, npc.name + ' — ' + npc.title, {
@@ -632,15 +763,24 @@ export class CityScene extends Phaser.Scene {
     panel.add([bg, heading, message]);
 
     if (npc.id === 'adventurer') {
-      const action = this.add.text(-bg.width / 2 + 18, 43, '▶  Entrar na Clareira dos Aprendizes', {
+      const action = this.add.text(-bg.width / 2 + 18, 43, '▶  Abrir o mapa do reino', {
         fontFamily: FONT, fontSize: '13px', fontStyle: 'bold', color: '#9fe0a8',
         backgroundColor: '#244b39', padding: { x: 12, y: 8 }
       }).setInteractive({ useHandCursor: true });
       action.on('pointerdown', (_pointer: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
         event.stopPropagation();
         this.closeDialogue();
-        this.hud?.pushFeed('Você partiu para a Clareira dos Aprendizes.', 'gold');
-        this.scene.start('WorldScene');
+        sfxClick();
+        openStageMap({
+          character: this.character,
+          currentStageId: this.character.currentStageId,
+          onTravel: (snapshot: CombatSnapshot) => {
+            this.registry.set('character', snapshot.character);
+            this.registry.set('travelSnapshot', snapshot);
+            this.hud?.pushFeed(`Você partiu para ${snapshot.combat.stageName}.`, 'gold');
+            this.scene.start('WorldScene');
+          }
+        });
       });
       panel.add(action);
     } else {
@@ -675,7 +815,10 @@ export class CityScene extends Phaser.Scene {
     this.scale.off(Phaser.Scale.Events.RESIZE, this.handleResize, this);
     this.input.off('pointerdown', this.handleGroundClick, this);
     this.closeDialogue();
+    closeStageMap();
     this.npcAvatars = [];
+    this.stableHorses = [];
+    this.mountedPatrol = null;
     this.citySocket?.close(1000, 'Saindo da cidade');
     this.citySocket = null;
     this.clearRemotePlayers();

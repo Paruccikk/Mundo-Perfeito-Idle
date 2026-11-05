@@ -78,8 +78,86 @@
 }
 .city-online__send:hover { background: #82643a; }
 @media (max-width: 680px) {
-  .city-online { left: 10px; bottom: 10px; width: min(300px, calc(100vw - 20px)); height: 190px; }
+  .city-online { left: 10px; bottom: 100px; width: min(300px, calc(100vw - 20px)); height: 170px; }
   .city-online__header { padding: 7px 9px; }
   .city-online__messages { padding: 6px 8px; }
   .city-online__form { padding: 6px; }
+}
+
+/* Tema medieval */
+.city-online {
+  border: 1px solid rgba(232, 200, 119, 0.42);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(255, 235, 190, 0.045), transparent 26%),
+    linear-gradient(180deg, rgba(36, 26, 16, 0.96), rgba(11, 8, 6, 0.97));
+  color: #d8c8aa;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 235, 190, 0.04);
+  font-family: 'Cinzel', Georgia, 'Times New Roman', serif;
+}
+
+.city-online__header {
+  border-bottom: 1px solid rgba(232, 200, 119, 0.18);
+}
+
+.city-online__header strong {
+  color: #f0d596;
+  font-family: 'MedievalSharp', 'Cinzel', Georgia, serif;
+  font-size: 14px;
+  letter-spacing: 0.03em;
+}
+
+.city-online__status {
+  color: #a08b6c;
+  font-size: 9px;
+}
+
+.city-online__count {
+  color: #b9d6a2;
+  font-size: 9px;
+}
+
+.city-online__message {
+  font-size: 10.5px;
+}
+
+.city-online__message strong {
+  color: #e8c877;
+}
+
+.city-online__message span {
+  color: #d3c2a1;
+}
+
+.city-online__form {
+  border-top: 1px solid rgba(232, 200, 119, 0.18);
+}
+
+.city-online__input {
+  border: 1px solid #4a3826;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #120d09, #0a0705);
+  color: #efe2c6;
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 10.5px;
+}
+
+.city-online__input:focus {
+  border-color: #e8c877;
+}
+
+.city-online__send {
+  border: 1px solid rgba(255, 232, 170, 0.5);
+  border-radius: 6px;
+  background: linear-gradient(180deg, #e8c877, #a97b3d);
+  color: #2a1a08;
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.city-online__send:hover {
+  background: linear-gradient(180deg, #f5d98d, #b98a46);
 }

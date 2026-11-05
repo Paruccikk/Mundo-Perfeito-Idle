@@ -9,10 +9,16 @@ O repositório inclui um Blueprint em `render.yaml` para os serviços:
 1. Entre em https://dashboard.render.com/ e conecte sua conta GitHub.
 2. Escolha **New > Blueprint**.
 3. Selecione o repositório `Paruccikk/Mundo-Perfeito-Idle`.
-4. Selecione a branch `dev` para testar as mudanças antes de integrá-las à `main`.
+4. Selecione a branch que o Render deve acompanhar: `main` para produção ou `dev` para testes.
 5. Aguarde os deploys e teste:
    - API: `https://mundo-perfeito-api.onrender.com/health`
    - Cliente: https://mundo-perfeito-web.onrender.com
+
+## Branches e promoção
+
+- `main` é a branch de produção; `dev` é a de integração.
+- Mantenha as duas sincronizadas por fast-forward antes de publicar. Assim, qualquer branch configurada no Render entrega o mesmo estado e uma promoção de `dev` para `main` não regride funcionalidades.
+- Fluxo recomendado: validar em `dev` → sincronizar `main` com `dev` → push das duas branches → confirmar `/health` e o deploy do cliente.
 
 ## PostgreSQL de teste
 

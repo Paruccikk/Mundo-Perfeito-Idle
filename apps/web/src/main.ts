@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
-import type { CharacterSummary } from '@mundo-perfeito/shared';
+import type { CharacterSummary, CombatSnapshot } from '@mundo-perfeito/shared';
 import { ApiError, api } from './api';
+import { sfxClick, sfxInventory, startMusic, stopMusic } from './audio';
 import {
   clearAuthSession,
   clearStoredCharacterId,
@@ -20,6 +21,7 @@ import { renderFatalError, renderLoading } from './ui/screens';
 import { renderCharacterSelector } from './ui/selector';
 import { renderCharacterPanel } from './ui/character-panel';
 import { renderInventoryPanel } from './ui/inventory-panel';
+import { closeStageMap, openStageMap } from './ui/stage-map';
 import './style.css';
 import './city-multiplayer.css';
 
@@ -37,6 +39,8 @@ function showAuthentication(): void {
   game = null;
   hud?.destroy();
   hud = null;
+  closeStageMap();
+  stopMusic();
   renderAuthScreen(root, async (mode, email, password) => {
     const session = mode === 'register'
       ? await api.register(email, password, getLegacyPlayerId())
@@ -134,7 +138,8 @@ function startGame(character: CharacterSummary): void {
     onSwitch: openCharacterSelector,
     onCharacter: () => void openCharacterPanel(character.id),
     onInventory: () => void openInventoryPanel(character.id),
-    onTown: () => game?.scene.start('CityScene')
+    onTown: () => game?.scene.start('CityScene'),
+    onMap: openWorldMap
   });
   const logout = document.createElement('button');
   logout.className = 'account-logout';
@@ -146,6 +151,8 @@ function startGame(character: CharacterSummary): void {
     game = null;
     hud?.destroy();
     hud = null;
+    closeStageMap();
+    stopMusic();
     void bootstrap();
   });
   root.append(logout);
@@ -171,11 +178,31 @@ function startGame(character: CharacterSummary): void {
     }
   };
   game = new Phaser.Game(config);
+  startMusic();
+}
+
+function openWorldMap(): void {
+  const current = (game?.registry.get('character') as CharacterSummary | undefined);
+  if (!current) return;
+  openStageMap({
+    character: current,
+    currentStageId: current.currentStageId,
+    onTravel: enterWorld
+  });
+}
+
+function enterWorld(snapshot: CombatSnapshot): void {
+  if (!game) return;
+  game.registry.set('character', snapshot.character);
+  game.registry.set('travelSnapshot', snapshot);
+  game.scene.start('WorldScene');
+  sfxClick();
 }
 
 
 async function openCharacterPanel(characterId: string): Promise<void> {
   closeGamePanel();
+  sfxInventory();
   try {
     const character = await api.getCharacter(characterId);
     renderCharacterPanel(root, character, async (allocation) => {
@@ -188,6 +215,7 @@ async function openCharacterPanel(characterId: string): Promise<void> {
 
 async function openInventoryPanel(characterId: string): Promise<void> {
   closeGamePanel();
+  sfxInventory();
   try {
     const inventory = await api.getInventory(characterId);
     renderInventoryPanel(root, inventory, (itemId) => api.equipItem(characterId, itemId), (slot) => api.unequipItem(characterId, slot), (itemId) => api.useItem(characterId, itemId), closeGamePanel);
@@ -205,6 +233,8 @@ function openCharacterSelector(): void {
   game = null;
   hud?.destroy();
   hud = null;
+  closeStageMap();
+  stopMusic();
   void showCharacterSelector();
 }
 

@@ -1,7 +1,7 @@
 {
   "name": "@mundo-perfeito/api",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.5.0",
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",

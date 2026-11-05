@@ -1,10 +1,15 @@
 import { ATTRIBUTE_POINTS_PER_LEVEL, CLASS_DEFINITIONS, MAX_LEVEL, experienceToNextLevel, statsForLevel } from './classes.js';
-import { getMonster, getStage, nextNormalMonster } from './monsters.js';
+import { MATERIAL_ITEMS, TROPHY_ITEMS, getMonster, getStage, nextNormalMonster } from './monsters.js';
 import type { CharacterRecord, CombatEvent } from './types.js';
 
 const STEP_SECONDS = 0.2;
 const MAX_EVENTS = 60;
 const HEAL_ON_KILL_RATIO = 0.2;
+const CONSUMABLE_NAMES: Record<string, string> = {
+  'small-potion': 'Poção de Vida Pequena',
+  'mp-potion': 'Poção de Mana Pequena',
+  'revive-potion': 'Poção da Ressurreição'
+};
 // Limite de progresso offline por sessão. Deve acompanhar /game/config.
 const MAX_SIMULATION_SECONDS = 8 * 60 * 60;
 
@@ -126,15 +131,18 @@ export function simulateCombat(
         });
 
         gold += defeated.goldReward;
-        if (Math.random() < (defeated.isBoss ? 1 : 0.22)) {
-          const dropId = defeated.id === 'boar' ? 'boar-hide'
-            : defeated.id === 'wolf' ? 'wolf-pelt' : 'slime-gel';
-          drops.push({ itemId: dropId, quantity: 1 });
-          pushEvent({ type: 'item_drop', amount: 1, message: dropId });
+        const pushDrop = (itemId: string, quantity = 1): void => {
+          drops.push({ itemId, quantity });
+          const definition = MATERIAL_ITEMS[itemId] ?? TROPHY_ITEMS[itemId];
+          pushEvent({ type: 'item_drop', amount: quantity, message: definition?.name ?? CONSUMABLE_NAMES[itemId] ?? itemId });
+        };
+        if (defeated.materialId && Math.random() < (defeated.dropChance ?? (defeated.isBoss ? 1 : 0.22))) {
+          pushDrop(defeated.materialId);
         }
-        if (!defeated.isBoss && Math.random() < 0.06) drops.push({ itemId: 'small-potion', quantity: 1 });
-        if ((record.classId === 'mage' || record.classId === 'priest') && !defeated.isBoss && Math.random() < 0.04) drops.push({ itemId: 'mp-potion', quantity: 1 });
-        if (defeated.isBoss && Math.random() < 0.35) drops.push({ itemId: 'revive-potion', quantity: 1 });
+        if (defeated.trophyId) pushDrop(defeated.trophyId);
+        if (!defeated.isBoss && Math.random() < 0.06) pushDrop('small-potion');
+        if ((record.classId === 'mage' || record.classId === 'priest') && !defeated.isBoss && Math.random() < 0.04) pushDrop('mp-potion');
+        if (defeated.isBoss && Math.random() < 0.35) pushDrop('revive-potion');
         playerHp = Math.min(stats.maxHp, playerHp + Math.round(stats.maxHp * HEAL_ON_KILL_RATIO));
 
         experience += defeated.experienceReward;
@@ -153,17 +161,16 @@ export function simulateCombat(
           bossDefeated += 1;
           killsInStage = 0;
           pushEvent({ type: 'boss_defeated', message: defeated.name });
+          monsterId = nextNormalMonster(stage, 0);
         } else {
           killsInStage += 1;
           if (killsInStage >= stage.killsRequiredForBoss) {
             bossActive = true;
             monsterId = stage.bossId;
             pushEvent({ type: 'boss_spawn', message: getMonster(stage.bossId).name });
+          } else {
+            monsterId = nextNormalMonster(stage, killsInStage);
           }
-        }
-
-        if (!bossActive) {
-          monsterId = nextNormalMonster(stage, killsInStage);
         }
 
         monster = getMonster(monsterId);
@@ -201,8 +208,9 @@ export function simulateCombat(
     attributePoints,
     experience,
     gold,
+    currentStageId: stage.id,
     combat: {
-      stageId: record.combat.stageId,
+      stageId: stage.id,
       monsterId,
       monsterHp: Math.max(1, Math.round(monsterHp)),
       playerHp: Math.max(0, Math.round(playerHp)),

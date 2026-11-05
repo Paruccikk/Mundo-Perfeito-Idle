@@ -1,4 +1,19 @@
 import type { CharacterRecord } from './types.js';
+import {
+  DEFAULT_STAGE_ID, MATERIAL_ITEMS, TROPHY_ITEMS, getMonster, getStage, nextNormalMonster
+} from './monsters.js';
+
+const LEGACY_DROP_NAMES: Record<string, string> = {
+  'slime-gel': 'Geleia de Slime',
+  'boar-hide': 'Couro de Javali',
+  'wolf-pelt': 'Pele de Lobo'
+};
+
+const CONSUMABLE_DROPS: Record<string, { name: string; description: string; rarity: string }> = {
+  'small-potion': { name: 'Poção de Vida Pequena', description: 'Recupera 80 pontos de HP.', rarity: 'common' },
+  'mp-potion': { name: 'Poção de Mana Pequena', description: 'Recupera 60 pontos de MP.', rarity: 'common' },
+  'revive-potion': { name: 'Poção da Ressurreição', description: 'Ao ser derrotado, revive no mesmo local.', rarity: 'uncommon' }
+};
 
 export interface InventorySnapshot {
   items: Array<{ id: string; itemId: string; name: string; description: string; rarity: string; category: string; slot: string | null; quantity: number; levelReq: number; stats: Record<string, number> }>;
@@ -19,6 +34,7 @@ export interface CharacterRepository {
   addDrop(characterId: string, itemId: string, quantity: number, operationId: string): Promise<void>;
   useItem(characterId: string, accountId: string, inventoryItemId: string, maxHp: number, maxMp: number): Promise<{ error: string | null }>;
   resolveDeath(characterId: string, accountId: string, maxHp: number, maxMp: number, allowRevive: boolean): Promise<{ record: CharacterRecord | null; returnToCity: boolean }>;
+  travel(characterId: string, accountId: string, stageId: string): Promise<CharacterRecord | null>;
 }
 
 export class MemoryCharacterRepository implements CharacterRepository {
@@ -171,11 +187,31 @@ export class MemoryCharacterRepository implements CharacterRepository {
       this.inventory.set(characterId, items);
     }
     const now = new Date().toISOString();
-    const stageId = allowRevive ? record.combat.stageId : 'clearing-01';
+    const stageId = allowRevive ? record.combat.stageId : DEFAULT_STAGE_ID;
+    const fallbackStage = getStage(DEFAULT_STAGE_ID);
+    const fallbackMonsterId = nextNormalMonster(fallbackStage, 0);
+    const fallbackMonster = getMonster(fallbackMonsterId);
     record.currentStageId = stageId;
-    record.combat = { ...record.combat, stageId, monsterId: allowRevive ? record.combat.monsterId : 'slime', monsterHp: allowRevive ? record.combat.monsterHp : 45, playerHp: revive ? Math.max(1, Math.round(maxHp * 0.5)) : maxHp, playerMp: revive ? Math.max(0, Math.round(maxMp * 0.5)) : maxMp, status: 'fighting', recoveringUntil: null, playerCooldownSeconds: 0, monsterCooldownSeconds: 0.5, lastTickAt: now };
+    record.combat = { ...record.combat, stageId, monsterId: allowRevive ? record.combat.monsterId : fallbackMonsterId, monsterHp: allowRevive ? record.combat.monsterHp : fallbackMonster.maxHp, playerHp: revive ? Math.max(1, Math.round(maxHp * 0.5)) : maxHp, playerMp: revive ? Math.max(0, Math.round(maxMp * 0.5)) : maxMp, status: 'fighting', recoveringUntil: null, playerCooldownSeconds: 0, monsterCooldownSeconds: 0.5, lastTickAt: now };
     this.characters.set(characterId, record);
     return { record: withEquipmentBonuses(clone(record), this.equipment.get(characterId) ?? []), returnToCity: !revive };
+  }
+
+  async travel(characterId: string, accountId: string, stageId: string): Promise<CharacterRecord | null> {
+    const record = this.characters.get(characterId);
+    if (!record || record.playerId !== accountId) return null;
+    const stage = getStage(stageId);
+    const monsterId = nextNormalMonster(stage, 0);
+    const monster = getMonster(monsterId);
+    record.currentStageId = stage.id;
+    record.combat = {
+      ...record.combat, stageId: stage.id, monsterId, monsterHp: monster.maxHp,
+      killsInStage: 0, bossActive: false, bossDefeated: 0, status: 'fighting',
+      recoveringUntil: null, playerCooldownSeconds: 0, monsterCooldownSeconds: 0.5,
+      lastTickAt: new Date().toISOString()
+    };
+    this.characters.set(characterId, record);
+    return withEquipmentBonuses(clone(record), this.equipment.get(characterId) ?? []);
   }
 
   async addDrop(characterId: string, itemId: string, quantity: number, operationId: string): Promise<void> {
@@ -184,9 +220,22 @@ export class MemoryCharacterRepository implements CharacterRepository {
     const items = this.inventory.get(characterId) ?? [];
     const found = items.find((item) => item.itemId === itemId);
     if (found) found.quantity += quantity;
-    else items.push({ id: `drop-${operationId}`, itemId, name: itemId === 'slime-gel' ? 'Geleia de Slime' : itemId === 'boar-hide' ? 'Couro de Javali' : itemId === 'wolf-pelt' ? 'Pele de Lobo' : itemId,
-      description: 'Item obtido em combate.', rarity: 'common', category: 'material', slot: null,
-      quantity, levelReq: 1, stats: {} });
+    else {
+      const farm = MATERIAL_ITEMS[itemId] ?? TROPHY_ITEMS[itemId];
+      const consumable = CONSUMABLE_DROPS[itemId];
+      items.push({
+        id: `drop-${operationId}`,
+        itemId,
+        name: farm?.name ?? consumable?.name ?? LEGACY_DROP_NAMES[itemId] ?? itemId,
+        description: farm?.description ?? consumable?.description ?? 'Item obtido em combate.',
+        rarity: farm?.rarity ?? consumable?.rarity ?? 'common',
+        category: farm ? (TROPHY_ITEMS[itemId] ? 'trophy' : 'material') : consumable ? 'consumable' : 'material',
+        slot: null,
+        quantity,
+        levelReq: 1,
+        stats: {}
+      });
+    }
     this.inventory.set(characterId, items);
   }
 

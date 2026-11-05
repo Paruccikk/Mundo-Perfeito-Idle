@@ -47,7 +47,7 @@ await app.register(websocket, { options: { maxPayload: 4096 } });
 app.get('/health', async () => ({
   status: 'ok',
   project: 'mundo-perfeito',
-  version: '0.4.0',
+  version: '0.5.0',
   storage: databaseConfigured ? 'postgres' : 'memory',
   authentication: Boolean(jwtSecret && prisma),
   databaseConfigured,

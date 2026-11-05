@@ -1,6 +1,7 @@
 import { Prisma, PrismaClient } from '@prisma/client';
 import type { CharacterRepository } from './characterRepository.js';
 import type { CharacterRecord } from './types.js';
+import { DEFAULT_STAGE_ID, getMonster, getStage, nextNormalMonster } from './monsters.js';
 
 type DbCharacter = {
   id: string; accountId: string; name: string; nameKey: string; classId: string;
@@ -209,13 +210,44 @@ export class PrismaCharacterRepository implements CharacterRepository {
         else await tx.inventoryItem.update({ where: { id: revive.id }, data: { quantity: { decrement: 1 } } });
       }
       const now = new Date().toISOString();
-      const stageId = allowRevive ? combat.stageId : 'clearing-01';
-      const updatedCombat = { ...combat, stageId, monsterId: allowRevive ? combat.monsterId : 'slime', monsterHp: allowRevive ? combat.monsterHp : 45, playerHp: revive ? Math.max(1, Math.round(maxHp * 0.5)) : maxHp, playerMp: revive ? Math.max(0, Math.round(maxMp * 0.5)) : maxMp, status: 'fighting' as const, recoveringUntil: null, playerCooldownSeconds: 0, monsterCooldownSeconds: 0.5, lastTickAt: now };
+      const stageId = allowRevive ? combat.stageId : DEFAULT_STAGE_ID;
+      const fallbackStage = getStage(DEFAULT_STAGE_ID);
+      const fallbackMonsterId = nextNormalMonster(fallbackStage, 0);
+      const fallbackMonster = getMonster(fallbackMonsterId);
+      const updatedCombat = { ...combat, stageId, monsterId: allowRevive ? combat.monsterId : fallbackMonsterId, monsterHp: allowRevive ? combat.monsterHp : fallbackMonster.maxHp, playerHp: revive ? Math.max(1, Math.round(maxHp * 0.5)) : maxHp, playerMp: revive ? Math.max(0, Math.round(maxMp * 0.5)) : maxMp, status: 'fighting' as const, recoveringUntil: null, playerCooldownSeconds: 0, monsterCooldownSeconds: 0.5, lastTickAt: now };
       await tx.character.update({ where: { id: characterId }, data: { currentStageId: stageId, combat: updatedCombat as unknown as Prisma.InputJsonValue, lastSimulatedAt: new Date(now) } });
       return !revive;
     }, { maxWait: 10_000, timeout: 20_000 });
     if (returnToCity === null) return { record: null, returnToCity: false };
     return { record: await this.findById(characterId), returnToCity };
+  }
+
+  async travel(characterId: string, accountId: string, stageId: string): Promise<CharacterRecord | null> {
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const character = await tx.character.findFirst({ where: { id: characterId, accountId } });
+      if (!character) return false;
+      const stage = getStage(stageId);
+      const monsterId = nextNormalMonster(stage, 0);
+      const monster = getMonster(monsterId);
+      const combat = character.combat as unknown as CharacterRecord['combat'];
+      const now = new Date().toISOString();
+      const updatedCombat = {
+        ...combat, stageId: stage.id, monsterId, monsterHp: monster.maxHp,
+        killsInStage: 0, bossActive: false, bossDefeated: 0, status: 'fighting' as const,
+        recoveringUntil: null, playerCooldownSeconds: 0, monsterCooldownSeconds: 0.5,
+        lastTickAt: now
+      };
+      await tx.character.update({
+        where: { id: characterId },
+        data: {
+          currentStageId: stage.id,
+          combat: updatedCombat as unknown as Prisma.InputJsonValue,
+          lastSimulatedAt: new Date(now)
+        }
+      });
+      return true;
+    }, { maxWait: 10_000, timeout: 20_000 });
+    return updated ? this.findById(characterId) : null;
   }
 
   async addDrop(characterId: string, itemId: string, quantity: number, operationId: string): Promise<void> {

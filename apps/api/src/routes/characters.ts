@@ -17,6 +17,7 @@ export function createCharacterRoutes(repository: CharacterRepository) {
   const service = new CharacterService(repository);
   return async function characterRoutes(app: FastifyInstance): Promise<void> {
     app.get('/api/v1/game/classes', async () => ({ classes: service.listClasses() }));
+    app.get('/api/v1/game/stages', async () => service.listStages());
 
     app.post('/api/v1/characters', { preHandler: authenticate }, async (request, reply) => {
       try {
@@ -38,6 +39,17 @@ export function createCharacterRoutes(repository: CharacterRepository) {
       try {
         const { id } = request.params as { id: string };
         return reply.send(await service.getCombat(id, accountId(request)));
+      } catch (error) { return sendError(reply, error); }
+    });
+
+    app.post('/api/v1/characters/:id/travel', { preHandler: authenticate }, async (request, reply) => {
+      try {
+        const { id } = request.params as { id: string };
+        const body = request.body as { stageId?: unknown } | null;
+        if (!body || typeof body.stageId !== 'string' || body.stageId.length > 64) {
+          throw new CharacterError('validation_error', 400, 'Informe a fase de destino.');
+        }
+        return reply.send(await service.travel(id, accountId(request), body.stageId));
       } catch (error) { return sendError(reply, error); }
     });
 

@@ -5,7 +5,8 @@ import type {
   CharacterSummary,
   CombatSnapshot,
   InventoryItem,
-  EquipmentItem
+  EquipmentItem,
+  StageCatalog
 } from '@mundo-perfeito/shared';
 import { getAuthToken } from './player';
 
@@ -104,6 +105,15 @@ export const api = {
   },
   async getCombat(id: string, _playerId?: string): Promise<CombatSnapshot> {
     return request<CombatSnapshot>(`/api/v1/characters/${encodeURIComponent(id)}/combat`);
+  },
+  async listStages(): Promise<StageCatalog> {
+    return request<StageCatalog>('/api/v1/game/stages');
+  },
+  async travel(id: string, stageId: string): Promise<CombatSnapshot> {
+    return request<CombatSnapshot>(`/api/v1/characters/${encodeURIComponent(id)}/travel`, {
+      method: 'POST',
+      body: { stageId }
+    });
   },
   async allocateAttributes(id: string, allocation: Partial<{ constitution: number; strength: number; intelligence: number; dexterity: number }>): Promise<CharacterSummary> {
     const data = await request<{ character: CharacterSummary }>(`/api/v1/characters/${encodeURIComponent(id)}/attributes`, { method: 'POST', body: allocation });

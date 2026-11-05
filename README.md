@@ -98,11 +98,12 @@ O inventário é persistido por personagem. O Conjunto do Aprendiz inclui arma e
 
 A entrada do personagem agora começa na **Cidade de Valedouro**, uma cena isométrica segura que funciona como hub do mundo. A cidade contém praça central com fonte, ruas de pedra, portal de saída, construções identificadas e NPCs interativos:
 
-- **Alden — Mestre das Aventuras:** abre o diálogo e permite partir para a Clareira dos Aprendizes.
+- **Alden — Mestre das Aventuras:** abre o **Mapa do Reino** e permite viajar entre as fases desbloqueadas.
 - **Brom — Ferreiro:** ponto de referência para o futuro sistema de equipamentos.
 - **Mira — Mercadora:** ponto de referência para lojas e comércio.
 - **Elowen — Alquimista:** ponto de referência para poções e consumíveis.
 - **Tomas — Guardião do Armazém:** ponto de referência para armazenamento.
+- **Estábulo de Valedouro:** cavalos, cavaleiro em patrulha e montaria decorativa “Relâmpago”.
 - **Quadro de Missões:** cenário preparado para futuras missões.
 
 O personagem pode caminhar com WASD/setas ou clicar no chão. Clicar nos NPCs abre seus diálogos. O botão **Cidade** no HUD retorna ao hub a partir da área de combate.
@@ -113,13 +114,16 @@ O personagem pode caminhar com WASD/setas ou clicar no chão. Clicar nos NPCs ab
 
 O cliente consulta `GET /api/v1/characters/:id/combat` periodicamente. O servidor é a autoridade do combate, mas a intenção de design é farmar apenas durante uma sessão ativa com o jogo aberto e conectado. Fechar o jogo encerra o farm; o tempo em que o jogo ficou fechado não deve gerar XP, ouro ou itens. O comportamento atual ainda usa uma janela de simulação de até 8 horas e será substituído por controle de sessão/heartbeat antes de considerar essa regra concluída. Cooldowns de ataque são persistidos para não reiniciar artificialmente a cadência entre chamadas.
 
+- **Mapa do Reino:** 30 fases em 10 regiões (3 por região), cobrindo os níveis 1–100. O botão **Mapa** no HUD e o Alden abrem o mapa; a viagem consolida XP, ouro e drops pendentes antes de trocar de fase.
+- **Fases:** cada uma tem 3 monstros, um chefe, um material de farm e um troféu de região. Fases mais distantes exigem nível próximo ao recomendado.
 - **Fase 1 — Clareira dos Aprendizes:** Slime Verde → Javali Selvagem → Lobo Cinzento.
-- **Chefe:** após 10 abates na fase, aparece o Rei Slime.
+- **Chefe:** após 10–19 abates na fase, aparece o chefe daquela fase. Derrotá-lo concede o troféu da região.
 - **Recompensas por abate:** Slime 10 XP / 4 ouro; Javali 16 XP / 6 ouro; Lobo 20 XP / 8 ouro; Rei Slime 150 XP / 90 ouro.
 - **Cura:** 20% da vida máxima ao derrotar um monstro.
 - **Morte:** usa automaticamente uma Poção da Ressurreição para retornar à mesma fase com metade de HP/MP; sem poção, retorna a Valedouro.
 - **Nível:** XP excedente transfere para o próximo nível e atributos crescem conforme a classe.
 - **Concorrência:** gravação condicional pelo último tick impede que duas requisições processem o mesmo intervalo e dupliquem recompensas.
+- **Áudio:** trilha dórica e efeitos medievais sintetizados no navegador (WebAudio), com botão de som e preferência salva.
 
 ## Persistência PostgreSQL — concluída (Etapa 4)
 
@@ -142,7 +146,7 @@ O arquivo `render.yaml` prepara o cliente e a API. Consulte [docs/DEPLOY_RENDER.
 - `docs`: documentação de design e implantação.
 
 ## Estado atual
-Protótipo com cadastro/login, sessão JWT, seleção e criação de personagens, quatro classes, ficha do personagem, distribuição de atributos, inventário, equipamentos, drops, cidade medieval isométrica com NPCs interativos, área de combate e combate autoritativo com monstros, chefe, XP, níveis, ouro, cura, morte e recuperação. A API persiste personagens, combate e itens no PostgreSQL. O cadastro tenta preservar progresso de visitante antigo quando o identificador local ainda está disponível.
+Protótipo com cadastro/login, sessão JWT, seleção e criação de personagens, quatro classes, ficha do personagem, distribuição de atributos, inventário, equipamentos, drops, cidade medieval isométrica com NPCs interativos, 30 fases em 10 regiões com mapa e viagem, áudio procedural, área de combate e combate autoritativo com monstros, chefes, XP, níveis, ouro, cura, morte e recuperação. A API persiste personagens, combate e itens no PostgreSQL. O cadastro tenta preservar progresso de visitante antigo quando o identificador local ainda está disponível.
 
 A autenticação é uma primeira versão: ainda faltam verificação de e-mail, recuperação de senha, proteção anti-abuso mais completa e armazenamento de sessão HttpOnly. O identificador de visitante antigo não é uma identidade segura até ser convertido em uma conta.
 
@@ -158,6 +162,6 @@ A autenticação é uma primeira versão: ainda faltam verificação de e-mail, 
 8. Mercado entre jogadores, com transações atômicas, taxas e prevenção de duplicação.
 9. Cidade online compartilhada (primeira versão): WebSocket autenticado, presença, sincronização de movimento e chat global em uma sala (implementado em `dev`; build e deploy ainda em validação).
 10. Cidade online escalável: canais, presença distribuída, reconexão e testes de carga.
-11. NPC Mestre das Aventuras: seleção de fases e teleporte para regiões.
+11. ~~NPC Mestre das Aventuras: seleção de fases e teleporte para regiões.~~ ✅
 12. Grupos e instâncias: farm solo ou em grupo com recompensas individuais validadas no servidor.
 13. Avaliar RMT somente depois de estabilidade econômica, antifraude e análise jurídica/financeira.
