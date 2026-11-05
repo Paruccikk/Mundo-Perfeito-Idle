@@ -1146,7 +1146,7 @@ export class WorldScene extends Phaser.Scene {
         levelsGained > 0
           ? `${Math.max(1, Math.round(snapshot.simulatedSeconds))}s de combate · ${levelsGained} nível(is) ganho(s)`
           : `${Math.max(1, Math.round(snapshot.simulatedSeconds))}s de combate automático`;
-      this.hud?.showBanner('Enquanto você estava fora', subtitle, 'gold');
+      this.hud?.showBanner('Combate retomado', subtitle, 'gold');
       return;
     }
 

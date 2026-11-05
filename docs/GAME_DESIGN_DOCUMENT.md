@@ -107,12 +107,12 @@ Antes de qualquer RMT:
 
 Não venderemos itens aleatórios com promessa de retorno financeiro. Não se deve apresentar drops como investimento ou renda garantida.
 
-## 9. Farm offline
-O servidor guarda o último instante de progresso confirmado e a configuração de caça. No retorno, calcula o tempo elegível, aplica um teto configurável e simula lotes de combate.
+## 9. Farm somente com sessão ativa
+O combate automático avança apenas enquanto o cliente está aberto, conectado e consultando o servidor. Fechar o jogo ou perder a conexão encerra o farm; o período fechado não gera XP, ouro ou itens. O servidor guarda o último instante confirmado e tolera até 90 segundos de atraso entre consultas para cobrir reconexões curtas e o throttling de timers em abas minimizadas.
 
 Regras de segurança:
 - Usar horário do servidor, nunca o relógio informado pelo navegador.
-- Definir teto inicial de horas offline por configuração.
+- Não conceder recompensas pelo intervalo em que a sessão ficou inativa.
 - Validar fase, equipamento, capacidade de inventário e sobrevivência.
 - Usar uma chave/idempotency para impedir resgate duplicado.
 - Persistir resumo da simulação e ledger de recompensas em transação.
@@ -162,4 +162,4 @@ Fora do MVP:
 - Combate automático reproduzível.
 - Recompensas calculadas no servidor.
 - Progresso salvo e recuperado.
-- Simulação offline sem duplicação de recompensas.
+- Simulação sem duplicação de recompensas e sem farm após fechar o jogo.

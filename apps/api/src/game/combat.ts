@@ -10,8 +10,9 @@ const CONSUMABLE_NAMES: Record<string, string> = {
   'mp-potion': 'Poção de Mana Pequena',
   'revive-potion': 'Poção da Ressurreição'
 };
-// Limite de progresso offline por sessão. Deve acompanhar /game/config.
-const MAX_SIMULATION_SECONDS = 8 * 60 * 60;
+// O combate só avança enquanto a sessão estiver ativa. A tolerância cobre
+// requisições atrasadas e o throttling de timers em abas minimizadas.
+export const ACTIVE_SESSION_GRACE_SECONDS = 90;
 
 export interface CombatSimulation {
   record: CharacterRecord;
@@ -24,13 +25,14 @@ export interface CombatSimulation {
  * Simula o combate automático do intervalo entre o último tick e `nowMs`.
  *
  * O cliente nunca envia dano, XP ou duração: ele apenas pede o estado, e o
- * servidor avança a simulação pelo tempo do relógio do servidor (limitado por
- * `maxSeconds` para evitar lotes gigantes).
+ * servidor avança a simulação pelo tempo do relógio do servidor. O intervalo
+ * é limitado a `maxSeconds` para que fechar o jogo não gere farm offline:
+ * só há avanço enquanto o cliente continua consultando o servidor.
  */
 export function simulateCombat(
   record: CharacterRecord,
   nowMs: number,
-  maxSeconds = MAX_SIMULATION_SECONDS
+  maxSeconds = ACTIVE_SESSION_GRACE_SECONDS
 ): CombatSimulation {
   const events: CombatEvent[] = [];
   const drops: Array<{ itemId: string; quantity: number }> = [];

@@ -42,7 +42,7 @@ O plano gratuito não tem cobrança mensal, mas o banco expira em 30 dias (03/12
 - A API persiste personagens, classe, nível, XP, ouro, estágio e estado de combate em PostgreSQL quando `DATABASE_URL` está configurada.
 - Se `DATABASE_URL` não estiver configurada, a API inicia em modo de memória para permitir testar o jogo, mas os dados somem quando o processo reinicia.
 - O avanço de combate usa atualização condicional pelo último tick persistido para impedir que requisições simultâneas processem o mesmo intervalo e concedam recompensas duplicadas.
-- O progresso offline é calculado pela API com base no relógio do servidor, limitado a 8 horas por intervalo.
+- O combate só avança enquanto a sessão está ativa. O servidor tolera até 90 segundos de atraso entre consultas para cobrir throttling de abas minimizadas e reconexões curtas; não há farm offline após fechar o jogo.
 - As rotas de personagem agora exigem JWT e usam o ID da conta autenticada. O cadastro tenta vincular o antigo identificador de visitante ao novo cadastro quando ele ainda está no navegador e existe no banco sem e-mail associado.
 - O token JWT do protótipo fica no `localStorage` e expira em 7 dias. Migração para cookie HttpOnly, verificação de e-mail, recuperação de senha e rate limiting ainda são pendências.
 - Não use bens com valor real ou abra RMT nesta fase.

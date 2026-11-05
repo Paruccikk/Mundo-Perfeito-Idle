@@ -4,6 +4,7 @@ import cors from '@fastify/cors';
 import websocket from '@fastify/websocket';
 import jwt from '@fastify/jwt';
 import { PrismaClient } from '@prisma/client';
+import { ACTIVE_SESSION_GRACE_SECONDS } from './game/combat.js';
 import { MemoryCharacterRepository } from './game/characterRepository.js';
 import { PrismaCharacterRepository } from './game/prismaCharacterRepository.js';
 import { createAuthRoutes } from './routes/auth.js';
@@ -47,7 +48,7 @@ await app.register(websocket, { options: { maxPayload: 4096 } });
 app.get('/health', async () => ({
   status: 'ok',
   project: 'mundo-perfeito',
-  version: '0.5.0',
+  version: '0.5.1',
   storage: databaseConfigured ? 'postgres' : 'memory',
   authentication: Boolean(jwtSecret && prisma),
   databaseConfigured,
@@ -58,7 +59,8 @@ app.get('/api/v1/game/config', async () => ({
   title: 'Mundo Perfeito',
   mode: 'idle',
   client: 'web',
-  offlineCapHours: 8,
+  activeSessionOnly: true,
+  activeSessionGraceSeconds: ACTIVE_SESSION_GRACE_SECONDS,
   maxCharactersPerPlayer: 3,
   persistence: databaseConfigured,
   authentication: Boolean(jwtSecret && prisma)

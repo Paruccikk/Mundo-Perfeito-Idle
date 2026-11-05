@@ -112,7 +112,7 @@ O personagem pode caminhar com WASD/setas ou clicar no chão. Clicar nos NPCs ab
 
 ## Combate automático
 
-O cliente consulta `GET /api/v1/characters/:id/combat` periodicamente. O servidor é a autoridade do combate, mas a intenção de design é farmar apenas durante uma sessão ativa com o jogo aberto e conectado. Fechar o jogo encerra o farm; o tempo em que o jogo ficou fechado não deve gerar XP, ouro ou itens. O comportamento atual ainda usa uma janela de simulação de até 8 horas e será substituído por controle de sessão/heartbeat antes de considerar essa regra concluída. Cooldowns de ataque são persistidos para não reiniciar artificialmente a cadência entre chamadas.
+O cliente consulta `GET /api/v1/characters/:id/combat` periodicamente. O servidor é a autoridade do combate e o farm só avança enquanto a sessão estiver ativa: fechar o jogo ou perder a conexão encerra as recompensas. O servidor tolera até 90 segundos de atraso entre consultas para cobrir throttling de abas minimizadas e reconexões curtas. Cooldowns de ataque são persistidos para não reiniciar artificialmente a cadência entre chamadas.
 
 - **Mapa do Reino:** 30 fases em 10 regiões (3 por região), cobrindo os níveis 1–100. O botão **Mapa** no HUD e o Alden abrem o mapa; a viagem consolida XP, ouro e drops pendentes antes de trocar de fase.
 - **Fases:** cada uma tem 3 monstros, um chefe, um material de farm e um troféu de região. Fases mais distantes exigem nível próximo ao recomendado.
@@ -158,7 +158,7 @@ A autenticação é uma primeira versão: ainda faltam verificação de e-mail, 
 4. ~~Persistência de personagens e progresso de combate em PostgreSQL.~~ ✅
 5. **Autenticação e contas:** cadastro/login com JWT implementados; concluir verificação de e-mail, recuperação de senha, sessão HttpOnly, rate limiting e testes de autorização.
 6. Inventário funcional: armas por classe, Conjunto do Aprendiz, poções de HP/MP e ressurreição com retorno à fase ou cidade (implementado em `dev`; migration e deploy pendentes de validação).
-7. Farm ativo e auditoria: processar combate somente com sessão do jogo ativa; encerrar o farm ao fechar/desconectar; tolerar minimização enquanto a conexão permanecer viva; auditar tempo ativo, XP, ouro, drops e transações; testar concorrência, reconexão e reinícios.
+7. ~~Farm ativo: processar combate somente com sessão do jogo ativa, encerrar o farm ao fechar/desconectar e tolerar minimização enquanto a conexão permanecer viva.~~ ✅ A auditoria detalhada de tempo ativo, XP, ouro, drops e transações, com testes de concorrência/reconexão, continua como próximo passo.
 8. Mercado entre jogadores, com transações atômicas, taxas e prevenção de duplicação.
 9. Cidade online compartilhada (primeira versão): WebSocket autenticado, presença, sincronização de movimento e chat global em uma sala (implementado em `dev`; build e deploy ainda em validação).
 10. Cidade online escalável: canais, presença distribuída, reconexão e testes de carga.

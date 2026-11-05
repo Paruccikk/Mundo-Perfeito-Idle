@@ -15,7 +15,7 @@ Node.js + TypeScript + Fastify:
 - regras de combate e progressão;
 - inventário e ledger;
 - mercado futuro;
-- cálculo offline.
+- controle de sessão ativa e combate autoritativo;
 
 ### Dados
 PostgreSQL:
@@ -39,7 +39,7 @@ Redis:
 - Cliente solicita início de caça para uma fase desbloqueada.
 - API valida personagem, equipamento e estágio.
 - Servidor grava estado e timestamp.
-- Ao consultar/retornar, servidor calcula tempo elegível.
+- Ao consultar, servidor calcula apenas o intervalo da sessão ativa, com tolerância curta para reconexão.
 - Simulador gera resultado usando dados do servidor.
 - API grava resumo, XP, drops e ledger numa transação.
 - Cliente recebe o estado atualizado.
