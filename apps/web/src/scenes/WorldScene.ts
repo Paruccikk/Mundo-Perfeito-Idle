@@ -5,6 +5,7 @@ import type {
   CombatSnapshot,
   EnvironmentId,
   MonsterDefinition,
+  StageCatalog,
   StageDefinition
 } from '@mundo-perfeito/shared';
 import { api } from '../api';
@@ -22,7 +23,52 @@ const GRID_COLS = 9;
 const GRID_ROWS = 7;
 
 const PLAYER_HOME = { x: -126, y: 34 };
-const MONSTER_HOME = { x: 132, y: 10 };
+
+// Pontos espalhados pela arena para os monstros de ambiente.
+const AMBIENT_SPOTS = [
+  { x: -318, y: -92 },
+  { x: -212, y: -142 },
+  { x: 24, y: -146 },
+  { x: 252, y: -118 },
+  { x: 356, y: 32 },
+  { x: 236, y: 128 },
+  { x: -18, y: 150 },
+  { x: -236, y: 120 },
+  { x: -388, y: 18 }
+];
+
+// O alvo autoritativo do servidor alterna entre estes pontos centrais.
+const TARGET_SPOTS = [
+  { x: 132, y: 10 },
+  { x: 20, y: -46 },
+  { x: 206, y: -56 },
+  { x: -36, y: 92 },
+  { x: 104, y: 112 }
+];
+
+interface Mob {
+  key: string;
+  serverId?: string;
+  view: MonsterView;
+  homeX: number;
+  homeY: number;
+  isTarget: boolean;
+  dying: boolean;
+  wanderTween: Phaser.Tweens.Tween | null;
+  wanderEvent: Phaser.Time.TimerEvent | null;
+  plate: Phaser.GameObjects.Container | null;
+  plateFill: Phaser.GameObjects.Rectangle | null;
+}
+
+interface CombatAnchor {
+  mob: Mob | null;
+  x: number;
+  y: number;
+  height: number;
+}
+
+let stageCatalogCache: StageCatalog | null = null;
+
 
 type TreeStyle = 'pine' | 'leaf' | 'palm' | 'dead' | 'none';
 type DecorProp = 'rock' | 'crystal' | 'torch' | 'log' | 'pillar' | 'cactus'
@@ -177,11 +223,13 @@ export class WorldScene extends Phaser.Scene {
   private playerLabel!: Phaser.GameObjects.Text;
   private mount: HorseView | null = null;
 
-  private monster: MonsterView | null = null;
-  private monsterKey = '';
-  private monsterPlate: Phaser.GameObjects.Container | null = null;
-  private monsterPlateFill: Phaser.GameObjects.Rectangle | null = null;
-  private monsterPlateWidth = 112;
+  private mobs: Mob[] = [];
+  private targetMob: Mob | null = null;
+  private targetSpotIndex = 0;
+  private targetToken = 0;
+  private targetPlate: Phaser.GameObjects.Container | null = null;
+  private targetPlateFill: Phaser.GameObjects.Rectangle | null = null;
+  private catalog: StageCatalog | null = null;
 
   private snapshot: CombatSnapshot | null = null;
   private initialMonster: (MonsterDefinition & { hp: number }) | null = null;
@@ -203,6 +251,8 @@ export class WorldScene extends Phaser.Scene {
     this.environment = this.stage?.environment ?? 'forest';
     this.theme = ENVIRONMENTS[this.environment];
     this.alive = true;
+    this.catalog = stageCatalogCache;
+    document.body.classList.add('in-world');
 
     this.cameras.main.setBackgroundColor('#07111c');
     this.backdrop = this.add.graphics().setDepth(-1000);
@@ -235,7 +285,76 @@ export class WorldScene extends Phaser.Scene {
       loop: true,
       callback: () => void this.poll()
     });
-    this.schedulePatrol();
+    this.scheduleFootwork();
+    void this.loadStageCatalog();
+  }
+
+  update(): void {
+    if (!this.alive || !this.player) {
+      return;
+    }
+
+    this.player.root.setDepth(100 + this.player.root.y);
+    this.playerLabel.setPosition(this.player.root.x, this.player.root.y + 24);
+
+    const target = this.targetMob;
+    if (target && !target.dying) {
+      const distance = Phaser.Math.Distance.Between(
+        this.player.root.x,
+        this.player.root.y,
+        target.view.root.x,
+        target.view.root.y
+      );
+      if (distance < 240) {
+        this.player.facePoint(target.view.root.x, target.view.root.y);
+        target.view.facePoint(this.player.root.x);
+      }
+    }
+
+    for (const mob of this.mobs) {
+      if (mob.dying) {
+        continue;
+      }
+      mob.view.root.setDepth(100 + mob.view.root.y);
+      if (!mob.isTarget) {
+        const distance = Phaser.Math.Distance.Between(
+          this.player.root.x,
+          this.player.root.y,
+          mob.view.root.x,
+          mob.view.root.y
+        );
+        if (distance < 120) {
+          mob.view.facePoint(this.player.root.x);
+        }
+      }
+    }
+
+    // O Container do mundo não ordena os filhos sozinho: reordena por
+    // profundidade para o herói passar corretamente na frente/atrás dos mobs.
+    this.world.sort('depth');
+  }
+
+  private async loadStageCatalog(): Promise<void> {
+    if (!this.alive) {
+      return;
+    }
+
+    if (this.catalog) {
+      this.refreshAmbientMobs();
+      return;
+    }
+
+    try {
+      const catalog = await api.listStages();
+      if (!this.alive) {
+        return;
+      }
+      stageCatalogCache = catalog;
+      this.catalog = catalog;
+      this.refreshAmbientMobs();
+    } catch {
+      // O catálogo é apenas visual; a fase atual continua funcionando sem ele.
+    }
   }
 
   private updateLocation(): void {
@@ -926,21 +1045,23 @@ export class WorldScene extends Phaser.Scene {
     this.world.add(this.player.root);
 
     this.playerLabel = this.add
-      .text(PLAYER_HOME.x, PLAYER_HOME.y - 138, this.character.name, {
+      .text(PLAYER_HOME.x, PLAYER_HOME.y + 24, this.character.name, {
         fontFamily: FONT,
-        fontSize: '12px',
+        fontSize: '10px',
         fontStyle: 'bold',
         color: '#f4d58d',
         stroke: '#07111c',
         strokeThickness: 3,
         resolution: 2
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setAlpha(0.88);
     this.playerLabel.setDepth(2100);
     this.world.add(this.playerLabel);
 
     this.buildMount();
-    this.spawnMonster(this.initialMonster ?? FALLBACK_MONSTER);
+    this.buildAmbientMobs();
+    this.spawnTarget(this.initialMonster ?? FALLBACK_MONSTER);
   }
 
   private buildMount(): void {
@@ -978,36 +1099,289 @@ export class WorldScene extends Phaser.Scene {
     this.world.add(mountLabel);
   }
 
-  private spawnMonster(monster: MonsterDefinition & { hp: number }): void {
-    this.monster?.destroy();
-    this.monster = null;
-    this.clearMonsterPlate();
+  private stageMonsterPool(): MonsterDefinition[] {
+    const stage = this.stage;
+    if (stage) {
+      const entry = this.catalog?.stages.find((candidate) => candidate.id === stage.id);
+      if (entry && entry.monsters.length > 0) {
+        return entry.monsters;
+      }
+    }
+    return this.initialMonster ? [this.initialMonster] : [FALLBACK_MONSTER];
+  }
 
-    const view = new MonsterView(this, monster.sprite, MONSTER_HOME.x, MONSTER_HOME.y, {
+  private buildAmbientMobs(): void {
+    const pool = this.stageMonsterPool();
+
+    AMBIENT_SPOTS.forEach((spot, index) => {
+      const monster = pool[index % pool.length] ?? FALLBACK_MONSTER;
+      const view = new MonsterView(this, monster.sprite, spot.x, spot.y, {
+        variant: monster.variant,
+        tint: monster.tint,
+        accent: monster.accent,
+        scale: (monster.visualScale ?? 1) * Phaser.Math.FloatBetween(0.8, 1)
+      });
+      view.root.setAlpha(Phaser.Math.FloatBetween(0.88, 1));
+      view.root.setDepth(100 + spot.y);
+      this.world.add(view.root);
+
+      const tag = this.add
+        .text(0, -view.height - 8, `Nv. ${monster.level}`, {
+          fontFamily: FONT,
+          fontSize: '9px',
+          fontStyle: 'bold',
+          color: '#b8c8d6',
+          stroke: '#07111c',
+          strokeThickness: 2,
+          resolution: 2
+        })
+        .setOrigin(0.5)
+        .setAlpha(0.62);
+      view.root.add(tag);
+
+      const mob: Mob = {
+        key: `ambient-${index}`,
+        serverId: monster.id,
+        view,
+        homeX: spot.x,
+        homeY: spot.y,
+        isTarget: false,
+        dying: false,
+        wanderTween: null,
+        wanderEvent: null,
+        plate: null,
+        plateFill: null
+      };
+      this.mobs.push(mob);
+      this.startWander(mob);
+      this.spawnDust(spot.x, spot.y, 0.7);
+    });
+  }
+
+  private refreshAmbientMobs(): void {
+    if (!this.alive || !this.catalog || !this.stage) {
+      return;
+    }
+
+    const entry = this.catalog.stages.find((candidate) => candidate.id === this.stage!.id);
+    if (!entry || entry.monsters.length <= 1) {
+      return;
+    }
+
+    const ambient = this.mobs.filter((mob) => !mob.isTarget && !mob.dying);
+    const expected = new Set(entry.monsters.map((monster) => monster.id));
+    const current = new Set(ambient.map((mob) => mob.serverId));
+    const alreadyVaried =
+      ambient.length === AMBIENT_SPOTS.length &&
+      expected.size === current.size &&
+      [...expected].every((id) => current.has(id));
+
+    if (alreadyVaried) {
+      return;
+    }
+
+    for (const mob of ambient) {
+      this.disposeMob(mob, false);
+    }
+    this.buildAmbientMobs();
+  }
+
+  private startWander(mob: Mob): void {
+    const wander = (): void => {
+      if (!this.alive || mob.dying) {
+        return;
+      }
+
+      const targetX = mob.homeX + Phaser.Math.Between(-58, 58);
+      const targetY = mob.homeY + Phaser.Math.Between(-22, 26);
+
+      mob.wanderTween?.stop();
+      mob.wanderTween = this.tweens.add({
+        targets: mob.view.root,
+        x: targetX,
+        y: targetY,
+        duration: Phaser.Math.Between(1500, 2800),
+        ease: 'Sine.easeInOut'
+      });
+
+      mob.wanderEvent = this.time.delayedCall(Phaser.Math.Between(2600, 5600), wander);
+    };
+
+    mob.wanderEvent = this.time.delayedCall(Phaser.Math.Between(500, 2400), wander);
+  }
+
+  private disposeMob(mob: Mob, animate: boolean): void {
+    if (mob.dying) {
+      return;
+    }
+
+    mob.dying = true;
+    mob.wanderEvent?.remove(false);
+    mob.wanderEvent = null;
+    mob.wanderTween?.stop();
+    mob.wanderTween = null;
+
+    this.mobs = this.mobs.filter((candidate) => candidate !== mob);
+
+    if (this.targetMob === mob) {
+      this.targetMob = null;
+      this.targetPlate = null;
+      this.targetPlateFill = null;
+    }
+
+    if (animate) {
+      mob.view.die();
+    } else {
+      mob.view.destroy();
+    }
+
+    mob.plate = null;
+    mob.plateFill = null;
+  }
+
+  private spawnTarget(monster: MonsterDefinition & { hp: number }): void {
+    const spot = this.pickTargetSpot();
+    const view = new MonsterView(this, monster.sprite, spot.x, spot.y, {
       variant: monster.variant,
       tint: monster.tint,
       accent: monster.accent,
       scale: monster.visualScale,
       isBoss: monster.isBoss
     });
-    view.root.setDepth(100 + MONSTER_HOME.y);
+    view.root.setDepth(100 + spot.y);
     this.world.add(view.root);
-    this.monster = view;
-    this.monsterKey = monster.id;
 
-    this.buildMonsterPlate(monster, view.height);
-    this.updateMonsterPlate(monster.hp, monster.maxHp, monster.isBoss);
+    const mob: Mob = {
+      key: monster.id,
+      serverId: monster.id,
+      view,
+      homeX: spot.x,
+      homeY: spot.y,
+      isTarget: true,
+      dying: false,
+      wanderTween: null,
+      wanderEvent: null,
+      plate: null,
+      plateFill: null
+    };
+    this.mobs.push(mob);
+    this.targetMob = mob;
 
-    this.spawnDust(MONSTER_HOME.x, MONSTER_HOME.y, monster.isBoss ? 1.6 : 1);
+    this.buildTargetPlate(mob, monster);
+    this.updateTargetPlate(monster.hp, monster.maxHp, monster.isBoss);
+    this.spawnDust(spot.x, spot.y, monster.isBoss ? 1.7 : 1);
+
+    this.time.delayedCall(260, () => {
+      if (this.alive && this.targetMob === mob && !mob.dying) {
+        this.approachTarget(mob);
+      }
+    });
   }
 
-  private buildMonsterPlate(
-    monster: MonsterDefinition & { hp: number },
-    height: number
-  ): void {
+  private pickTargetSpot(): { x: number; y: number } {
+    const base = TARGET_SPOTS[this.targetSpotIndex % TARGET_SPOTS.length] ?? TARGET_SPOTS[0]!;
+    this.targetSpotIndex += 1;
+    return {
+      x: base.x + Phaser.Math.Between(-12, 12),
+      y: base.y + Phaser.Math.Between(-8, 10)
+    };
+  }
+
+  private engagementPoint(mob: Mob): { x: number; y: number } {
+    const candidates = [
+      { x: mob.homeX - 82, y: mob.homeY + 8 },
+      { x: mob.homeX + 82, y: mob.homeY + 8 },
+      { x: mob.homeX, y: mob.homeY + 58 },
+      { x: mob.homeX, y: mob.homeY - 58 }
+    ];
+
+    let best = candidates[0]!;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    for (const point of candidates) {
+      const distance = Phaser.Math.Distance.Between(
+        this.player.root.x,
+        this.player.root.y,
+        point.x,
+        point.y
+      );
+      if (distance < bestDistance) {
+        best = point;
+        bestDistance = distance;
+      }
+    }
+    return best;
+  }
+
+  private approachTarget(mob: Mob): void {
+    if (!this.alive || mob.dying || this.targetMob !== mob) {
+      return;
+    }
+
+    const point = this.engagementPoint(mob);
+    const distance = Phaser.Math.Distance.Between(
+      this.player.root.x,
+      this.player.root.y,
+      point.x,
+      point.y
+    );
+    if (distance < 8) {
+      return;
+    }
+
+    this.player.walkTo(point.x, point.y, Phaser.Math.Clamp(distance * 3.6, 260, 1200));
+  }
+
+  // Um mob de ambiente próximo se assusta com o impacto e dá um pulo curto,
+  // sem interferir no alvo autoritativo do servidor.
+  private startleNearestAmbient(anchor: CombatAnchor): void {
+    if (Phaser.Math.FloatBetween(0, 1) > 0.4) {
+      return;
+    }
+
+    let nearest: Mob | null = null;
+    let nearestDistance = 260;
+    for (const mob of this.mobs) {
+      if (mob.isTarget || mob.dying || mob === this.targetMob) {
+        continue;
+      }
+      const distance = Phaser.Math.Distance.Between(
+        mob.view.root.x,
+        mob.view.root.y,
+        anchor.x,
+        anchor.y
+      );
+      if (distance < nearestDistance) {
+        nearest = mob;
+        nearestDistance = distance;
+      }
+    }
+
+    if (!nearest) {
+      return;
+    }
+
+    const mob = nearest;
+    mob.wanderEvent?.remove(false);
+    mob.wanderEvent = null;
+    mob.wanderTween?.stop();
+    mob.wanderTween = this.tweens.add({
+      targets: mob.view.root,
+      y: mob.view.root.y - Phaser.Math.Between(9, 16),
+      duration: 140,
+      yoyo: true,
+      ease: 'Quad.easeOut',
+      onComplete: () => {
+        if (this.alive && !mob.dying) {
+          this.startWander(mob);
+        }
+      }
+    });
+  }
+
+  private buildTargetPlate(mob: Mob, monster: MonsterDefinition & { hp: number }): void {
     const width = monster.isBoss ? 170 : 112;
-    const plate = this.add.container(MONSTER_HOME.x, MONSTER_HOME.y - height - 14);
-    plate.setDepth(2100);
+    const plate = this.add.container(0, -mob.view.height - 16);
+    plate.setDepth(2000);
 
     const label = this.add
       .text(0, -15, `${monster.name}  ·  Nv. ${monster.level}`, {
@@ -1030,50 +1404,67 @@ export class WorldScene extends Phaser.Scene {
       .setOrigin(0, 0.5);
 
     plate.add([label, track, fill]);
-    this.world.add(plate);
+    mob.view.root.add(plate);
+    mob.plate = plate;
+    mob.plateFill = fill;
 
-    this.monsterPlate = plate;
-    this.monsterPlateFill = fill;
-    this.monsterPlateWidth = width;
+    this.targetPlate = plate;
+    this.targetPlateFill = fill;
+
+    const ring = this.add.ellipse(
+      0,
+      0,
+      monster.isBoss ? 138 : 92,
+      monster.isBoss ? 38 : 28,
+      0xf4d58d,
+      0
+    );
+    ring.setStrokeStyle(2, 0xf4d58d, 0.35);
+    mob.view.root.addAt(ring, 1);
+
+    this.tweens.add({
+      targets: ring,
+      alpha: { from: 0.2, to: 0.7 },
+      duration: 850,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
   }
 
-  private updateMonsterPlate(hp: number, maxHp: number, isBoss: boolean): void {
-    if (!this.monsterPlateFill) {
+  private updateTargetPlate(hp: number, maxHp: number, isBoss: boolean): void {
+    if (!this.targetPlateFill) {
       return;
     }
     const ratio = Phaser.Math.Clamp(hp / Math.max(1, maxHp), 0, 1);
-    this.monsterPlateFill.setScale(ratio, 1);
-    this.monsterPlateFill.setFillStyle(isBoss ? 0xff9d5c : ratio <= 0.3 ? 0xff7b6b : 0x7ee07a);
+    this.targetPlateFill.setScale(ratio, 1);
+    this.targetPlateFill.setFillStyle(isBoss ? 0xff9d5c : ratio <= 0.3 ? 0xff7b6b : 0x7ee07a);
   }
 
-  private clearMonsterPlate(): void {
-    this.monsterPlate?.destroy();
-    this.monsterPlate = null;
-    this.monsterPlateFill = null;
-  }
+  private syncTarget(monster: MonsterDefinition & { hp: number }): void {
+    const current = this.targetMob;
 
-  private syncMonster(monster: MonsterDefinition & { hp: number }): void {
-    if (this.monsterKey === monster.id) {
-      this.updateMonsterPlate(monster.hp, monster.maxHp, monster.isBoss);
+    if (current && !current.dying && current.serverId === monster.id) {
+      this.updateTargetPlate(monster.hp, monster.maxHp, monster.isBoss);
       return;
     }
 
-    const previous = this.monster;
-    this.monster = null;
-    this.monsterKey = monster.id;
-    this.clearMonsterPlate();
+    const token = ++this.targetToken;
+    this.targetPlate = null;
+    this.targetPlateFill = null;
 
-    if (previous) {
-      previous.die();
-      this.time.delayedCall(170, () => {
-        if (!this.alive || this.monsterKey !== monster.id) {
+    if (current) {
+      this.disposeMob(current, true);
+      this.time.delayedCall(300, () => {
+        if (!this.alive || token !== this.targetToken) {
           return;
         }
-        this.spawnMonster(monster);
+        this.spawnTarget(monster);
       });
-    } else {
-      this.spawnMonster(monster);
+      return;
     }
+
+    this.spawnTarget(monster);
   }
 
   // ---------------------------------------------------------------------------
@@ -1126,12 +1517,8 @@ export class WorldScene extends Phaser.Scene {
 
     this.hud?.update(snapshot);
 
-    this.syncMonster(snapshot.combat.monster);
-    this.updateMonsterPlate(
-      snapshot.combat.monster.hp,
-      snapshot.combat.monster.maxHp,
-      snapshot.combat.monster.isBoss
-    );
+    const anchor = this.targetAnchor();
+    this.syncTarget(snapshot.combat.monster);
 
     const recovering = snapshot.combat.status === 'recovering';
     this.recovering = recovering;
@@ -1150,18 +1537,47 @@ export class WorldScene extends Phaser.Scene {
       return;
     }
 
-    const visibleEvents = snapshot.events.slice(-14);
+    const visibleEvents = snapshot.events.slice(-12);
     visibleEvents.forEach((event, index) => {
-      this.time.delayedCall(index * 115, () => this.playEvent(event));
+      this.time.delayedCall(index * 90, () => this.playEvent(event, anchor));
     });
   }
 
+  private targetAnchor(): CombatAnchor {
+    const mob = this.targetMob;
+    if (mob && !mob.dying) {
+      return {
+        mob,
+        x: mob.view.root.x,
+        y: mob.view.root.y,
+        height: mob.view.height
+      };
+    }
+
+    const spot = TARGET_SPOTS[0]!;
+    return {
+      mob: null,
+      x: spot.x,
+      y: spot.y,
+      height: 64
+    };
+  }
+
   private rebuildWorld(): void {
+    this.targetToken += 1;
     this.tweens.killAll();
-    this.monster?.destroy();
-    this.monster = null;
-    this.monsterKey = '';
-    this.clearMonsterPlate();
+
+    for (const mob of this.mobs) {
+      mob.wanderEvent?.remove(false);
+      mob.wanderTween?.stop();
+      mob.view.root.destroy();
+    }
+    this.mobs = [];
+    this.targetMob = null;
+    this.targetPlate = null;
+    this.targetPlateFill = null;
+    this.targetSpotIndex = 0;
+
     this.mount?.destroy();
     this.mount = null;
     this.world.destroy(true);
@@ -1217,7 +1633,7 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
-  private playEvent(event: CombatEvent): void {
+  private playEvent(event: CombatEvent, anchor: CombatAnchor): void {
     if (!this.alive) {
       return;
     }
@@ -1226,12 +1642,15 @@ export class WorldScene extends Phaser.Scene {
       case 'player_hit':
       case 'player_crit': {
         const critical = event.type === 'player_crit';
-        this.player.attack(MONSTER_HOME.x);
-        this.fireProjectile(critical);
+        this.player.attack(anchor.x, anchor.y);
+        this.fireProjectile(critical, anchor);
         sfxHit(critical);
+        this.startleNearestAmbient(anchor);
         this.time.delayedCall(95, () => {
-          this.monster?.hurt();
-          this.popDamage(event.amount ?? 0, critical ? 'crit' : 'player');
+          if (anchor.mob && !anchor.mob.dying) {
+            anchor.mob.view.hurt();
+          }
+          this.popDamage(event.amount ?? 0, critical ? 'crit' : 'player', anchor);
           if (critical) {
             this.cameras.main.shake(90, 0.002);
           }
@@ -1240,20 +1659,27 @@ export class WorldScene extends Phaser.Scene {
       }
 
       case 'monster_hit': {
-        this.monster?.attack();
+        const attacker =
+          this.targetMob && !this.targetMob.dying ? this.targetMob : anchor.mob;
+        if (attacker && !attacker.dying) {
+          attacker.view.attack(this.player.root.x, this.player.root.y);
+        }
         this.time.delayedCall(80, () => {
+          if (Phaser.Math.FloatBetween(0, 1) < 0.32) {
+            this.player.dodge();
+          }
           this.player.hurt();
-          this.popDamage(event.amount ?? 0, 'monster');
+          this.popDamage(event.amount ?? 0, 'monster', anchor);
           sfxMonsterHit();
         });
         break;
       }
 
       case 'kill': {
-        this.spawnBurst(MONSTER_HOME.x, MONSTER_HOME.y - 30, 0xf4d58d, 9);
+        this.spawnBurst(anchor.x, anchor.y - anchor.height * 0.5, 0xf4d58d, 9);
         this.popText(
-          MONSTER_HOME.x,
-          MONSTER_HOME.y - 90,
+          anchor.x,
+          anchor.y - anchor.height - 18,
           `+${event.amount ?? 0} XP`,
           '#f4d58d',
           16
@@ -1264,8 +1690,8 @@ export class WorldScene extends Phaser.Scene {
 
       case 'item_drop': {
         this.popText(
-          MONSTER_HOME.x + Phaser.Math.Between(-30, 30),
-          MONSTER_HOME.y - 128,
+          anchor.x + Phaser.Math.Between(-30, 30),
+          anchor.y - anchor.height - 34,
           `✦ ${event.message ?? 'Material'}`,
           '#ffe28a',
           14
@@ -1281,13 +1707,18 @@ export class WorldScene extends Phaser.Scene {
       }
 
       case 'boss_spawn': {
-        this.spawnBossEntrance();
+        const boss = this.targetMob;
+        if (boss && !boss.dying) {
+          this.spawnBossEntrance(boss.view.root.x, boss.view.root.y);
+        } else {
+          this.spawnBossEntrance(anchor.x, anchor.y);
+        }
         sfxBoss();
         break;
       }
 
       case 'boss_defeated': {
-        this.spawnBossDefeat();
+        this.spawnBossDefeat(anchor.x, anchor.y);
         sfxVictory();
         break;
       }
@@ -1304,12 +1735,17 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
-  private fireProjectile(critical: boolean): void {
+  private fireProjectile(critical: boolean, anchor: CombatAnchor): void {
     const classId = this.character.classId;
-    const startX = PLAYER_HOME.x + 30;
-    const startY = PLAYER_HOME.y - 74;
-    const targetX = MONSTER_HOME.x;
-    const targetY = MONSTER_HOME.y - (this.monster?.height ?? 64) * 0.5;
+    const startX = this.player.root.x + 30;
+    const startY = this.player.root.y - 74;
+    const targetX = anchor.x;
+    const targetY = anchor.y - anchor.height * 0.5;
+    const travel = Phaser.Math.Clamp(
+      Phaser.Math.Distance.Between(startX, startY, targetX, targetY) * 0.35,
+      120,
+      260
+    );
 
     if (classId === 'mage' || classId === 'priest') {
       const orb = this.add.circle(startX, startY, critical ? 7 : 5, critical ? 0xffd76a : 0x7fe7ff);
@@ -1321,7 +1757,7 @@ export class WorldScene extends Phaser.Scene {
         targets: orb,
         x: targetX,
         y: targetY,
-        duration: 150,
+        duration: travel,
         ease: 'Quad.easeIn',
         onComplete: () => {
           this.spawnBurst(targetX, targetY, critical ? 0xffd76a : 0x7fe7ff, 5);
@@ -1342,7 +1778,7 @@ export class WorldScene extends Phaser.Scene {
         targets: arrow,
         x: targetX,
         y: targetY,
-        duration: 140,
+        duration: travel,
         ease: 'Quad.easeIn',
         onComplete: () => {
           arrow.destroy();
@@ -1376,11 +1812,11 @@ export class WorldScene extends Phaser.Scene {
     });
   }
 
-  private popDamage(amount: number, kind: 'player' | 'crit' | 'monster'): void {
+  private popDamage(amount: number, kind: 'player' | 'crit' | 'monster', anchor: CombatAnchor): void {
     if (kind === 'monster') {
       this.popText(
-        PLAYER_HOME.x + Phaser.Math.Between(-16, 16),
-        PLAYER_HOME.y - 116,
+        this.player.root.x + Phaser.Math.Between(-16, 16),
+        this.player.root.y - 116,
         `-${amount}`,
         '#ff8d8d',
         17
@@ -1390,8 +1826,8 @@ export class WorldScene extends Phaser.Scene {
 
     const crit = kind === 'crit';
     this.popText(
-      MONSTER_HOME.x + Phaser.Math.Between(-22, 22),
-      MONSTER_HOME.y - (this.monster?.height ?? 64) - 6,
+      anchor.x + Phaser.Math.Between(-22, 22),
+      anchor.y - anchor.height - 6,
       crit ? `${amount}!` : `${amount}`,
       crit ? '#ffd76a' : '#f2f8ff',
       crit ? 25 : 19
@@ -1485,7 +1921,9 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private spawnLevelUp(): void {
-    const ring = this.add.ellipse(PLAYER_HOME.x, PLAYER_HOME.y - 20, 40, 18, 0xf4d58d, 0);
+    const playerX = this.player.root.x;
+    const playerY = this.player.root.y;
+    const ring = this.add.ellipse(playerX, playerY - 20, 40, 18, 0xf4d58d, 0);
     ring.setStrokeStyle(3, 0xf4d58d, 0.9);
     ring.setDepth(1950);
     this.world.add(ring);
@@ -1501,8 +1939,8 @@ export class WorldScene extends Phaser.Scene {
 
     for (let i = 0; i < 14; i += 1) {
       const spark = this.add.circle(
-        PLAYER_HOME.x + Phaser.Math.Between(-30, 30),
-        PLAYER_HOME.y - Phaser.Math.Between(20, 100),
+        playerX + Phaser.Math.Between(-30, 30),
+        playerY - Phaser.Math.Between(20, 100),
         Phaser.Math.FloatBetween(1.5, 3),
         0xffe08a,
         0.95
@@ -1522,17 +1960,17 @@ export class WorldScene extends Phaser.Scene {
     this.cameras.main.flash(220, 255, 225, 150);
   }
 
-  private spawnBossEntrance(): void {
+  private spawnBossEntrance(x: number, y: number): void {
     this.cameras.main.shake(260, 0.006);
     this.cameras.main.flash(240, 255, 120, 60);
-    this.spawnDust(MONSTER_HOME.x, MONSTER_HOME.y, 2.2);
-    this.spawnBurst(MONSTER_HOME.x, MONSTER_HOME.y - 40, 0xffc75a, 14);
+    this.spawnDust(x, y, 2.2);
+    this.spawnBurst(x, y - 40, 0xffc75a, 14);
   }
 
-  private spawnBossDefeat(): void {
+  private spawnBossDefeat(x: number, y: number): void {
     this.cameras.main.shake(300, 0.007);
     this.cameras.main.flash(300, 255, 220, 130);
-    this.spawnBurst(MONSTER_HOME.x, MONSTER_HOME.y - 40, 0xffd76a, 22);
+    this.spawnBurst(x, y - 40, 0xffd76a, 22);
   }
 
   // ---------------------------------------------------------------------------
@@ -1567,34 +2005,45 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
-  private schedulePatrol(): void {
+  private scheduleFootwork(): void {
     if (!this.alive) {
       return;
     }
 
-    this.time.delayedCall(Phaser.Math.Between(6500, 10500), () => {
+    this.time.delayedCall(Phaser.Math.Between(4200, 7600), () => {
       if (!this.alive) {
         return;
       }
-      this.patrol();
-      this.schedulePatrol();
+      this.footwork();
+      this.scheduleFootwork();
     });
   }
 
-  private patrol(): void {
-    if (this.recovering || !this.player) {
+  private footwork(): void {
+    const target = this.targetMob;
+    if (this.recovering || !this.player || !target || target.dying) {
       return;
     }
 
-    const targetX = PLAYER_HOME.x + Phaser.Math.Between(-38, 24);
-    const targetY = PLAYER_HOME.y + Phaser.Math.Between(-16, 12);
+    // Orbita o alvo em um arco curto, mudando de lado e de altura para o herói
+    // encarar o monstro de vários ângulos, inclusive por trás.
+    const dx = this.player.root.x - target.homeX;
+    const dy = (this.player.root.y - target.homeY) / 0.55;
+    const currentAngle = Math.atan2(dy, dx);
+    const angle = currentAngle + Phaser.Math.FloatBetween(-1.1, 1.1);
+    const radius = Phaser.Math.Between(74, 96);
+    const targetX = target.homeX + Math.cos(angle) * radius;
+    const targetY = target.homeY + Math.sin(angle) * radius * 0.55 + 6;
 
-    this.player.walkTo(targetX, targetY, 1200);
-    this.time.delayedCall(1500, () => {
-      if (this.alive) {
-        this.player.walkTo(PLAYER_HOME.x, PLAYER_HOME.y, 1300);
-      }
-    });
+    this.player.walkTo(targetX, targetY, Phaser.Math.Between(380, 560));
+
+    if (Phaser.Math.FloatBetween(0, 1) < 0.35) {
+      this.time.delayedCall(580, () => {
+        if (this.alive && !this.recovering) {
+          this.player.dodge();
+        }
+      });
+    }
   }
 
   private handleVisibility = (): void => {
@@ -1606,11 +2055,19 @@ export class WorldScene extends Phaser.Scene {
 
   private handleShutdown(): void {
     this.alive = false;
+    this.targetToken += 1;
+    document.body.classList.remove('in-world');
     this.scale.off(Phaser.Scale.Events.RESIZE, this.handleResize, this);
     document.removeEventListener('visibilitychange', this.handleVisibility);
-    this.monster = null;
-    this.monsterPlate = null;
-    this.monsterPlateFill = null;
+
+    for (const mob of this.mobs) {
+      mob.wanderEvent?.remove(false);
+      mob.wanderTween?.stop();
+    }
+    this.mobs = [];
+    this.targetMob = null;
+    this.targetPlate = null;
+    this.targetPlateFill = null;
     this.mount?.destroy();
     this.mount = null;
     this.initialMonster = null;

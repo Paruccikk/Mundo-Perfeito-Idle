@@ -263,8 +263,8 @@ export function openStageMap(options: StageMapOptions): void {
     const action = el('button', 'stage-map__travel') as HTMLButtonElement;
     action.type = 'button';
     if (current) {
-      action.textContent = 'Você está aqui';
-      action.disabled = true;
+      action.textContent = 'Entrar nesta fase';
+      action.addEventListener('click', () => void travel(stage, action));
     } else if (!unlocked) {
       action.textContent = `Requer nível ${Math.max(1, stage.recommendedLevel - 2)}`;
       action.disabled = true;

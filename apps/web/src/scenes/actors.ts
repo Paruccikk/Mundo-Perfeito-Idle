@@ -73,12 +73,16 @@ export class PlayerAvatar {
   private readonly lunge: Phaser.GameObjects.Container;
   private readonly rig: Phaser.GameObjects.Container;
   private readonly flip: Phaser.GameObjects.Container;
+  private readonly head: Phaser.GameObjects.Container;
   private readonly frontArm: Phaser.GameObjects.Container;
   private readonly legFront: Phaser.GameObjects.Container;
   private readonly legBack: Phaser.GameObjects.Container;
   private readonly hurtFlash: Phaser.GameObjects.Ellipse;
 
   private facing: 1 | -1 = 1;
+  private facingY: -1 | 0 | 1 = 0;
+  private faceDetails: Phaser.GameObjects.Graphics | null = null;
+  private backHead: Phaser.GameObjects.Ellipse | null = null;
   private recovering = false;
   private walkTween: Phaser.Tweens.Tween | null = null;
   private stepTweenA: Phaser.Tweens.Tween | null = null;
@@ -122,6 +126,7 @@ export class PlayerAvatar {
     this.flip.add(this.legFront);
 
     const head = this.buildHead(palette, classId);
+    this.head = head;
     this.flip.add(head);
 
     const weapon = this.buildWeapon(classId, palette);
@@ -162,17 +167,44 @@ export class PlayerAvatar {
     this.flip.scaleX = direction;
   }
 
-  faceTarget(targetX: number): void {
-    this.setFacing(targetX >= this.root.x ? 1 : -1);
+  private setFacingY(direction: -1 | 0 | 1): void {
+    if (this.facingY === direction) {
+      return;
+    }
+    this.facingY = direction;
+    this.faceDetails?.setVisible(direction >= 0);
+    this.backHead?.setVisible(direction < 0);
+    this.head.setScale(direction < 0 ? 0.9 : 1, 1);
+    this.scene.tweens.add({
+      targets: this.rig,
+      angle: direction === 0 ? 0 : direction < 0 ? -2.5 : 2.5,
+      duration: 160,
+      ease: 'Sine.easeOut'
+    });
   }
 
-  attack(targetX: number): void {
-    this.faceTarget(targetX);
+  faceTarget(targetX: number): void {
+    this.facePoint(targetX, this.root.y);
+  }
+
+  facePoint(x: number, y: number): void {
+    const dx = x - this.root.x;
+    const dy = y - this.root.y;
+    this.setFacing(dx >= 0 ? 1 : -1);
+    const vertical: -1 | 0 | 1 =
+      Math.abs(dy) > Math.abs(dx) * 0.5 ? (dy < 0 ? -1 : 1) : 0;
+    this.setFacingY(vertical);
+  }
+
+  attack(targetX: number, targetY?: number): void {
+    this.facePoint(targetX, targetY ?? this.root.y);
     const direction = this.facing;
+    const vertical = this.facingY;
 
     this.scene.tweens.add({
       targets: this.lunge,
       x: 26 * direction,
+      y: vertical * 10,
       duration: 100,
       yoyo: true,
       ease: 'Quad.easeOut'
@@ -200,6 +232,21 @@ export class PlayerAvatar {
       x: { from: -4, to: 0 },
       duration: 200,
       ease: 'Sine.easeOut'
+    });
+  }
+
+  dodge(): void {
+    if (this.recovering) {
+      return;
+    }
+    const direction = this.facing;
+    this.scene.tweens.add({
+      targets: this.lunge,
+      x: -24 * direction,
+      y: this.facingY * 8,
+      duration: 90,
+      yoyo: true,
+      ease: 'Quad.easeOut'
     });
   }
 
@@ -373,6 +420,13 @@ export class PlayerAvatar {
   private buildHead(palette: Palette, classId: CharacterClassId): Phaser.GameObjects.Container {
     const head = this.scene.add.container(0, -84);
 
+    // Parte de trás da cabeça: aparece quando o herói vira de costas.
+    const backColor = classId === 'archer' ? palette.cape : palette.hair;
+    this.backHead = this.scene.add.ellipse(1, 0, 24, 26, backColor, 1);
+    this.backHead.setStrokeStyle(2, OUTLINE, 1);
+    this.backHead.setVisible(false);
+    head.add(this.backHead);
+
     if (classId === 'archer') {
       const hood = this.scene.add.graphics();
       hood.fillStyle(palette.cape, 1);
@@ -390,6 +444,7 @@ export class PlayerAvatar {
     }
 
     const face = this.scene.add.graphics();
+    this.faceDetails = face;
     face.fillStyle(palette.skin, 1);
     face.lineStyle(2, OUTLINE, 1);
     face.fillEllipse(1, 0, 25, 27);
@@ -538,12 +593,14 @@ export class MonsterView {
   readonly height: number;
 
   private readonly scene: Phaser.Scene;
+  private readonly facingRig: Phaser.GameObjects.Container;
   private readonly rig: Phaser.GameObjects.Container;
   private readonly flash: Phaser.GameObjects.Ellipse;
   private readonly idleTweens: Phaser.Tweens.Tween[] = [];
   private readonly tail: Phaser.GameObjects.Container | null = null;
   private readonly head: Phaser.GameObjects.Container | null = null;
   private readonly baseScale: number;
+  private facing: 1 | -1 = 1;
   private dead = false;
 
   constructor(
@@ -567,8 +624,11 @@ export class MonsterView {
     );
     this.root.add(shadow);
 
+    this.facingRig = scene.add.container(0, 0);
+    this.root.add(this.facingRig);
+
     this.rig = scene.add.container(0, 0);
-    this.root.add(this.rig);
+    this.facingRig.add(this.rig);
 
     const tint = options.tint ?? 0x778699;
     const accent = options.accent ?? 0xf4d58d;
@@ -644,13 +704,33 @@ export class MonsterView {
     });
   }
 
-  attack(): void {
+  setFacing(direction: 1 | -1): void {
+    if (this.facing === direction) {
+      return;
+    }
+    this.facing = direction;
+    this.facingRig.scaleX = direction;
+  }
+
+  facePoint(x: number): void {
+    this.setFacing(x >= this.root.x ? 1 : -1);
+  }
+
+  attack(targetX?: number, targetY?: number): void {
     if (this.dead) {
       return;
     }
+    if (targetX !== undefined) {
+      this.setFacing(targetX >= this.root.x ? 1 : -1);
+    }
+    const vertical =
+      targetY !== undefined
+        ? Phaser.Math.Clamp((targetY - this.root.y) / 90, -1, 1)
+        : 0;
     this.scene.tweens.add({
       targets: this.rig,
       x: -22,
+      y: vertical * 10,
       duration: 110,
       yoyo: true,
       ease: 'Quad.easeOut'
@@ -710,6 +790,9 @@ export class MonsterView {
   }
 
   destroy(): void {
+    for (const tween of this.idleTweens) {
+      tween.stop();
+    }
     this.root.destroy();
   }
 

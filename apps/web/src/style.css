@@ -1463,6 +1463,10 @@ body {
     repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.012) 0 1px, transparent 1px 4px);
 }
 
+body.in-world .city-online {
+  display: none;
+}
+
 h1, h2, h3, h4,
 .creator__title,
 .selector__title,
