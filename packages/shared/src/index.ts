@@ -180,7 +180,7 @@ export interface CombatEvent {
   message?: string;
 }
 
-export interface CombatSnapshot {
+export interface SkillSnapshot {\n  id: string;\n  name: string;\n  description: string;\n  effect: 'damage' | 'heal' | 'group_heal';\n  level: number;\n  maxLevel: number;\n  requiredLevel: number;\n  cooldownSeconds: number;\n  cooldownRemainingSeconds: number;\n  manaCost: number;\n  unlocked: boolean;\n  special: boolean;\n}\n\nexport interface CombatSnapshot {
   character: CharacterSummary;
   combat: {
     stageId: string;
