@@ -3182,3 +3182,5 @@ textarea {
  .inventory-panel__balance strong{font-size:12px}
  .inventory-filter{padding:7px 9px;font-size:9px}
 }
+
+.inventory-bag-slot--empty{border-style:dashed;border-color:rgba(115,135,144,.16);background:rgba(13,24,31,.34);box-shadow:none;cursor:default}
