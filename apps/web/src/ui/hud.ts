@@ -159,6 +159,14 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
   mpPotion.type = 'button'; mpPotion.textContent = 'MP · Poção'; mpPotion.title = 'Usar Poção de Mana';
   mpPotion.addEventListener('click', () => onUsePotion('mp-potion'));
   hotbar.append(hpPotion, mpPotion);
+  const handleHotkeys = (event: KeyboardEvent): void => {
+    if (!['1', '2', '3', '4'].includes(event.key) || hotbar.hidden || root.querySelector('.game-panel-overlay')) return;
+    const target = event.target as HTMLElement | null;
+    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+    const button = skillSlots[Number(event.key) - 1];
+    if (button && !button.hidden && !button.disabled) button.click();
+  };
+  window.addEventListener('keydown', handleHotkeys);
 
   hud.append(
     playerCard,
@@ -327,6 +335,7 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
     },
 
     destroy(): void {
+      window.removeEventListener('keydown', handleHotkeys);
       window.clearTimeout(levelTimer);
       window.clearTimeout(bannerTimer);
       hud.remove();
