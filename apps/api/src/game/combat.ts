@@ -79,7 +79,7 @@ export function simulateCombat(
   let playerCooldown = Math.max(0, record.combat.playerCooldownSeconds);
   let monsterCooldown = Math.max(0, record.combat.monsterCooldownSeconds);
   let pack = record.combat.pack?.length ? record.combat.pack.map((entry) => ({ ...entry })) : createPack(stage, lastTickMs);
-  if (!record.combat.pack) {
+  if (!record.combat.pack?.length) {
     const legacy = pack[0]!;
     legacy.monsterId = record.combat.monsterId;
     legacy.hp = Math.max(1, Math.min(record.combat.monsterHp, getMonster(legacy.monsterId).maxHp));
