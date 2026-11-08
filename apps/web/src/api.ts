@@ -106,6 +106,12 @@ export const api = {
   async getCombat(id: string, _playerId?: string): Promise<CombatSnapshot> {
     return request<CombatSnapshot>(`/api/v1/characters/${encodeURIComponent(id)}/combat`);
   },
+  async castSkill(id: string, skillId: string): Promise<CombatSnapshot> {
+    return request<CombatSnapshot>(`/api/v1/characters/${encodeURIComponent(id)}/skills/${encodeURIComponent(skillId)}/cast`, { method: 'POST', body: {} });
+  },
+  async upgradeSkill(id: string, skillId: string): Promise<CombatSnapshot> {
+    return request<CombatSnapshot>(`/api/v1/characters/${encodeURIComponent(id)}/skills/${encodeURIComponent(skillId)}/upgrade`, { method: 'POST', body: {} });
+  },
   async enterTown(id: string): Promise<CombatSnapshot> {
     return request<CombatSnapshot>(`/api/v1/characters/${encodeURIComponent(id)}/town`, { method: 'POST', body: {} });
   },
