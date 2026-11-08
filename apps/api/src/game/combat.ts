@@ -147,9 +147,7 @@ export function simulateCombat(
       playerCooldown += 1 / Math.max(0.1, stats.attacksPerSecond);
       const critical = Math.random() < stats.critChance;
       const usesMagic = record.classId === 'mage' || record.classId === 'priest';
-      const canCastMagic = usesMagic && playerMp >= 3;
-      if (canCastMagic) playerMp -= 3;
-      const baseDamage = canCastMagic ? stats.magicDamage : stats.physicalDamage;
+      const baseDamage = usesMagic ? stats.magicDamage : stats.physicalDamage;
       const skillMultiplier = Math.max(1, record.combat.pendingSkillMultiplier ?? 1);
       const damage = Math.max(1, Math.round((critical ? baseDamage * stats.critMultiplier : baseDamage) * skillMultiplier - monster.defense));
       record.combat.pendingSkillMultiplier = 1;
