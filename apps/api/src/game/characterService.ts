@@ -193,7 +193,7 @@ export class CharacterService {
     }
     return toCombatSnapshot(record, [{
       type: 'skill_cast',
-      amount: definition.effect === 'damage' ? Math.round(stats.magicDamage * definition.multiplier * rankMultiplier) : Math.round(stats.maxHp * definition.multiplier * rankMultiplier),
+      amount: definition.effect === 'damage' ? Math.round((record.classId === 'mage' || record.classId === 'priest' ? stats.magicDamage : stats.physicalDamage) * definition.multiplier * rankMultiplier) : Math.round(stats.maxHp * definition.multiplier * rankMultiplier),
       message: skillId
     }], 0);
   }
