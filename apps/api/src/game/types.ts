@@ -186,10 +186,20 @@ export interface StageDefinition {
 
 export type CombatStatus = 'fighting' | 'recovering' | 'dead';
 
+export interface CombatMonsterRecord {
+  slotId: string;
+  monsterId: string;
+  hp: number;
+  respawnAt: string | null;
+}
+
 export interface CombatStateRecord {
   stageId: string;
   monsterId: string;
   monsterHp: number;
+  /** Grupo persistido de monstros; ausente em personagens legados até a primeira sincronização. */
+  pack?: CombatMonsterRecord[];
+  targetIndex?: number;
   playerHp: number;
   killsInStage: number;
   bossActive: boolean;
@@ -226,6 +236,7 @@ export interface CombatSnapshot {
     stageName: string;
     stage: StageDefinition;
     monster: MonsterDefinition & { hp: number };
+    monsters: Array<MonsterDefinition & { hp: number; slotId: string; respawnInSeconds: number; isTarget: boolean }>;
     playerHp: number;
     playerMaxHp: number;
     playerMp: number;
