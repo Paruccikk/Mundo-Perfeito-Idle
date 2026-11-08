@@ -241,8 +241,9 @@ export function toCombatSnapshot(record: CharacterRecord, events: CombatEvent[],
     hp: record.combat.monsterHp, respawnAt: null
   }];
   const targetIndex = Math.max(0, Math.min(pack.length - 1, record.combat.targetIndex ?? 0));
-  const activeIndex = pack.findIndex((entry) => entry.hp > 0);
-  const selectedIndex = activeIndex >= 0 ? activeIndex : targetIndex;
+  const selectedIndex = pack[targetIndex]?.hp > 0
+    ? targetIndex
+    : (() => { for (let offset = 1; offset <= pack.length; offset += 1) { const index = (targetIndex + offset) % pack.length; if (pack[index]!.hp > 0) return index; } return targetIndex; })();
   const selected = pack[selectedIndex]!;
   const monster = getMonster(selected.monsterId ?? legacyMonster.id);
   const now = Date.now();
