@@ -64,7 +64,8 @@ export function simulateCombat(
   let experience = record.experience;
   let gold = record.gold;
   let stats = statsForLevel(record.classId, level, record.attributes, record.equipmentBonuses);
-  let attributePoints = record.attributePoints;\n  let skillPoints = record.combat.skillPoints ?? 0;
+  let attributePoints = record.attributePoints;
+  let skillPoints = record.combat.skillPoints ?? 0;
   let playerHp = Math.min(Math.max(record.combat.playerHp, 0), stats.maxHp);
   if (playerHp <= 0) playerHp = stats.maxHp;
   let playerMp = Math.min(Math.max(record.combat.playerMp ?? stats.maxMp, 0), stats.maxMp);
@@ -149,7 +150,10 @@ export function simulateCombat(
       const canCastMagic = usesMagic && playerMp >= 3;
       if (canCastMagic) playerMp -= 3;
       const baseDamage = canCastMagic ? stats.magicDamage : stats.physicalDamage;
-      const skillMultiplier = Math.max(1, record.combat.pendingSkillMultiplier ?? 1);\n      const damage = Math.max(1, Math.round((critical ? baseDamage * stats.critMultiplier : baseDamage) * skillMultiplier - monster.defense));\n      record.combat.pendingSkillMultiplier = 1;\n      record.combat.pendingSkillId = null;
+      const skillMultiplier = Math.max(1, record.combat.pendingSkillMultiplier ?? 1);
+      const damage = Math.max(1, Math.round((critical ? baseDamage * stats.critMultiplier : baseDamage) * skillMultiplier - monster.defense));
+      record.combat.pendingSkillMultiplier = 1;
+      record.combat.pendingSkillId = null;
       target.hp = Math.max(0, target.hp - damage);
       pushEvent({ type: critical ? 'player_crit' : 'player_hit', amount: damage, message: target.slotId });
 
@@ -168,7 +172,8 @@ export function simulateCombat(
         while (level < MAX_LEVEL && experience >= experienceToNextLevel(level)) {
           experience -= experienceToNextLevel(level);
           level += 1;
-          attributePoints += ATTRIBUTE_POINTS_PER_LEVEL;\n          if (level % 5 === 0) skillPoints += 1;
+          attributePoints += ATTRIBUTE_POINTS_PER_LEVEL;
+          if (level % 5 === 0) skillPoints += 1;
           stats = statsForLevel(record.classId, level, record.attributes, record.equipmentBonuses);
           playerHp = stats.maxHp;
           playerMp = stats.maxMp;
