@@ -192,7 +192,8 @@ export class MemoryCharacterRepository implements CharacterRepository {
     const fallbackMonsterId = nextNormalMonster(fallbackStage, 0);
     const fallbackMonster = getMonster(fallbackMonsterId);
     record.currentStageId = stageId;
-    record.combat = { ...record.combat, stageId, monsterId: allowRevive ? record.combat.monsterId : fallbackMonsterId, monsterHp: allowRevive ? record.combat.monsterHp : fallbackMonster.maxHp, playerHp: revive ? Math.max(1, Math.round(maxHp * 0.5)) : maxHp, playerMp: revive ? Math.max(0, Math.round(maxMp * 0.5)) : maxMp, status: 'fighting', recoveringUntil: null, playerCooldownSeconds: 0, monsterCooldownSeconds: 0.5, lastTickAt: now };
+    const fallbackPack = Array.from({ length: 6 }, (_, index) => { const monsterId = fallbackStage.monsterIds[index % fallbackStage.monsterIds.length]!; const monster = getMonster(monsterId); return { slotId: `mob-${index + 1}`, monsterId, hp: monster.maxHp, respawnAt: null }; });
+    record.combat = { ...record.combat, stageId, monsterId: allowRevive ? record.combat.monsterId : fallbackMonsterId, monsterHp: allowRevive ? record.combat.monsterHp : fallbackMonster.maxHp, pack: allowRevive ? record.combat.pack : fallbackPack, targetIndex: allowRevive ? record.combat.targetIndex ?? 0 : 0, playerHp: revive ? Math.max(1, Math.round(maxHp * 0.5)) : maxHp, playerMp: revive ? Math.max(0, Math.round(maxMp * 0.5)) : maxMp, status: 'fighting', recoveringUntil: null, playerCooldownSeconds: 0, monsterCooldownSeconds: 0.5, lastTickAt: now };
     this.characters.set(characterId, record);
     return { record: withEquipmentBonuses(clone(record), this.equipment.get(characterId) ?? []), returnToCity: !revive };
   }
@@ -204,8 +205,9 @@ export class MemoryCharacterRepository implements CharacterRepository {
     const monsterId = nextNormalMonster(stage, 0);
     const monster = getMonster(monsterId);
     record.currentStageId = stage.id;
+    const pack = Array.from({ length: 6 }, (_, index) => { const id = stage.monsterIds[index % stage.monsterIds.length]!; const definition = getMonster(id); return { slotId: `mob-${index + 1}`, monsterId: id, hp: definition.maxHp, respawnAt: null }; });
     record.combat = {
-      ...record.combat, stageId: stage.id, monsterId, monsterHp: monster.maxHp,
+      ...record.combat, stageId: stage.id, monsterId, monsterHp: monster.maxHp, pack, targetIndex: 0,
       killsInStage: 0, bossActive: false, bossDefeated: 0, status: 'fighting',
       recoveringUntil: null, playerCooldownSeconds: 0, monsterCooldownSeconds: 0.5,
       lastTickAt: new Date().toISOString()
@@ -243,7 +245,7 @@ export class MemoryCharacterRepository implements CharacterRepository {
 }
 
 function clone(record: CharacterRecord): CharacterRecord {
-  return { ...record, attributes: { ...record.attributes }, equipmentBonuses: { ...record.equipmentBonuses }, combat: { ...record.combat } };
+  return { ...record, attributes: { ...record.attributes }, equipmentBonuses: { ...record.equipmentBonuses }, combat: { ...record.combat, ...(record.combat.pack ? { pack: record.combat.pack.map((entry) => ({ ...entry })) } : {}) } };
 }
 
 function withEquipmentBonuses(record: CharacterRecord, equipment: InventorySnapshot['equipment']): CharacterRecord {
