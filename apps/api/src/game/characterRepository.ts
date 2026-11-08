@@ -19,7 +19,7 @@ const CONSUMABLE_DROPS: Record<string, { name: string; description: string; rari
 export interface InventorySnapshot {
   gold: number;
   items: Array<{ id: string; itemId: string; name: string; description: string; rarity: string; category: string; slot: string | null; quantity: number; levelReq: number; stats: Record<string, number>; sellPrice: number }>;
-  equipment: Array<{ slot: string; item: { id: string; itemId: string; name: string; description: string; rarity: string; category: string; slot: string | null; quantity: number; levelReq: number; stats: Record<string, number> } }>;
+  equipment: Array<{ slot: string; item: { id: string; itemId: string; name: string; description: string; rarity: string; category: string; slot: string | null; quantity: number; levelReq: number; stats: Record<string, number>; sellPrice: number } }>;
 }
 
 export interface CharacterRepository {
@@ -114,7 +114,7 @@ export class MemoryCharacterRepository implements CharacterRepository {
   async getInventory(characterId: string, accountId: string): Promise<InventorySnapshot | null> {
     const record = this.characters.get(characterId);
     if (!record || record.playerId !== accountId) return null;
-    return { gold: record.gold, items: (this.inventory.get(characterId) ?? []).map((item) => ({ ...item, stats: { ...item.stats }, sellPrice: itemSellPrice(item) })), equipment: (this.equipment.get(characterId) ?? []).map((entry) => ({ ...entry, item: { ...entry.item, stats: { ...entry.item.stats } } })) };
+    return { gold: record.gold, items: (this.inventory.get(characterId) ?? []).map((item) => ({ ...item, stats: { ...item.stats }, sellPrice: itemSellPrice(item) })), equipment: (this.equipment.get(characterId) ?? []).map((entry) => ({ ...entry, item: { ...entry.item, stats: { ...entry.item.stats }, sellPrice: itemSellPrice(entry.item) } })) };
   }
 
   async equipItem(characterId: string, accountId: string, inventoryItemId: string): Promise<{ error: string | null }> {
