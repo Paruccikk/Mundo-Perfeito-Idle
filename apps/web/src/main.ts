@@ -20,7 +20,7 @@ import { createGameHud, type GameHud } from './ui/hud';
 import { renderFatalError, renderLoading } from './ui/screens';
 import { renderCharacterSelector } from './ui/selector';
 import { renderCharacterPanel } from './ui/character-panel';
-import { renderInventoryPanel } from './ui/inventory-panel';
+import { renderInventoryPanel } from './ui/inventory-panel';\nimport { renderSkillPanel } from './ui/skill-panel';
 import { closeStageMap, openStageMap } from './ui/stage-map';
 import './style.css';
 import './city-multiplayer.css';
@@ -215,6 +215,49 @@ async function openCharacterPanel(characterId: string): Promise<void> {
     }, closeGamePanel);
   } catch (error) {
     hud?.pushFeed(error instanceof Error ? error.message : 'Não foi possível carregar a ficha.', 'danger');
+  }
+}
+
+async function openSkillPanel(characterId: string): Promise<void> {
+  closeGamePanel();
+  sfxInventory();
+  try {
+    const snapshot = await api.getCombat(characterId);
+    renderSkillPanel(root, snapshot, async (skillId) => {
+      const updated = await api.upgradeSkill(characterId, skillId);
+      hud?.update(updated);
+      return updated;
+    }, closeGamePanel);
+  } catch (error) {
+    hud?.pushFeed(error instanceof Error ? error.message : 'Não foi possível carregar as habilidades.', 'danger');
+  }
+}
+
+async function castSkill(characterId: string, skillId: string): Promise<void> {
+  try {
+    const snapshot = await api.castSkill(characterId, skillId);
+    hud?.update(snapshot);
+    game?.events.emit('skill-cast', snapshot);
+  } catch (error) {
+    hud?.pushFeed(error instanceof Error ? error.message : 'Não foi possível usar a habilidade.', 'danger');
+  }
+}
+
+async function useQuickPotion(characterId: string, itemId: string): Promise<void> {
+  try {
+    const inventory = await api.getInventory(characterId);
+    const potion = inventory.items.find((item) => item.itemId === itemId && item.quantity > 0);
+    if (!potion) {
+      hud?.pushFeed(itemId === 'mp-potion' ? 'Você não possui Poção de Mana.' : 'Você não possui Poção de Vida.', 'danger');
+      return;
+    }
+    await api.useItem(characterId, potion.id);
+    const snapshot = await api.getCombat(characterId);
+    hud?.update(snapshot);
+    game?.events.emit('skill-cast', snapshot);
+    hud?.pushFeed(itemId === 'mp-potion' ? 'Poção de Mana utilizada.' : 'Poção de Vida utilizada.', 'gold');
+  } catch (error) {
+    hud?.pushFeed(error instanceof Error ? error.message : 'Não foi possível usar a poção.', 'danger');
   }
 }
 
