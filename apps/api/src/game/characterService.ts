@@ -165,10 +165,10 @@ export class CharacterService {
       const seconds = Math.ceil((cooldownUntil - nowMs) / 1000);
       throw new CharacterError('skill_cooldown', 400, `A habilidade estará pronta em ${seconds}s.`);
     }
-    if ((record.combat.playerMp ?? 0) < definition.manaCost) {
+    const stats = statsForLevel(record.classId, record.level, record.attributes, record.equipmentBonuses);
+    if ((record.combat.playerMp ?? stats.maxMp) < definition.manaCost) {
       throw new CharacterError('not_enough_mana', 400, 'Mana insuficiente para usar essa habilidade.');
     }
-    const stats = statsForLevel(record.classId, record.level, record.attributes, record.equipmentBonuses);
     const rankMultiplier = 1 + (skillLevel - 1) * 0.22;
     let playerHp = record.combat.playerHp;
     let pendingSkillMultiplier = record.combat.pendingSkillMultiplier ?? 1;
