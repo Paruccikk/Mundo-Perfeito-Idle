@@ -168,6 +168,7 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
     banner,
     connection,
     autoPill,
+    hotbar,
     tools
   );
   root.append(hud);
