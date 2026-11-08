@@ -199,7 +199,12 @@ export interface CombatStateRecord {
   monsterHp: number;
   /** Grupo persistido de monstros; ausente em personagens legados até a primeira sincronização. */
   pack?: CombatMonsterRecord[];
-  targetIndex?: number;\n  skillPoints?: number;\n  skillLevels?: Record<string, number>;\n  skillCooldowns?: Record<string, number>;\n  pendingSkillMultiplier?: number;\n  pendingSkillId?: string | null;
+  targetIndex?: number;
+  skillPoints?: number;
+  skillLevels?: Record<string, number>;
+  skillCooldowns?: Record<string, number>;
+  pendingSkillMultiplier?: number;
+  pendingSkillId?: string | null;
   playerHp: number;
   killsInStage: number;
   bossActive: boolean;
@@ -221,7 +226,8 @@ export type CombatEventType =
   | 'boss_spawn'
   | 'boss_defeated'
   | 'player_death'
-  | 'item_drop'\n  | 'skill_cast';
+  | 'item_drop'
+  | 'skill_cast';
 
 export interface CombatEvent {
   type: CombatEventType;
