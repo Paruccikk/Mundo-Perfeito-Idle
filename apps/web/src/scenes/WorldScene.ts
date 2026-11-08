@@ -430,7 +430,7 @@ export class WorldScene extends Phaser.Scene {
 
   private buildIsland(): void {
     const theme = this.theme;
-    const base = this.add.graphics().setDepth(0);
+    const base = this.add.graphics().setDepth(-10000);
     this.world.add(base);
 
     base.fillStyle(0x040b10, 0.5);
@@ -443,7 +443,7 @@ export class WorldScene extends Phaser.Scene {
     base.fillStyle(theme.ground[0], 0.5);
     base.fillEllipse(0, -18, 1480, 720);
 
-    const tiles = this.add.graphics().setDepth(10);
+    const tiles = this.add.graphics().setDepth(-9999);
     this.world.add(tiles);
 
     for (let row = 0; row < GRID_ROWS; row += 1) {
