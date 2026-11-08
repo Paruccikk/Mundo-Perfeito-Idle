@@ -100,6 +100,7 @@ export class CharacterService {
       currentStageId: STAGE_ONE.id,
       combat: {
         stageId: STAGE_ONE.id, monsterId: initialMonsterId, monsterHp: initialMonster.maxHp,
+        pack: Array.from({ length: 6 }, (_, index) => { const monsterId = STAGE_ONE.monsterIds[index % STAGE_ONE.monsterIds.length]!; return { slotId: `mob-${index + 1}`, monsterId, hp: getMonster(monsterId).maxHp, respawnAt: null }; }), targetIndex: 0,
         playerHp: stats.maxHp, playerMp: stats.maxMp, killsInStage: 0, bossActive: false, bossDefeated: 0,
         status: 'fighting', playerCooldownSeconds: 0, monsterCooldownSeconds: 0,
         recoveringUntil: null, lastTickAt: now
@@ -234,19 +235,40 @@ export function toSummary(record: CharacterRecord): CharacterSummary {
 export function toCombatSnapshot(record: CharacterRecord, events: CombatEvent[], simulatedSeconds: number): CombatSnapshot {
   const summary = toSummary(record);
   const stage = getStage(record.combat.stageId);
-  const monster = getMonster(record.combat.monsterId);
+  const legacyMonster = getMonster(record.combat.monsterId);
+  const pack = record.combat.pack?.length ? record.combat.pack : [{
+    slotId: 'mob-1', monsterId: record.combat.monsterId,
+    hp: record.combat.monsterHp, respawnAt: null
+  }];
+  const targetIndex = Math.max(0, Math.min(pack.length - 1, record.combat.targetIndex ?? 0));
+  const activeIndex = pack.findIndex((entry) => entry.hp > 0);
+  const selectedIndex = activeIndex >= 0 ? activeIndex : targetIndex;
+  const selected = pack[selectedIndex]!;
+  const monster = getMonster(selected.monsterId ?? legacyMonster.id);
+  const now = Date.now();
+  const monsters = pack.map((entry, index) => {
+    const definition = getMonster(entry.monsterId);
     return {
-      character: summary,
-      combat: {
-        stageId: stage.id, stageName: stage.name, stage,
-        monster: { ...monster, hp: Math.max(0, record.combat.monsterHp) },
-        playerHp: Math.max(0, record.combat.playerHp), playerMaxHp: summary.stats.maxHp,
-        playerMp: Math.max(0, record.combat.playerMp ?? summary.stats.maxMp), playerMaxMp: summary.stats.maxMp,
-        killsInStage: record.combat.killsInStage, killsRequiredForBoss: stage.killsRequiredForBoss,
-        bossActive: record.combat.bossActive, bossDefeated: record.combat.bossDefeated, status: record.combat.status
-      },
-      events, simulatedSeconds
+      ...definition,
+      hp: Math.max(0, entry.hp),
+      slotId: entry.slotId,
+      respawnInSeconds: entry.respawnAt ? Math.max(0, (Date.parse(entry.respawnAt) - now) / 1000) : 0,
+      isTarget: index === selectedIndex && entry.hp > 0
     };
+  });
+  return {
+    character: summary,
+    combat: {
+      stageId: stage.id, stageName: stage.name, stage,
+      monster: { ...monster, hp: Math.max(0, selected.hp) },
+      monsters,
+      playerHp: Math.max(0, record.combat.playerHp), playerMaxHp: summary.stats.maxHp,
+      playerMp: Math.max(0, record.combat.playerMp ?? summary.stats.maxMp), playerMaxMp: summary.stats.maxMp,
+      killsInStage: record.combat.killsInStage, killsRequiredForBoss: stage.killsRequiredForBoss,
+      bossActive: record.combat.bossActive, bossDefeated: record.combat.bossDefeated, status: record.combat.status
+    },
+    events, simulatedSeconds
+  };
 }
 
 function assertPlayerId(playerId: unknown): asserts playerId is string {
