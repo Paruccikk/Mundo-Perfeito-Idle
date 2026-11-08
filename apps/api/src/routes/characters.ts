@@ -67,6 +67,18 @@ export function createCharacterRoutes(repository: CharacterRepository) {
       } catch (error) { return sendError(reply, error); }
     });
 
+    app.post('/api/v1/characters/:id/sell-item', { preHandler: authenticate }, async (request, reply) => {
+      try {
+        const { id } = request.params as { id: string };
+        const body = request.body as { inventoryItemId?: unknown; quantity?: unknown } | null;
+        if (!body || typeof body.inventoryItemId !== 'string' || body.inventoryItemId.length > 128 ||
+            typeof body.quantity !== 'number' || !Number.isInteger(body.quantity) || body.quantity < 1 || body.quantity > 9999) {
+          throw new CharacterError('validation_error', 400, 'Informe o item e a quantidade que deseja vender.');
+        }
+        return reply.send(await service.sellItem(id, accountId(request), body.inventoryItemId, body.quantity));
+      } catch (error) { return sendError(reply, error); }
+    });
+
     app.post('/api/v1/characters/:id/use-item', { preHandler: authenticate }, async (request, reply) => {
       try {
         const { id } = request.params as { id: string };
