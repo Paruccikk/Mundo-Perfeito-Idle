@@ -1713,12 +1713,11 @@ export class WorldScene extends Phaser.Scene {
           this.popText(this.player.root.x, this.player.root.y - 128, `+${event.amount ?? 0} HP`, '#9cf0b2', 17);
         } else {
           this.player.facePoint(anchor.x, anchor.y);
-          this.fireProjectile(true, anchor);
           const color = this.character.classId === 'mage' ? 0x9d7cff
             : this.character.classId === 'priest' ? 0xffe7a3
             : this.character.classId === 'archer' ? 0x8be0b0 : 0xffb86b;
           this.spawnBurst(this.player.root.x, this.player.root.y - 70, color, 8);
-          this.popText(anchor.x, anchor.y - anchor.height - 32, skillId.replace(/-/g, ' ') || 'Habilidade', '#ffe28a', 14);
+          this.popText(this.player.root.x, this.player.root.y - 132, skillId.replace(/-/g, ' ') || 'Habilidade', '#ffe28a', 14);
         }
         break;
       }
