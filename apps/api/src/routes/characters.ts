@@ -99,6 +99,22 @@ export function createCharacterRoutes(repository: CharacterRepository) {
       } catch (error) { return sendError(reply, error); }
     });
 
+    app.post('/api/v1/characters/:id/skills/:skillId/cast', { preHandler: authenticate }, async (request, reply) => {
+      try {
+        const { id, skillId } = request.params as { id: string; skillId: string };
+        if (skillId.length > 64) throw new CharacterError('validation_error', 400, 'Habilidade inválida.');
+        return reply.send(await service.castSkill(id, accountId(request), skillId));
+      } catch (error) { return sendError(reply, error); }
+    });
+
+    app.post('/api/v1/characters/:id/skills/:skillId/upgrade', { preHandler: authenticate }, async (request, reply) => {
+      try {
+        const { id, skillId } = request.params as { id: string; skillId: string };
+        if (skillId.length > 64) throw new CharacterError('validation_error', 400, 'Habilidade inválida.');
+        return reply.send(await service.upgradeSkill(id, accountId(request), skillId));
+      } catch (error) { return sendError(reply, error); }
+    });
+
     app.post('/api/v1/characters/:id/attributes', { preHandler: authenticate }, async (request, reply) => {
       try {
         const { id } = request.params as { id: string };
