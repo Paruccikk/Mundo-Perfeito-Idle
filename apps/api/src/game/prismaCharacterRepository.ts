@@ -1,6 +1,8 @@
 import { Prisma, PrismaClient } from '@prisma/client';
+import { randomUUID } from 'node:crypto';
 import type { CharacterRepository } from './characterRepository.js';
 import type { CharacterRecord } from './types.js';
+import { itemSellPrice } from './economy.js';
 import { DEFAULT_STAGE_ID, getMonster, getStage, nextNormalMonster } from './monsters.js';
 
 type DbCharacter = {
@@ -112,17 +114,19 @@ export class PrismaCharacterRepository implements CharacterRepository {
   }
 
   async getInventory(characterId: string, accountId: string) {
-    const owner = await this.prisma.character.findFirst({ where: { id: characterId, accountId }, select: { id: true } });
+    const owner = await this.prisma.character.findFirst({ where: { id: characterId, accountId }, select: { id: true, gold: true } });
     if (!owner) return null;
     const [items, equipment] = await Promise.all([
       this.prisma.inventoryItem.findMany({ where: { characterId }, include: { item: true }, orderBy: { acquiredAt: 'desc' } }),
       this.prisma.characterEquipment.findMany({ where: { characterId }, include: { item: true } })
     ]);
     return {
+      gold: Number(owner.gold),
       items: items.map((entry) => ({ id: entry.id, itemId: entry.itemId, name: entry.item.name,
         description: entry.item.description, rarity: entry.item.rarity, category: entry.item.category,
         slot: entry.item.slot, quantity: entry.quantity, levelReq: entry.item.levelReq,
-        stats: (entry.item.stats ?? {}) as Record<string, number> })),
+        stats: (entry.item.stats ?? {}) as Record<string, number>,
+        sellPrice: itemSellPrice({ category: entry.item.category, rarity: entry.item.rarity, levelReq: entry.item.levelReq, stats: (entry.item.stats ?? {}) as Record<string, number> }) })),
       equipment: equipment.map((entry) => ({ slot: entry.slot, item: {
         id: entry.id, itemId: entry.itemId, name: entry.item.name, description: entry.item.description,
         rarity: entry.item.rarity, category: entry.item.category, slot: entry.item.slot,
@@ -194,6 +198,41 @@ export class PrismaCharacterRepository implements CharacterRepository {
       if (inventory.quantity <= 1) await tx.inventoryItem.delete({ where: { id: inventory.id } });
       else await tx.inventoryItem.update({ where: { id: inventory.id }, data: { quantity: { decrement: 1 } } });
       return { error: null };
+    }, { maxWait: 10_000, timeout: 20_000 });
+  }
+
+  async sellItem(characterId: string, accountId: string, inventoryItemId: string, quantity: number): Promise<{ error: string | null; goldReceived?: number }> {
+    return this.prisma.$transaction(async (tx) => {
+      const character = await tx.character.findFirst({ where: { id: characterId, accountId }, select: { id: true } });
+      if (!character) return { error: 'not_found' as const };
+      const inventory = await tx.inventoryItem.findFirst({
+        where: { id: inventoryItemId, characterId }, include: { item: true }
+      });
+      if (!inventory) return { error: 'item_not_found' as const };
+      if (!Number.isInteger(quantity) || quantity < 1 || quantity > inventory.quantity) return { error: 'invalid_quantity' as const };
+      const goldReceived = itemSellPrice({
+        category: inventory.item.category,
+        rarity: inventory.item.rarity,
+        levelReq: inventory.item.levelReq,
+        stats: (inventory.item.stats ?? {}) as Record<string, number>
+      }) * quantity;
+      const changed = await tx.inventoryItem.updateMany({
+        where: { id: inventory.id, characterId, quantity: inventory.quantity },
+        data: { quantity: { decrement: quantity } }
+      });
+      if (changed.count !== 1) return { error: 'item_changed' as const };
+      if (inventory.quantity === quantity) {
+        await tx.inventoryItem.delete({ where: { id: inventory.id } });
+      }
+      await tx.character.update({ where: { id: characterId }, data: { gold: { increment: BigInt(goldReceived) } } });
+      await tx.economyLedger.create({ data: {
+        characterId,
+        operationId: randomUUID(),
+        assetType: 'gold',
+        amount: BigInt(goldReceived),
+        reason: `sell:${inventory.itemId}:${quantity}`
+      } });
+      return { error: null, goldReceived };
     }, { maxWait: 10_000, timeout: 20_000 });
   }
 
