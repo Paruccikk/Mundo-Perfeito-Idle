@@ -124,12 +124,12 @@ export class CharacterService {
     if (currentLevel >= definition.maxLevel) throw new CharacterError('skill_max_level', 400, 'Essa habilidade já está no nível máximo.');
     const requiredLevel = currentLevel === 0 ? definition.requiredLevel : Math.max(definition.requiredLevel, (currentLevel + 1) * 5);
     if (record.level < requiredLevel) throw new CharacterError('skill_level_required', 400, `Você precisa alcançar o nível ${requiredLevel} para evoluir essa habilidade.`);
-    if ((record.combat.skillPoints ?? 0) < 1) throw new CharacterError('no_skill_points', 400, 'Você não possui pontos de habilidade disponíveis.');
+    if ((record.combat.skillPoints ?? Math.floor(record.level / 5)) < 1) throw new CharacterError('no_skill_points', 400, 'Você não possui pontos de habilidade disponíveis.');
     const expected = record.combat.lastTickAt;
     const now = new Date().toISOString();
     record.combat = {
       ...record.combat,
-      skillPoints: (record.combat.skillPoints ?? 0) - 1,
+      skillPoints: (record.combat.skillPoints ?? Math.floor(record.level / 5)) - 1,
       skillLevels: { ...levels, [skillId]: currentLevel + 1 },
       lastTickAt: now
     };
@@ -142,7 +142,7 @@ export class CharacterService {
   async castSkill(id: string, playerId: unknown, skillId: string): Promise<CombatSnapshot> {
     assertPlayerId(playerId);
     let record = await this.findOwned(id, playerId);
-    if (record.combat.status === 'dead') throw new CharacterError('character_dead', 400, 'Não é possível usar habilidades enquanto estiver derrotado.');
+    if (record.combat.status !== 'fighting') throw new CharacterError('character_unavailable', 400, 'Só é possível usar habilidades durante o combate.');
     const simulation = simulateCombat(record, Date.now());
     if (simulation.simulatedSeconds > 0) {
       const drops = simulation.drops.map((drop, index) => ({
@@ -153,6 +153,7 @@ export class CharacterService {
       }
       record = simulation.record;
     }
+    if (record.combat.status !== 'fighting') throw new CharacterError('character_unavailable', 400, 'Seu personagem não pode usar habilidades neste momento.');
     const definition = findSkill(record.classId, skillId);
     if (!definition) throw new CharacterError('skill_not_found', 404, 'Essa habilidade não pertence à sua classe.');
     const firstSkillId = skillsForClass(record.classId)[0]!.id;
@@ -361,7 +362,7 @@ export function toCombatSnapshot(record: CharacterRecord, events: CombatEvent[],
       playerMp: Math.max(0, record.combat.playerMp ?? summary.stats.maxMp), playerMaxMp: summary.stats.maxMp,
       killsInStage: record.combat.killsInStage, killsRequiredForBoss: stage.killsRequiredForBoss,
       bossActive: record.combat.bossActive, bossDefeated: record.combat.bossDefeated, status: record.combat.status,
-      skillPoints: record.combat.skillPoints ?? 0,
+      skillPoints: record.combat.skillPoints ?? Math.floor(record.level / 5),
       skills: skillsForClass(record.classId).map((definition) => {
         const firstSkillId = skillsForClass(record.classId)[0]!.id;
         const levels = record.combat.skillLevels ?? { [firstSkillId]: 1 };
