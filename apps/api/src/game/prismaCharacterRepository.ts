@@ -214,7 +214,8 @@ export class PrismaCharacterRepository implements CharacterRepository {
       const fallbackStage = getStage(DEFAULT_STAGE_ID);
       const fallbackMonsterId = nextNormalMonster(fallbackStage, 0);
       const fallbackMonster = getMonster(fallbackMonsterId);
-      const updatedCombat = { ...combat, stageId, monsterId: allowRevive ? combat.monsterId : fallbackMonsterId, monsterHp: allowRevive ? combat.monsterHp : fallbackMonster.maxHp, playerHp: revive ? Math.max(1, Math.round(maxHp * 0.5)) : maxHp, playerMp: revive ? Math.max(0, Math.round(maxMp * 0.5)) : maxMp, status: 'fighting' as const, recoveringUntil: null, playerCooldownSeconds: 0, monsterCooldownSeconds: 0.5, lastTickAt: now };
+      const fallbackPack = Array.from({ length: 6 }, (_, index) => { const monsterId = fallbackStage.monsterIds[index % fallbackStage.monsterIds.length]!; const monster = getMonster(monsterId); return { slotId: `mob-${index + 1}`, monsterId, hp: monster.maxHp, respawnAt: null }; });
+      const updatedCombat = { ...combat, stageId, monsterId: allowRevive ? combat.monsterId : fallbackMonsterId, monsterHp: allowRevive ? combat.monsterHp : fallbackMonster.maxHp, pack: allowRevive ? combat.pack : fallbackPack, targetIndex: allowRevive ? combat.targetIndex ?? 0 : 0, playerHp: revive ? Math.max(1, Math.round(maxHp * 0.5)) : maxHp, playerMp: revive ? Math.max(0, Math.round(maxMp * 0.5)) : maxMp, status: 'fighting' as const, recoveringUntil: null, playerCooldownSeconds: 0, monsterCooldownSeconds: 0.5, lastTickAt: now };
       await tx.character.update({ where: { id: characterId }, data: { currentStageId: stageId, combat: updatedCombat as unknown as Prisma.InputJsonValue, lastSimulatedAt: new Date(now) } });
       return !revive;
     }, { maxWait: 10_000, timeout: 20_000 });
@@ -231,8 +232,9 @@ export class PrismaCharacterRepository implements CharacterRepository {
       const monster = getMonster(monsterId);
       const combat = character.combat as unknown as CharacterRecord['combat'];
       const now = new Date().toISOString();
+      const pack = Array.from({ length: 6 }, (_, index) => { const id = stage.monsterIds[index % stage.monsterIds.length]!; const definition = getMonster(id); return { slotId: `mob-${index + 1}`, monsterId: id, hp: definition.maxHp, respawnAt: null }; });
       const updatedCombat = {
-        ...combat, stageId: stage.id, monsterId, monsterHp: monster.maxHp,
+        ...combat, stageId: stage.id, monsterId, monsterHp: monster.maxHp, pack, targetIndex: 0,
         killsInStage: 0, bossActive: false, bossDefeated: 0, status: 'fighting' as const,
         recoveringUntil: null, playerCooldownSeconds: 0, monsterCooldownSeconds: 0.5,
         lastTickAt: now
