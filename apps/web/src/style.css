@@ -1467,6 +1467,10 @@ body.in-world .city-online {
   display: none;
 }
 
+body.in-world .city-map-panel {
+  display: none;
+}
+
 h1, h2, h3, h4,
 .creator__title,
 .selector__title,

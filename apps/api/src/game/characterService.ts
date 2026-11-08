@@ -195,6 +195,23 @@ export class CharacterService {
     throw new CharacterError('combat_busy', 409, 'O personagem está sendo atualizado. Tente novamente em alguns segundos.');
   }
 
+  /**
+   * Sincroniza o personagem ao entrar na cidade sem simular combate.
+   * Uma morte que ficou pendente no servidor (queda de conexão, recarregamento)
+   * é resolvida aqui, devolvendo o herói ao convívio urbano com a vida cheia.
+   */
+  async enterTown(id: string, playerId: unknown): Promise<CombatSnapshot> {
+    assertPlayerId(playerId);
+    let record = await this.findOwned(id, playerId);
+    if (record.combat.status === 'dead') {
+      const stats = statsForLevel(record.classId, record.level, record.attributes, record.equipmentBonuses);
+      const resolved = await this.repository.resolveDeath(id, playerId, stats.maxHp, stats.maxMp, false);
+      if (!resolved.record) throw new CharacterError('character_not_found', 404, 'Personagem não encontrado.');
+      record = resolved.record;
+    }
+    return toCombatSnapshot(record, [], 0);
+  }
+
   private async findOwned(id: string, playerId: string): Promise<CharacterRecord> {
     const record = await this.repository.findById(id);
     if (!record || record.playerId !== playerId) throw new CharacterError('character_not_found', 404, 'Personagem não encontrado.');

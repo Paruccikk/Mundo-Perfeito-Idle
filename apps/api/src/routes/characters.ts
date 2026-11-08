@@ -42,6 +42,13 @@ export function createCharacterRoutes(repository: CharacterRepository) {
       } catch (error) { return sendError(reply, error); }
     });
 
+    app.post('/api/v1/characters/:id/town', { preHandler: authenticate }, async (request, reply) => {
+      try {
+        const { id } = request.params as { id: string };
+        return reply.send(await service.enterTown(id, accountId(request)));
+      } catch (error) { return sendError(reply, error); }
+    });
+
     app.post('/api/v1/characters/:id/travel', { preHandler: authenticate }, async (request, reply) => {
       try {
         const { id } = request.params as { id: string };

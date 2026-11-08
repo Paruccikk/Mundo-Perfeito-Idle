@@ -106,6 +106,9 @@ export const api = {
   async getCombat(id: string, _playerId?: string): Promise<CombatSnapshot> {
     return request<CombatSnapshot>(`/api/v1/characters/${encodeURIComponent(id)}/combat`);
   },
+  async enterTown(id: string): Promise<CombatSnapshot> {
+    return request<CombatSnapshot>(`/api/v1/characters/${encodeURIComponent(id)}/town`, { method: 'POST', body: {} });
+  },
   async listStages(): Promise<StageCatalog> {
     return request<StageCatalog>('/api/v1/game/stages');
   },

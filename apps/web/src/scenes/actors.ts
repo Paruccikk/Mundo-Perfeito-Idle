@@ -617,10 +617,10 @@ export class MonsterView {
     const shadow = scene.add.ellipse(
       0,
       2,
-      sprite === 'slime-king' ? 92 : sprite === 'dragon' || sprite === 'construct' ? 116 : 72,
-      20,
+      (sprite === 'slime-king' ? 92 : sprite === 'dragon' || sprite === 'construct' ? 116 : 72) * this.baseScale,
+      20 * this.baseScale,
       0x051015,
-      0.42
+      0.4
     );
     this.root.add(shadow);
 
@@ -2058,7 +2058,7 @@ export class HorseView {
     const saddle = options.saddle ?? 0x8a3b42;
 
     this.root = scene.add.container(x, y);
-    const shadow = scene.add.ellipse(0, 2, 128, 26, 0x051015, 0.36);
+    const shadow = scene.add.ellipse(0, 2, 128 * this.baseScale, 26 * this.baseScale, 0x051015, 0.34);
     this.root.add(shadow);
 
     this.rig = scene.add.container(0, 0);
@@ -2194,25 +2194,25 @@ export class HorseView {
 
     scene.tweens.add({
       targets: this.head,
-      y: { from: -122, to: -118 },
-      duration: 1700,
+      y: { from: -122, to: -119 },
+      duration: 2800,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut'
     });
     scene.tweens.add({
       targets: this.tail,
-      angle: { from: -8, to: 10 },
-      duration: 1300,
+      angle: { from: -5, to: 7 },
+      duration: 2300,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut'
     });
     scene.tweens.add({
       targets: this.rig,
-      scaleX: this.baseScale * 1.015,
-      scaleY: this.baseScale * 0.985,
-      duration: 1600,
+      scaleX: this.baseScale * 1.008,
+      scaleY: this.baseScale * 0.993,
+      duration: 2600,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut'
@@ -2242,7 +2242,7 @@ export class HorseView {
     this.legTween = this.scene.tweens.add({
       targets: this.legs,
       angle: { from: -1.6, to: 1.6 },
-      duration: 170,
+      duration: 260,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut'

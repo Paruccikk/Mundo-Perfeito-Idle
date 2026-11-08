@@ -6,7 +6,7 @@
   display: flex;
   flex-direction: column;
   width: min(340px, calc(100vw - 36px));
-  height: 250px;
+  height: 176px;
   overflow: hidden;
   border: 1px solid rgba(204, 173, 112, 0.5);
   border-radius: 13px;
@@ -15,6 +15,34 @@
   color: #dce8f2;
   pointer-events: auto;
   backdrop-filter: blur(8px);
+  transition: height 0.24s ease, border-color 0.24s ease;
+}
+.city-online.is-collapsed {
+  height: 42px;
+}
+.city-online.is-collapsed .city-online__messages,
+.city-online.is-collapsed .city-online__form {
+  display: none;
+}
+.city-online__toggle {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(232, 200, 119, 0.35);
+  border-radius: 5px;
+  background: rgba(8, 6, 4, 0.55);
+  color: #e8c877;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+.city-online__toggle:hover {
+  border-color: #e8c877;
+  color: #fff0cf;
 }
 .city-online__header {
   display: flex;
@@ -78,10 +106,121 @@
 }
 .city-online__send:hover { background: #82643a; }
 @media (max-width: 680px) {
-  .city-online { left: 10px; bottom: 100px; width: min(300px, calc(100vw - 20px)); height: 170px; }
+  .city-online { left: 10px; bottom: 96px; width: min(300px, calc(100vw - 20px)); height: 150px; }
+  .city-online.is-collapsed { height: 40px; }
   .city-online__header { padding: 7px 9px; }
   .city-online__messages { padding: 6px 8px; }
   .city-online__form { padding: 6px; }
+}
+
+/* Minimapa de pergaminho */
+.city-map-panel {
+  position: fixed;
+  right: 18px;
+  top: 196px;
+  z-index: 119;
+  width: 226px;
+  padding: 10px 10px 8px;
+  pointer-events: none;
+  border: 1px solid rgba(88, 61, 31, 0.85);
+  border-radius: 10px;
+  background:
+    radial-gradient(circle at 22% 12%, rgba(255, 250, 226, 0.5), transparent 62%),
+    linear-gradient(160deg, #ead9b3 0%, #dcc79c 52%, #c7ac7d 100%);
+  box-shadow:
+    0 16px 38px rgba(0, 0, 0, 0.46),
+    inset 0 0 0 1px rgba(255, 244, 210, 0.35),
+    inset 0 0 28px rgba(92, 60, 24, 0.22);
+  color: #3d2915;
+  font-family: 'Cinzel', Georgia, 'Times New Roman', serif;
+}
+.city-map-panel::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border: 1px solid rgba(92, 60, 24, 0.38);
+  border-radius: 7px;
+  pointer-events: none;
+}
+.city-map-panel__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 2px 5px;
+  border-bottom: 1px solid rgba(92, 60, 24, 0.28);
+}
+.city-map-panel__eyebrow {
+  font-size: 6.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #7a542c;
+  white-space: nowrap;
+}
+.city-map-panel__header strong {
+  font-family: 'MedievalSharp', 'Cinzel', Georgia, serif;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  color: #4a2e16;
+  white-space: nowrap;
+}
+.city-map-panel__canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-top: 6px;
+  border: 1px solid rgba(74, 46, 22, 0.5);
+  border-radius: 5px;
+  background: #c6ad80;
+  box-shadow: inset 0 0 18px rgba(52, 34, 15, 0.36);
+}
+.city-map-panel__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 5px;
+  padding: 0 2px;
+  font-size: 8.5px;
+  color: #5d4325;
+}
+.city-map-panel__district {
+  font-weight: 700;
+  color: #4d3117;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.city-map-panel__legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  color: #74532f;
+}
+.city-map-panel__legend i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #8d5a19;
+  box-shadow: 0 0 0 1px rgba(255, 238, 188, 0.7);
+}
+
+@media (max-width: 760px) {
+  .city-map-panel {
+    top: 196px;
+    right: 10px;
+    width: 132px;
+    padding: 6px 6px 5px;
+  }
+  .city-map-panel__header strong { font-size: 12px; }
+  .city-map-panel__eyebrow { font-size: 6px; }
+  .city-map-panel__header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+  }
+  .city-map-panel__footer { font-size: 7px; }
 }
 
 /* Tema medieval */

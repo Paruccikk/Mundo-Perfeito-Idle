@@ -138,7 +138,11 @@ function startGame(character: CharacterSummary): void {
     onSwitch: openCharacterSelector,
     onCharacter: () => void openCharacterPanel(character.id),
     onInventory: () => void openInventoryPanel(character.id),
-    onTown: () => game?.scene.start('CityScene'),
+    onTown: () => {
+      if (!game) return;
+      game.scene.stop('WorldScene');
+      game.scene.start('CityScene');
+    },
     onMap: openWorldMap
   });
   const logout = document.createElement('button');
@@ -195,6 +199,7 @@ function enterWorld(snapshot: CombatSnapshot): void {
   if (!game) return;
   game.registry.set('character', snapshot.character);
   game.registry.set('travelSnapshot', snapshot);
+  game.scene.stop('CityScene');
   game.scene.start('WorldScene');
   sfxClick();
 }

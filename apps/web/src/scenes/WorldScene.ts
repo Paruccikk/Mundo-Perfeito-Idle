@@ -1078,7 +1078,7 @@ export class WorldScene extends Phaser.Scene {
       color: 0x6b4a2f,
       mane: 0x2c1d12,
       saddle: 0x8a3b42,
-      scale: 0.86
+      scale: 0.62
     });
     this.mount.setFacing(1);
     this.mount.root.setDepth(100 + PLAYER_HOME.y + 66);
@@ -1119,7 +1119,7 @@ export class WorldScene extends Phaser.Scene {
         variant: monster.variant,
         tint: monster.tint,
         accent: monster.accent,
-        scale: (monster.visualScale ?? 1) * Phaser.Math.FloatBetween(0.8, 1)
+        scale: (monster.visualScale ?? 1) * Phaser.Math.FloatBetween(0.58, 0.72)
       });
       view.root.setAlpha(Phaser.Math.FloatBetween(0.88, 1));
       view.root.setDepth(100 + spot.y);
@@ -1245,7 +1245,7 @@ export class WorldScene extends Phaser.Scene {
       variant: monster.variant,
       tint: monster.tint,
       accent: monster.accent,
-      scale: monster.visualScale,
+      scale: (monster.visualScale ?? 1) * (monster.isBoss ? 0.9 : 0.86),
       isBoss: monster.isBoss
     });
     view.root.setDepth(100 + spot.y);
@@ -1495,6 +1495,11 @@ export class WorldScene extends Phaser.Scene {
 
   private applySnapshot(snapshot: CombatSnapshot): void {
     if (snapshot.returnToCity) {
+      // O servidor já ressuscitou o personagem na cidade. Atualiza HUD e registro
+      // antes da troca de cena para não deixar a barra de vida congelada em 0.
+      this.character = snapshot.character;
+      this.registry.set('character', snapshot.character);
+      this.hud?.update(snapshot);
       this.hud?.pushFeed('Você foi derrotado e não tinha Poção da Ressurreição. Retornando a Valedouro.', 'danger');
       sfxDeath();
       this.scene.start('CityScene');
