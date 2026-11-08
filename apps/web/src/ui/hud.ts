@@ -16,6 +16,9 @@ export interface GameHudOptions {
   onInventory: () => void;
   onTown: () => void;
   onMap: () => void;
+  onSkills: () => void;
+  onCastSkill: (skillId: string) => void;
+  onUsePotion: (itemId: string) => void;
 }
 
 export interface GameHud {
