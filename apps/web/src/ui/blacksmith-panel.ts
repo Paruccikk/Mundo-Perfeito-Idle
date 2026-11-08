@@ -67,6 +67,7 @@ export function renderBlacksmithShop(
   let selectedId = inventory.items[0]?.id ?? '';
 
   const render = (): void => {
+    balanceValue.textContent = formatGold(inventory.gold);
     list.replaceChildren();
     if (!inventory.items.length) {
       const empty = document.createElement('p');
