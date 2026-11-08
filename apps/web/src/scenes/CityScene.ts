@@ -1412,7 +1412,20 @@ export class CityScene extends Phaser.Scene {
     });
     panel.add([bg, heading, message]);
 
-    if (npc.id === 'adventurer') {
+    if (npc.id === 'blacksmith') {
+      const action = this.add.text(-bg.width / 2 + 18, 43, '⚒  Abrir comércio e vender itens', {
+        fontFamily: FONT, fontSize: '13px', fontStyle: 'bold', color: '#ffe0a1',
+        backgroundColor: '#563b25', padding: { x: 12, y: 8 }
+      }).setInteractive({ useHandCursor: true });
+      action.on('pointerdown', (_pointer: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
+        event.stopPropagation();
+        this.closeDialogue();
+        sfxClick();
+        const openShop = this.registry.get('openBlacksmithShop');
+        if (typeof openShop === 'function') (openShop as () => void)();
+      });
+      panel.add(action);
+    } else if (npc.id === 'adventurer') {
       const action = this.add.text(-bg.width / 2 + 18, 43, '▶  Abrir o mapa do reino', {
         fontFamily: FONT, fontSize: '13px', fontStyle: 'bold', color: '#9fe0a8',
         backgroundColor: '#244b39', padding: { x: 12, y: 8 }
