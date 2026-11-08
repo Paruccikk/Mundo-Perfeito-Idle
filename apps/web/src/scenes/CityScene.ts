@@ -182,21 +182,28 @@ export class CityScene extends Phaser.Scene {
   update(_time: number, delta: number): void {
     if (!this.alive || !this.avatar) return;
     if (this.keys && this.cursors) {
-      const speed = Math.max(0.08, delta / 16.67) * 3.4;
+      // Controles em oito direções no plano isométrico, com velocidade constante.
       let dx = 0;
       let dy = 0;
       if (this.cursors.left.isDown || this.keys.A.isDown) { dx -= 1; dy += 0.5; }
       if (this.cursors.right.isDown || this.keys.D.isDown) { dx += 1; dy -= 0.5; }
       if (this.cursors.up.isDown || this.keys.W.isDown) { dx -= 1; dy -= 0.5; }
       if (this.cursors.down.isDown || this.keys.S.isDown) { dx += 1; dy += 0.5; }
-      if (dx !== 0 || dy !== 0) {
+      const magnitude = Math.hypot(dx, dy);
+      if (magnitude > 0) {
+        if (!this.moving) this.avatar.stopWalking();
         this.moving = true;
-        this.avatar.root.x = Phaser.Math.Clamp(this.avatar.root.x + dx * speed, CITY_LIMITS.minX, CITY_LIMITS.maxX);
-        this.avatar.root.y = Phaser.Math.Clamp(this.avatar.root.y + dy * speed, CITY_LIMITS.minY, CITY_LIMITS.maxY);
+        dx /= magnitude;
+        dy /= magnitude;
+        const distance = 190 * Math.min(delta, 50) / 1000;
+        this.avatar.root.x = Phaser.Math.Clamp(this.avatar.root.x + dx * distance, CITY_LIMITS.minX, CITY_LIMITS.maxX);
+        this.avatar.root.y = Phaser.Math.Clamp(this.avatar.root.y + dy * distance, CITY_LIMITS.minY, CITY_LIMITS.maxY);
+        this.avatar.facePoint(this.avatar.root.x + dx, this.avatar.root.y + dy);
+        this.avatar.setWalking(true);
         this.avatar.root.setDepth(300 + this.avatar.root.y);
-        this.avatar.setFacing(dx >= 0 ? 1 : -1);
       } else if (this.moving) {
         this.moving = false;
+        this.avatar.setWalking(false);
       }
     }
     this.updateCamera(delta);
@@ -1023,7 +1030,7 @@ export class CityScene extends Phaser.Scene {
       { x: 208, y: 12, color: 0x3f3a34, mane: 0x15120f, saddle: 0x3b5c8a, scale: 0.47 },
       { x: 280, y: 48, color: 0xc9b48c, mane: 0x6b5a42, saddle: 0x5c3b6e, scale: 0.45 }
     ];
-    for (const spec of horseSpecs) {
+    horseSpecs.forEach((spec, index) => {
       const horse = new HorseView(this, x + spec.x, y + spec.y, {
         color: spec.color, mane: spec.mane, saddle: spec.saddle, scale: spec.scale
       });
@@ -1031,7 +1038,15 @@ export class CityScene extends Phaser.Scene {
       horse.root.setDepth(100 + y + spec.y);
       this.world.add(horse.root);
       this.stableHorses.push(horse);
-    }
+      this.startStableHorsePatrol(
+        horse,
+        x + spec.x - 24,
+        x + spec.x + 24,
+        y + spec.y,
+        index % 2 === 0,
+        700 + index * 1300
+      );
+    });
 
     const patrol = new HorseView(this, x - 30, y + 108, {
       color: 0x4a3a2c,
@@ -1046,6 +1061,24 @@ export class CityScene extends Phaser.Scene {
     this.world.add(patrol.root);
     this.mountedPatrol = patrol;
     this.startMountedPatrol(patrol, x - 210, x + 300, y + 108);
+  }
+
+  private startStableHorsePatrol(
+    horse: HorseView,
+    leftX: number,
+    rightX: number,
+    y: number,
+    moveRightFirst: boolean,
+    delay: number
+  ): void {
+    const walk = (toRight: boolean): void => {
+      if (!this.alive) return;
+      const destination = toRight ? rightX : leftX;
+      const distance = Math.abs(destination - horse.root.x);
+      horse.walkTo(destination, y, Phaser.Math.Clamp(distance * 115, 3200, 5600));
+      this.time.delayedCall(6200, () => walk(!toRight));
+    };
+    this.time.delayedCall(delay, () => walk(moveRightFirst));
   }
 
   private startMountedPatrol(horse: HorseView, fromX: number, toX: number, y: number): void {
@@ -1353,19 +1386,17 @@ export class CityScene extends Phaser.Scene {
   private handleGroundClick(pointer: Phaser.Input.Pointer): void {
     if (this.dialogue || pointer.button !== 0) return;
     const point = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
-    const targetX = Phaser.Math.Clamp((point.x - this.world.x) / this.world.scaleX, CITY_LIMITS.minX, CITY_LIMITS.maxX);
-    const targetY = Phaser.Math.Clamp((point.y - this.world.y) / this.world.scaleY, CITY_LIMITS.minY, CITY_LIMITS.maxY);
+    let targetX = Phaser.Math.Clamp((point.x - this.world.x) / this.world.scaleX, CITY_LIMITS.minX, CITY_LIMITS.maxX);
+    let targetY = Phaser.Math.Clamp((point.y - this.world.y) / this.world.scaleY, CITY_LIMITS.minY, CITY_LIMITS.maxY);
+
+    // A cidade usa tiles isométricos de 96x48 (centros separados por 48x24).
+    // Encaixar o destino no centro do tile dá a precisão visual do estilo Tibia.
+    targetX = Phaser.Math.Clamp(Math.round(targetX / 48) * 48, CITY_LIMITS.minX, CITY_LIMITS.maxX);
+    targetY = Phaser.Math.Clamp(Math.round(targetY / 24) * 24, CITY_LIMITS.minY, CITY_LIMITS.maxY);
     const distance = Phaser.Math.Distance.Between(this.avatar.root.x, this.avatar.root.y, targetX, targetY);
-    this.avatar.setFacing(targetX >= this.avatar.root.x ? 1 : -1);
-    this.tweens.add({
-      targets: this.avatar.root,
-      x: targetX, y: targetY, duration: Phaser.Math.Clamp(distance * 3.2, 220, 1800),
-      ease: 'Sine.easeInOut',
-      onUpdate: () => {
-        this.avatar.root.setDepth(300 + this.avatar.root.y);
-        this.updatePlayerNameplate();
-      }
-    });
+    if (distance < 8) return;
+    this.moving = false;
+    this.avatar.walkTo(targetX, targetY, Phaser.Math.Clamp(distance * 3.1, 220, 4200));
   }
 
   private openNpc(npc: NpcDefinition): void {
