@@ -1801,7 +1801,7 @@ export class WorldScene extends Phaser.Scene {
 
   private fireProjectile(critical: boolean, anchor: CombatAnchor): void {
     const classId = this.character.classId;
-    const startX = this.player.root.x + 30;
+    const startX = this.player.root.x + (targetX >= this.player.root.x ? 30 : -30);
     const startY = this.player.root.y - 74;
     const targetX = anchor.x;
     const targetY = anchor.y - anchor.height * 0.5;
