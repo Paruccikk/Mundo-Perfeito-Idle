@@ -128,7 +128,10 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
   const inventoryButton = el('button', 'ghost-button', 'Inventário') as HTMLButtonElement;
   inventoryButton.type = 'button';
   inventoryButton.addEventListener('click', onInventory);
-  const skillsButton = el('button', 'ghost-button', 'Habilidades') as HTMLButtonElement;\n  skillsButton.type = 'button';\n  skillsButton.addEventListener('click', onSkills);\n  const soundButton = el('button', 'ghost-button hud__sound', isAudioMuted() ? 'Som: mudo' : 'Som: ligado') as HTMLButtonElement;
+  const skillsButton = el('button', 'ghost-button', 'Habilidades') as HTMLButtonElement;
+  skillsButton.type = 'button';
+  skillsButton.addEventListener('click', onSkills);
+  const soundButton = el('button', 'ghost-button hud__sound', isAudioMuted() ? 'Som: mudo' : 'Som: ligado') as HTMLButtonElement;
   soundButton.type = 'button';
   soundButton.setAttribute('aria-pressed', isAudioMuted() ? 'false' : 'true');
   soundButton.addEventListener('click', () => {
@@ -137,7 +140,25 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
     soundButton.setAttribute('aria-pressed', nowMuted ? 'false' : 'true');
     if (!nowMuted) sfxClick();
   });
-  tools.append(mapButton, townButton, characterButton, inventoryButton, skillsButton, switchButton, soundButton);\n\n  const hotbar = el('div', 'hud__hotbar');\n  const skillSlots = Array.from({ length: 4 }, (_, index) => {\n    const button = el('button', 'hud__slot hud__slot--skill') as HTMLButtonElement;\n    button.type = 'button';\n    button.hidden = true;\n    button.addEventListener('click', () => { if (button.dataset.skillId) onCastSkill(button.dataset.skillId); });\n    button.append(el('span', 'hud__slot-key', String(index + 1)), el('strong', 'hud__slot-name', '—'), el('small', 'hud__slot-meta', ''));\n    hotbar.append(button);\n    return button;\n  });\n  const hpPotion = el('button', 'hud__slot hud__slot--potion') as HTMLButtonElement;\n  hpPotion.type = 'button'; hpPotion.textContent = 'HP · Poção'; hpPotion.title = 'Usar Poção de Vida';\n  hpPotion.addEventListener('click', () => onUsePotion('small-potion'));\n  const mpPotion = el('button', 'hud__slot hud__slot--potion') as HTMLButtonElement;\n  mpPotion.type = 'button'; mpPotion.textContent = 'MP · Poção'; mpPotion.title = 'Usar Poção de Mana';\n  mpPotion.addEventListener('click', () => onUsePotion('mp-potion'));\n  hotbar.append(hpPotion, mpPotion);
+  tools.append(mapButton, townButton, characterButton, inventoryButton, skillsButton, switchButton, soundButton);
+
+  const hotbar = el('div', 'hud__hotbar');
+  const skillSlots = Array.from({ length: 4 }, (_, index) => {
+    const button = el('button', 'hud__slot hud__slot--skill') as HTMLButtonElement;
+    button.type = 'button';
+    button.hidden = true;
+    button.addEventListener('click', () => { if (button.dataset.skillId) onCastSkill(button.dataset.skillId); });
+    button.append(el('span', 'hud__slot-key', String(index + 1)), el('strong', 'hud__slot-name', '—'), el('small', 'hud__slot-meta', ''));
+    hotbar.append(button);
+    return button;
+  });
+  const hpPotion = el('button', 'hud__slot hud__slot--potion') as HTMLButtonElement;
+  hpPotion.type = 'button'; hpPotion.textContent = 'HP · Poção'; hpPotion.title = 'Usar Poção de Vida';
+  hpPotion.addEventListener('click', () => onUsePotion('small-potion'));
+  const mpPotion = el('button', 'hud__slot hud__slot--potion') as HTMLButtonElement;
+  mpPotion.type = 'button'; mpPotion.textContent = 'MP · Poção'; mpPotion.title = 'Usar Poção de Mana';
+  mpPotion.addEventListener('click', () => onUsePotion('mp-potion'));
+  hotbar.append(hpPotion, mpPotion);
 
   hud.append(
     playerCard,
@@ -175,7 +196,8 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
       bossesEl.hidden = safeZone;
       farmEl.hidden = safeZone;
       bossBar.hidden = safeZone;
-      autoPill.hidden = safeZone;\n      hotbar.hidden = safeZone;
+      autoPill.hidden = safeZone;
+      hotbar.hidden = safeZone;
     },
 
     update(snapshot: CombatSnapshot): void {
@@ -206,7 +228,21 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
       bossesEl.textContent = `Chefes: ${combat.bossDefeated}`;
       const aliveMobs = combat.monsters?.filter((monster) => monster.hp > 0).length ?? 1;
       mobsEl.textContent = `Criaturas vivas: ${aliveMobs}`;
-      targetEl.textContent = `Alvo: ${combat.monster.name}`;\n\n      const skills = combat.skills ?? [];\n      skillSlots.forEach((button, index) => {\n        const skill = skills[index];\n        button.hidden = !skill;\n        if (!skill) return;\n        button.dataset.skillId = skill.id;\n        const remaining = Math.ceil(skill.cooldownRemainingSeconds);\n        button.querySelector('.hud__slot-name')!.textContent = skill.name;\n        button.querySelector('.hud__slot-meta')!.textContent = !skill.unlocked ? `Nv. ${skill.requiredLevel}` : remaining > 0 ? `${remaining}s` : `${skill.manaCost} MP`;\n        button.disabled = !skill.unlocked || remaining > 0 || combat.playerMp < skill.manaCost || combat.status !== 'fighting';\n        button.title = `${skill.name} · ${skill.description}`;\n      });\n      mpPotion.hidden = summary.classId !== 'mage' && summary.classId !== 'priest';
+      targetEl.textContent = `Alvo: ${combat.monster.name}`;
+
+      const skills = combat.skills ?? [];
+      skillSlots.forEach((button, index) => {
+        const skill = skills[index];
+        button.hidden = !skill;
+        if (!skill) return;
+        button.dataset.skillId = skill.id;
+        const remaining = Math.ceil(skill.cooldownRemainingSeconds);
+        button.querySelector('.hud__slot-name')!.textContent = skill.name;
+        button.querySelector('.hud__slot-meta')!.textContent = !skill.unlocked ? `Nv. ${skill.requiredLevel}` : remaining > 0 ? `${remaining}s` : `${skill.manaCost} MP`;
+        button.disabled = !skill.unlocked || remaining > 0 || combat.playerMp < skill.manaCost || combat.status !== 'fighting';
+        button.title = `${skill.name} · ${skill.description}`;
+      });
+      mpPotion.hidden = summary.classId !== 'mage' && summary.classId !== 'priest';
 
       const kills = combat.bossActive
         ? combat.killsRequiredForBoss
