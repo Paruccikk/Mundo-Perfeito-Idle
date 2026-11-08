@@ -67,6 +67,7 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
   const stageNameEl = el('strong', 'hud__stage-name', 'Clareira dos Aprendizes');
   const killsEl = el('span', 'hud__kills', '0 / 10 abates');
   const mobsEl = el('span', 'hud__kills', 'Criaturas vivas: 0');
+  const targetEl = el('span', 'hud__kills', 'Alvo: —');
   const progressTrack = el('div', 'hud__progress-track');
   const progressFill = el('div', 'hud__progress-fill');
   progressTrack.append(progressFill);
@@ -78,7 +79,7 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
   stageBottom.append(goldEl, bossesEl);
 
   const farmEl = el('span', 'hud__farm', 'Farm: —');
-  stageCard.append(stageNameEl, killsEl, mobsEl, progressTrack, farmEl, stageBottom);
+  stageCard.append(stageNameEl, killsEl, mobsEl, targetEl, progressTrack, farmEl, stageBottom);
 
   // ---------- Barra do chefe ----------
   const bossBar = el('div', 'hud__boss');
@@ -169,6 +170,7 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
       hud.classList.toggle('hud--safe', safeZone);
       killsEl.hidden = safeZone;
       mobsEl.hidden = safeZone;
+      targetEl.hidden = safeZone;
       progressTrack.hidden = safeZone;
       bossesEl.hidden = safeZone;
       farmEl.hidden = safeZone;
@@ -204,6 +206,7 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
       bossesEl.textContent = `Chefes: ${combat.bossDefeated}`;
       const aliveMobs = combat.monsters?.filter((monster) => monster.hp > 0).length ?? 1;
       mobsEl.textContent = `Criaturas vivas: ${aliveMobs}`;
+      targetEl.textContent = `Alvo: ${combat.monster.name}`;
 
       const kills = combat.bossActive
         ? combat.killsRequiredForBoss
