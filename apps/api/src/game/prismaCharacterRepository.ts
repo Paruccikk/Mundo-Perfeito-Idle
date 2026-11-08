@@ -31,8 +31,7 @@ export class PrismaCharacterRepository implements CharacterRepository {
         }
       });
       const weapon = record.classId === 'mage' ? 'apprentice-staff' : record.classId === 'priest' ? 'apprentice-mace' : record.classId === 'archer' ? 'training-bow' : 'training-sword';
-      const starterItems: Array<[string, number]> = [[weapon, 1], ['apprentice-hood', 1], ['apprentice-chest', 1], ['apprentice-legs', 1], ['apprentice-boots', 1], ['apprentice-ring', 1], ['small-potion', 5], ['revive-potion', 1]];
-      if (record.classId === 'mage' || record.classId === 'priest') starterItems.push(['mp-potion', 3]);
+      const starterItems: Array<[string, number]> = [[weapon, 1], ['apprentice-hood', 1], ['apprentice-chest', 1], ['apprentice-legs', 1], ['apprentice-boots', 1], ['apprentice-ring', 1], ['small-potion', 5], ['mp-potion', 3], ['revive-potion', 1]];
       await tx.inventoryItem.createMany({ data: starterItems.map(([itemId, quantity]) => ({ characterId: record.id, itemId, quantity })) });
     });
   }
