@@ -300,6 +300,12 @@ export class PlayerAvatar {
     });
   }
 
+  stopWalking(): void {
+    this.walkTween?.stop();
+    this.walkTween = null;
+    this.setWalking(false);
+  }
+
   walkTo(x: number, y: number, duration: number): void {
     this.walkTween?.stop();
     this.setFacing(x >= this.root.x ? 1 : -1);
