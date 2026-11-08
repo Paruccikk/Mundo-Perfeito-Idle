@@ -187,6 +187,7 @@ export interface CombatSnapshot {
     stageName: string;
     stage: StageDefinition;
     monster: MonsterDefinition & { hp: number };
+    monsters: Array<MonsterDefinition & { hp: number; slotId: string; respawnInSeconds: number; isTarget: boolean }>;
     playerHp: number;
     playerMaxHp: number;
     playerMp: number;
