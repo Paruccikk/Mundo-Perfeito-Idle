@@ -248,7 +248,7 @@ export function toCombatSnapshot(record: CharacterRecord, events: CombatEvent[],
     };
   });
   const targetIndex = Math.max(0, Math.min(pack.length - 1, record.combat.targetIndex ?? 0));
-  const selectedIndex = pack[targetIndex]?.hp > 0
+  const selectedIndex = (pack[targetIndex]?.hp ?? 0) > 0
     ? targetIndex
     : (() => { for (let offset = 1; offset <= pack.length; offset += 1) { const index = (targetIndex + offset) % pack.length; if (pack[index]!.hp > 0) return index; } return targetIndex; })();
   const selected = pack[selectedIndex]!;
