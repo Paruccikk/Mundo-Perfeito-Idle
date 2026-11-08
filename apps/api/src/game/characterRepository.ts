@@ -1,4 +1,4 @@
-import type { CharacterRecord } from './types.js';
+import type { CharacterRecord, InventoryItemRecord } from './types.js';
 import { itemSellPrice } from './economy.js';
 import {
   DEFAULT_STAGE_ID, MATERIAL_ITEMS, TROPHY_ITEMS, getMonster, getStage, nextNormalMonster
@@ -42,8 +42,8 @@ export interface CharacterRepository {
 
 export class MemoryCharacterRepository implements CharacterRepository {
   private readonly characters = new Map<string, CharacterRecord>();
-  private readonly inventory = new Map<string, InventorySnapshot['items']>();
-  private readonly equipment = new Map<string, InventorySnapshot['equipment']>();
+  private readonly inventory = new Map<string, InventoryItemRecord[]>();
+  private readonly equipment = new Map<string, Array<{ slot: string; item: InventoryItemRecord }>>();
 
   async create(record: CharacterRecord): Promise<void> {
     this.characters.set(record.id, clone({ ...record, equipmentBonuses: {} }));
@@ -267,7 +267,7 @@ function clone(record: CharacterRecord): CharacterRecord {
   return { ...record, attributes: { ...record.attributes }, equipmentBonuses: { ...record.equipmentBonuses }, combat: { ...record.combat, ...(record.combat.pack ? { pack: record.combat.pack.map((entry) => ({ ...entry })) } : {}) } };
 }
 
-function withEquipmentBonuses(record: CharacterRecord, equipment: InventorySnapshot['equipment']): CharacterRecord {
+function withEquipmentBonuses(record: CharacterRecord, equipment: Array<{ slot: string; item: InventoryItemRecord }>): CharacterRecord {
   const bonuses: Record<string, number> = {};
   for (const entry of equipment) {
     for (const [key, value] of Object.entries(entry.item.stats)) {
