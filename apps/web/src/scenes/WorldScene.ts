@@ -544,7 +544,7 @@ export class WorldScene extends Phaser.Scene {
     });
 
     // Tufos de grama, flores e detritos.
-    for (let i = 0; i < 34; i += 1) {
+    for (let i = 0; i < 76; i += 1) {
       const x = Phaser.Math.Between(-760, 760);
       const y = Phaser.Math.Between(-430, 430);
       if (Math.abs(x) < 250 && y > -120 && y < 140) {
@@ -1583,8 +1583,8 @@ export class WorldScene extends Phaser.Scene {
 
     this.hud?.update(snapshot);
 
-    const anchor = this.targetAnchor();
     this.syncPack(snapshot.combat.monsters ?? [{ ...snapshot.combat.monster, slotId: 'mob-1', respawnInSeconds: 0, isTarget: true }]);
+    const anchor = this.targetAnchor();
 
     const recovering = snapshot.combat.status === 'recovering';
     this.recovering = recovering;
@@ -2044,7 +2044,7 @@ export class WorldScene extends Phaser.Scene {
   // ---------------------------------------------------------------------------
 
   private buildMotes(): void {
-    for (let i = 0; i < 16; i += 1) {
+    for (let i = 0; i < 34; i += 1) {
       const x = Phaser.Math.Between(-780, 780);
       const y = Phaser.Math.Between(-440, 440);
       const mote = this.add.circle(
