@@ -221,7 +221,7 @@ export type CombatEventType =
   | 'boss_spawn'
   | 'boss_defeated'
   | 'player_death'
-  | 'item_drop';
+  | 'item_drop'\n  | 'skill_cast';
 
 export interface CombatEvent {
   type: CombatEventType;
