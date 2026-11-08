@@ -243,6 +243,12 @@ export function renderInventoryPanel(
       });
       grid.append(slot);
     }
+    for (let index = items.length; index < 30; index += 1) {
+      const emptySlot = document.createElement('div');
+      emptySlot.className = 'inventory-bag-slot inventory-bag-slot--empty';
+      emptySlot.setAttribute('aria-hidden', 'true');
+      grid.append(emptySlot);
+    }
     renderDetails();
   };
 
