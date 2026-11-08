@@ -254,6 +254,19 @@ export class CharacterService {
     return inventory;
   }
 
+  async sellItem(id: string, playerId: unknown, inventoryItemId: string, quantity: number) {
+    assertPlayerId(playerId);
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 9999) {
+      throw new CharacterError('invalid_quantity', 400, 'Quantidade inválida para venda.');
+    }
+    const result = await this.repository.sellItem(id, playerId, inventoryItemId, quantity);
+    if (result.error === 'not_found') throw new CharacterError('character_not_found', 404, 'Personagem não encontrado.');
+    if (result.error === 'item_not_found') throw new CharacterError('item_not_found', 404, 'Este item não está mais na mochila.');
+    if (result.error === 'invalid_quantity') throw new CharacterError('invalid_quantity', 400, 'A quantidade mudou. Atualize o inventário e tente novamente.');
+    if (result.error) throw new CharacterError(result.error, 409, 'Não foi possível concluir a venda. Atualize o inventário e tente novamente.');
+    return { ...(await this.getInventory(id, playerId)), goldReceived: result.goldReceived ?? 0 };
+  }
+
   async equipItem(id: string, playerId: unknown, inventoryItemId: string) {
     assertPlayerId(playerId);
     const result = await this.repository.equipItem(id, playerId, inventoryItemId);
