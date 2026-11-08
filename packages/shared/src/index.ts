@@ -69,6 +69,7 @@ export interface InventoryItem {
   quantity: number;
   levelReq: number;
   stats: Record<string, number>;
+  sellPrice: number;
 }
 
 export interface EquipmentItem {
