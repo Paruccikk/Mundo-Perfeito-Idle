@@ -35,7 +35,7 @@ export function renderBlacksmithShop(
   eyebrow.className = 'game-panel__eyebrow';
   eyebrow.textContent = 'Brom · Ferreiro de Valedouro';
   const title = document.createElement('h2');
-  title.textContent = 'Comprar e vender';
+  title.textContent = 'Venda de itens';
   const intro = document.createElement('p');
   intro.className = 'blacksmith-panel__intro';
   intro.textContent = 'Vendo equipamentos, poções, materiais e troféus. Escolha um item da mochila para negociar.';
