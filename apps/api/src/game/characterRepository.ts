@@ -1,4 +1,5 @@
 import type { CharacterRecord } from './types.js';
+import { itemSellPrice } from './economy.js';
 import {
   DEFAULT_STAGE_ID, MATERIAL_ITEMS, TROPHY_ITEMS, getMonster, getStage, nextNormalMonster
 } from './monsters.js';
@@ -16,7 +17,8 @@ const CONSUMABLE_DROPS: Record<string, { name: string; description: string; rari
 };
 
 export interface InventorySnapshot {
-  items: Array<{ id: string; itemId: string; name: string; description: string; rarity: string; category: string; slot: string | null; quantity: number; levelReq: number; stats: Record<string, number> }>;
+  gold: number;
+  items: Array<{ id: string; itemId: string; name: string; description: string; rarity: string; category: string; slot: string | null; quantity: number; levelReq: number; stats: Record<string, number>; sellPrice: number }>;
   equipment: Array<{ slot: string; item: { id: string; itemId: string; name: string; description: string; rarity: string; category: string; slot: string | null; quantity: number; levelReq: number; stats: Record<string, number> } }>;
 }
 
@@ -33,6 +35,7 @@ export interface CharacterRepository {
   unequipItem(characterId: string, accountId: string, slot: string): Promise<{ error: string | null }>;
   addDrop(characterId: string, itemId: string, quantity: number, operationId: string): Promise<void>;
   useItem(characterId: string, accountId: string, inventoryItemId: string, maxHp: number, maxMp: number): Promise<{ error: string | null }>;
+  sellItem(characterId: string, accountId: string, inventoryItemId: string, quantity: number): Promise<{ error: string | null; goldReceived?: number }>;
   resolveDeath(characterId: string, accountId: string, maxHp: number, maxMp: number, allowRevive: boolean): Promise<{ record: CharacterRecord | null; returnToCity: boolean }>;
   travel(characterId: string, accountId: string, stageId: string): Promise<CharacterRecord | null>;
 }
@@ -111,7 +114,7 @@ export class MemoryCharacterRepository implements CharacterRepository {
   async getInventory(characterId: string, accountId: string): Promise<InventorySnapshot | null> {
     const record = this.characters.get(characterId);
     if (!record || record.playerId !== accountId) return null;
-    return { items: (this.inventory.get(characterId) ?? []).map((item) => ({ ...item, stats: { ...item.stats } })), equipment: (this.equipment.get(characterId) ?? []).map((entry) => ({ ...entry, item: { ...entry.item, stats: { ...entry.item.stats } } })) };
+    return { gold: record.gold, items: (this.inventory.get(characterId) ?? []).map((item) => ({ ...item, stats: { ...item.stats }, sellPrice: itemSellPrice(item) })), equipment: (this.equipment.get(characterId) ?? []).map((entry) => ({ ...entry, item: { ...entry.item, stats: { ...entry.item.stats } } })) };
   }
 
   async equipItem(characterId: string, accountId: string, inventoryItemId: string): Promise<{ error: string | null }> {
@@ -173,6 +176,22 @@ export class MemoryCharacterRepository implements CharacterRepository {
     this.inventory.set(characterId, items);
     this.characters.set(characterId, record);
     return { error: null };
+  }
+
+  async sellItem(characterId: string, accountId: string, inventoryItemId: string, quantity: number): Promise<{ error: string | null; goldReceived?: number }> {
+    const record = this.characters.get(characterId);
+    if (!record || record.playerId !== accountId) return { error: 'not_found' };
+    const items = this.inventory.get(characterId) ?? [];
+    const item = items.find((entry) => entry.id === inventoryItemId);
+    if (!item) return { error: 'item_not_found' };
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > item.quantity) return { error: 'invalid_quantity' };
+    const goldReceived = itemSellPrice(item) * quantity;
+    item.quantity -= quantity;
+    if (item.quantity <= 0) items.splice(items.indexOf(item), 1);
+    record.gold += goldReceived;
+    this.inventory.set(characterId, items);
+    this.characters.set(characterId, record);
+    return { error: null, goldReceived };
   }
 
   async resolveDeath(characterId: string, accountId: string, maxHp: number, maxMp: number, allowRevive: boolean): Promise<{ record: CharacterRecord | null; returnToCity: boolean }> {
