@@ -4,7 +4,8 @@ import {
   experienceToNextLevel, statsForLevel
 } from './classes.js';
 import type { CharacterRepository } from './characterRepository.js';
-import { simulateCombat } from './combat.js';\nimport { findSkill, skillsForClass, skillLevelFor } from './skills.js';
+import { simulateCombat } from './combat.js';
+import { findSkill, skillsForClass, skillLevelFor } from './skills.js';
 import {
   STAGE_ONE, STAGES, getMonster, getStage, isStageUnlocked, nextNormalMonster, stageCatalog,
   type StageCatalog
@@ -101,7 +102,8 @@ export class CharacterService {
       combat: {
         stageId: STAGE_ONE.id, monsterId: initialMonsterId, monsterHp: initialMonster.maxHp,
         pack: Array.from({ length: 6 }, (_, index) => { const monsterId = STAGE_ONE.monsterIds[index % STAGE_ONE.monsterIds.length]!; return { slotId: `mob-${index + 1}`, monsterId, hp: getMonster(monsterId).maxHp, respawnAt: null }; }), targetIndex: 0,
-        playerHp: stats.maxHp, playerMp: stats.maxMp, killsInStage: 0, bossActive: false, bossDefeated: 0,\n        skillPoints: 0, skillLevels: { [skillsForClass(payload.classId)[0]!.id]: 1 }, skillCooldowns: {}, pendingSkillMultiplier: 1, pendingSkillId: null,
+        playerHp: stats.maxHp, playerMp: stats.maxMp, killsInStage: 0, bossActive: false, bossDefeated: 0,
+        skillPoints: 0, skillLevels: { [skillsForClass(payload.classId)[0]!.id]: 1 }, skillCooldowns: {}, pendingSkillMultiplier: 1, pendingSkillId: null,
         status: 'fighting', playerCooldownSeconds: 0, monsterCooldownSeconds: 0,
         recoveringUntil: null, lastTickAt: now
       },
