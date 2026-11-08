@@ -273,7 +273,7 @@ export class WorldScene extends Phaser.Scene {
     this.scale.on(Phaser.Scale.Events.RESIZE, this.handleResize, this);
     document.addEventListener('visibilitychange', this.handleVisibility);
 
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);\n    this.game.events.on('skill-cast', this.handleSkillCast, this);
 
     this.hud?.setConnection('connecting');
     this.updateLocation();
@@ -1292,17 +1292,24 @@ export class WorldScene extends Phaser.Scene {
       return;
     }
 
-    const point = this.engagementPoint(mob);
-    const distance = Phaser.Math.Distance.Between(
-      this.player.root.x,
-      this.player.root.y,
-      point.x,
-      point.y
-    );
-    if (distance < 8) {
-      return;
+    let point: { x: number; y: number };
+    if (this.character.classId === 'warrior') {
+      point = this.engagementPoint(mob);
+    } else {
+      const dx = this.player.root.x - mob.view.root.x;
+      const dy = this.player.root.y - mob.view.root.y;
+      const distanceToMob = Math.max(1, Math.hypot(dx, dy));
+      if (distanceToMob <= 190) return;
+      const stopDistance = 175;
+      point = {
+        x: mob.view.root.x + (dx / distanceToMob) * stopDistance,
+        y: mob.view.root.y + (dy / distanceToMob) * stopDistance
+      };
     }
-
+    const distance = Phaser.Math.Distance.Between(
+      this.player.root.x, this.player.root.y, point.x, point.y
+    );
+    if (distance < 8) return;
     this.player.walkTo(point.x, point.y, Phaser.Math.Clamp(distance * 3.6, 260, 1200));
   }
 
@@ -1698,7 +1705,7 @@ export class WorldScene extends Phaser.Scene {
         break;
       }
 
-      case 'monster_hit': {
+      case 'skill_cast': {\n        this.player.facePoint(anchor.x, anchor.y);\n        this.fireProjectile(true, anchor);\n        this.spawnBurst(this.player.root.x, this.player.root.y - 70, this.character.classId === 'mage' ? 0x9d7cff : this.character.classId === 'priest' ? 0xffe7a3 : this.character.classId === 'archer' ? 0x8be0b0 : 0xffb86b, 8);\n        this.popText(anchor.x, anchor.y - anchor.height - 32, event.message?.replace(/-/g, ' ') ?? 'Habilidade', '#ffe28a', 14);\n        break;\n      }\n\n      case 'monster_hit': {
         const attacker =
           this.targetMob && !this.targetMob.dying ? this.targetMob : anchor.mob;
         if (attacker && !attacker.dying) {
