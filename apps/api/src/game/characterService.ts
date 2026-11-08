@@ -122,7 +122,7 @@ export class CharacterService {
     const levels = { ...(record.combat.skillLevels ?? { [firstSkillId]: 1 }) };
     const currentLevel = skillLevelFor(levels, skillId);
     if (currentLevel >= definition.maxLevel) throw new CharacterError('skill_max_level', 400, 'Essa habilidade já está no nível máximo.');
-    const requiredLevel = currentLevel === 0 ? definition.requiredLevel : Math.max(definition.requiredLevel, currentLevel * 5);
+    const requiredLevel = currentLevel === 0 ? definition.requiredLevel : Math.max(definition.requiredLevel, (currentLevel + 1) * 5);
     if (record.level < requiredLevel) throw new CharacterError('skill_level_required', 400, `Você precisa alcançar o nível ${requiredLevel} para evoluir essa habilidade.`);
     if ((record.combat.skillPoints ?? 0) < 1) throw new CharacterError('no_skill_points', 400, 'Você não possui pontos de habilidade disponíveis.');
     const expected = record.combat.lastTickAt;
@@ -362,7 +362,7 @@ export function toCombatSnapshot(record: CharacterRecord, events: CombatEvent[],
       killsInStage: record.combat.killsInStage, killsRequiredForBoss: stage.killsRequiredForBoss,
       bossActive: record.combat.bossActive, bossDefeated: record.combat.bossDefeated, status: record.combat.status,
       skillPoints: record.combat.skillPoints ?? 0,
-      skills: skillsForClass(record.classId).map((definition, index) => {
+      skills: skillsForClass(record.classId).map((definition) => {
         const firstSkillId = skillsForClass(record.classId)[0]!.id;
         const levels = record.combat.skillLevels ?? { [firstSkillId]: 1 };
         const currentLevel = skillLevelFor(levels, definition.id);
