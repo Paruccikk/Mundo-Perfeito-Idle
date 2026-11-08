@@ -213,6 +213,8 @@ export interface CombatSnapshot {
     bossActive: boolean;
     bossDefeated: number;
     status: CombatStatus;
+    skillPoints: number;
+    skills: SkillSnapshot[];
   };
   events: CombatEvent[];
   simulatedSeconds: number;
