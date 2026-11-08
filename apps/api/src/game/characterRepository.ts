@@ -61,7 +61,7 @@ export class MemoryCharacterRepository implements CharacterRepository {
     this.inventory.set(record.id, [
       ...gear,
       { id: `potions-${record.id}`, itemId: 'small-potion', name: 'Poção de Vida Pequena', description: 'Recupera 80 pontos de HP.', rarity: 'common', category: 'consumable', slot: null, quantity: 5, levelReq: 1, stats: { hpRestore: 80 } },
-      ...(record.classId === 'mage' || record.classId === 'priest' ? [{ id: `mp-potions-${record.id}`, itemId: 'mp-potion', name: 'Poção de Mana Pequena', description: 'Recupera 60 pontos de MP.', rarity: 'common', category: 'consumable', slot: null, quantity: 3, levelReq: 1, stats: { mpRestore: 60 } }] : []),
+      { id: `mp-potions-${record.id}`, itemId: 'mp-potion', name: 'Poção de Mana Pequena', description: 'Recupera 60 pontos de MP.', rarity: 'common', category: 'consumable', slot: null, quantity: 3, levelReq: 1, stats: { mpRestore: 60 } },
       { id: `revive-${record.id}`, itemId: 'revive-potion', name: 'Poção da Ressurreição', description: 'Ao ser derrotado, revive no mesmo local.', rarity: 'uncommon', category: 'consumable', slot: null, quantity: 1, levelReq: 1, stats: { revive: 1 } }
     ]);
   }
