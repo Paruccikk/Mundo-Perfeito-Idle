@@ -65,7 +65,7 @@ export function simulateCombat(
   let gold = record.gold;
   let stats = statsForLevel(record.classId, level, record.attributes, record.equipmentBonuses);
   let attributePoints = record.attributePoints;
-  let skillPoints = record.combat.skillPoints ?? 0;
+  let skillPoints = record.combat.skillPoints ?? Math.floor(level / 5);
   let playerHp = Math.min(Math.max(record.combat.playerHp, 0), stats.maxHp);
   if (playerHp <= 0) playerHp = stats.maxHp;
   let playerMp = Math.min(Math.max(record.combat.playerMp ?? stats.maxMp, 0), stats.maxMp);
@@ -163,7 +163,7 @@ export function simulateCombat(
         if (defeated.materialId && Math.random() < (defeated.dropChance ?? (defeated.isBoss ? 1 : 0.22))) pushDrop(defeated.materialId);
         if (defeated.trophyId) pushDrop(defeated.trophyId);
         if (!defeated.isBoss && Math.random() < 0.06) pushDrop('small-potion');
-        if ((record.classId === 'mage' || record.classId === 'priest') && !defeated.isBoss && Math.random() < 0.04) pushDrop('mp-potion');
+        if (!defeated.isBoss && Math.random() < 0.04) pushDrop('mp-potion');
         if (defeated.isBoss && Math.random() < 0.35) pushDrop('revive-potion');
         playerHp = Math.min(stats.maxHp, playerHp + Math.round(stats.maxHp * HEAL_ON_KILL_RATIO));
         experience += defeated.experienceReward;
