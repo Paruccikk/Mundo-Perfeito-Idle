@@ -29,6 +29,20 @@ export interface CombatSimulation {
  * é limitado a `maxSeconds` para que fechar o jogo não gere farm offline:
  * só há avanço enquanto o cliente continua consultando o servidor.
  */
+function createPack(stage: ReturnType<typeof getStage>, nowMs: number, delayed = false) {
+  const ids = stage.monsterIds.length ? stage.monsterIds : [nextNormalMonster(stage, 0)];
+  return Array.from({ length: 6 }, (_, index) => {
+    const monsterId = ids[index % ids.length]!;
+    const monster = getMonster(monsterId);
+    return {
+      slotId: `mob-${index + 1}`,
+      monsterId,
+      hp: delayed ? 0 : monster.maxHp,
+      respawnAt: delayed ? new Date(nowMs + 5000).toISOString() : null
+    };
+  });
+}
+
 export function simulateCombat(
   record: CharacterRecord,
   nowMs: number,
@@ -41,54 +55,65 @@ export function simulateCombat(
   const elapsed = Math.min(Math.max(elapsedRaw, 0), maxSeconds);
 
   if (elapsed <= 0 || record.combat.status === 'dead') {
-    return {
-      record,
-      events,
-      simulatedSeconds: 0,
-      drops
-    };
+    return { record, events, simulatedSeconds: 0, drops };
   }
 
   const stage = getStage(record.combat.stageId);
   const classDefinition = CLASS_DEFINITIONS[record.classId];
-
   let level = record.level;
   let experience = record.experience;
   let gold = record.gold;
   let stats = statsForLevel(record.classId, level, record.attributes, record.equipmentBonuses);
   let attributePoints = record.attributePoints;
-
-  let monsterId = record.combat.monsterId;
-  let monster = getMonster(monsterId);
-  let monsterHp = Math.min(record.combat.monsterHp, monster.maxHp);
-
   let playerHp = Math.min(Math.max(record.combat.playerHp, 0), stats.maxHp);
   if (playerHp <= 0) playerHp = stats.maxHp;
   let playerMp = Math.min(Math.max(record.combat.playerMp ?? stats.maxMp, 0), stats.maxMp);
-
   let killsInStage = record.combat.killsInStage;
   let bossActive = record.combat.bossActive;
   let bossDefeated = record.combat.bossDefeated;
-
-  let status: CharacterRecord['combat']['status'] = playerHp > 0 ? record.combat.status : 'fighting';
+  let status: CharacterRecord['combat']['status'] = record.combat.status;
   let recoveryLeft = record.combat.recoveringUntil
     ? Math.max(0, (Date.parse(record.combat.recoveringUntil) - lastTickMs) / 1000)
     : 0;
-
   let simulated = 0;
   let playerCooldown = Math.max(0, record.combat.playerCooldownSeconds);
   let monsterCooldown = Math.max(0, record.combat.monsterCooldownSeconds);
+  let pack = record.combat.pack?.map((entry) => ({ ...entry })) ?? createPack(stage, lastTickMs);
+  if (!record.combat.pack) {
+    const legacy = pack[0]!;
+    legacy.monsterId = record.combat.monsterId;
+    legacy.hp = Math.max(1, Math.min(record.combat.monsterHp, getMonster(legacy.monsterId).maxHp));
+  }
+  let targetIndex = Math.max(0, Math.min(pack.length - 1, record.combat.targetIndex ?? 0));
 
   const pushEvent = (event: CombatEvent): void => {
     events.push(event);
-    if (events.length > MAX_EVENTS) {
-      events.shift();
+    if (events.length > MAX_EVENTS) events.shift();
+  };
+  const activeIndex = (): number => {
+    const current = pack[targetIndex];
+    if (current && current.hp > 0) return targetIndex;
+    for (let offset = 1; offset <= pack.length; offset += 1) {
+      const index = (targetIndex + offset) % pack.length;
+      if (pack[index]!.hp > 0) return index;
     }
+    return -1;
+  };
+  const resetToRegularPack = (atMs: number): void => {
+    pack = createPack(stage, atMs, true);
+    targetIndex = 0;
+    monsterCooldown = 0.5;
+  };
+  const pushDrop = (itemId: string, quantity = 1): void => {
+    drops.push({ itemId, quantity });
+    const definition = MATERIAL_ITEMS[itemId] ?? TROPHY_ITEMS[itemId];
+    pushEvent({ type: 'item_drop', amount: quantity, message: definition?.name ?? CONSUMABLE_NAMES[itemId] ?? itemId });
   };
 
   while (simulated < elapsed) {
     const dt = Math.min(STEP_SECONDS, elapsed - simulated);
     simulated += dt;
+    const nowAtStep = lastTickMs + simulated * 1000;
 
     if (recoveryLeft > 0) {
       recoveryLeft = Math.max(0, recoveryLeft - dt);
@@ -101,52 +126,44 @@ export function simulateCombat(
     }
 
     status = 'fighting';
+    for (const entry of pack) {
+      if (entry.hp <= 0 && entry.respawnAt && Date.parse(entry.respawnAt) <= nowAtStep) {
+        entry.hp = getMonster(entry.monsterId).maxHp;
+        entry.respawnAt = null;
+      }
+    }
+    let selectedIndex = activeIndex();
+    if (selectedIndex >= 0 && selectedIndex !== targetIndex) {
+      targetIndex = selectedIndex;
+      monsterCooldown = 0.5;
+    }
     playerCooldown -= dt;
     monsterCooldown -= dt;
 
-    // Ataque do jogador
-    if (playerCooldown <= 0) {
-      const attacksPerSecond = stats.attacksPerSecond > 0 ? stats.attacksPerSecond : 1;
-      playerCooldown += 1 / attacksPerSecond;
-
+    if (selectedIndex >= 0 && playerCooldown <= 0) {
+      const target = pack[selectedIndex]!;
+      const monster = getMonster(target.monsterId);
+      playerCooldown += 1 / Math.max(0.1, stats.attacksPerSecond);
       const critical = Math.random() < stats.critChance;
       const usesMagic = record.classId === 'mage' || record.classId === 'priest';
-      const manaCost = usesMagic ? 3 : 0;
-      const canCastMagic = usesMagic && playerMp >= manaCost;
-      if (canCastMagic) playerMp -= manaCost;
+      const canCastMagic = usesMagic && playerMp >= 3;
+      if (canCastMagic) playerMp -= 3;
       const baseDamage = canCastMagic ? stats.magicDamage : stats.physicalDamage;
-      const rawAttack = critical ? baseDamage * stats.critMultiplier : baseDamage;
-      const damage = Math.max(1, Math.round(rawAttack - monster.defense));
+      const damage = Math.max(1, Math.round((critical ? baseDamage * stats.critMultiplier : baseDamage) - monster.defense));
+      target.hp = Math.max(0, target.hp - damage);
+      pushEvent({ type: critical ? 'player_crit' : 'player_hit', amount: damage, message: target.slotId });
 
-      monsterHp -= damage;
-      pushEvent({
-        type: critical ? 'player_crit' : 'player_hit',
-        amount: damage
-      });
-
-      if (monsterHp <= 0) {
+      if (target.hp <= 0) {
+        target.respawnAt = new Date(nowAtStep + 5000).toISOString();
         const defeated = monster;
-        pushEvent({
-          type: 'kill',
-          amount: defeated.experienceReward,
-          message: defeated.name
-        });
-
+        pushEvent({ type: 'kill', amount: defeated.experienceReward, message: defeated.name });
         gold += defeated.goldReward;
-        const pushDrop = (itemId: string, quantity = 1): void => {
-          drops.push({ itemId, quantity });
-          const definition = MATERIAL_ITEMS[itemId] ?? TROPHY_ITEMS[itemId];
-          pushEvent({ type: 'item_drop', amount: quantity, message: definition?.name ?? CONSUMABLE_NAMES[itemId] ?? itemId });
-        };
-        if (defeated.materialId && Math.random() < (defeated.dropChance ?? (defeated.isBoss ? 1 : 0.22))) {
-          pushDrop(defeated.materialId);
-        }
+        if (defeated.materialId && Math.random() < (defeated.dropChance ?? (defeated.isBoss ? 1 : 0.22))) pushDrop(defeated.materialId);
         if (defeated.trophyId) pushDrop(defeated.trophyId);
         if (!defeated.isBoss && Math.random() < 0.06) pushDrop('small-potion');
         if ((record.classId === 'mage' || record.classId === 'priest') && !defeated.isBoss && Math.random() < 0.04) pushDrop('mp-potion');
         if (defeated.isBoss && Math.random() < 0.35) pushDrop('revive-potion');
         playerHp = Math.min(stats.maxHp, playerHp + Math.round(stats.maxHp * HEAL_ON_KILL_RATIO));
-
         experience += defeated.experienceReward;
         while (level < MAX_LEVEL && experience >= experienceToNextLevel(level)) {
           experience -= experienceToNextLevel(level);
@@ -163,76 +180,73 @@ export function simulateCombat(
           bossDefeated += 1;
           killsInStage = 0;
           pushEvent({ type: 'boss_defeated', message: defeated.name });
-          monsterId = nextNormalMonster(stage, 0);
+          resetToRegularPack(nowAtStep);
         } else {
           killsInStage += 1;
           if (killsInStage >= stage.killsRequiredForBoss) {
             bossActive = true;
-            monsterId = stage.bossId;
-            pushEvent({ type: 'boss_spawn', message: getMonster(stage.bossId).name });
+            const boss = getMonster(stage.bossId);
+            pack = [{ slotId: 'boss-1', monsterId: boss.id, hp: boss.maxHp, respawnAt: null }];
+            targetIndex = 0;
+            pushEvent({ type: 'boss_spawn', message: boss.name });
           } else {
-            monsterId = nextNormalMonster(stage, killsInStage);
+            const nextIndex = activeIndex();
+            if (nextIndex >= 0) {
+              targetIndex = nextIndex;
+              monsterCooldown = 0.5;
+            }
           }
         }
-
-        monster = getMonster(monsterId);
-        monsterHp = monster.maxHp;
-        monsterCooldown = 0.5;
       }
     }
 
-    // Ataque do monstro
-    if (monsterCooldown <= 0 && monsterHp > 0) {
-      const attacksPerSecond = monster.attacksPerSecond > 0 ? monster.attacksPerSecond : 1;
-      monsterCooldown += 1 / attacksPerSecond;
-
-      const usesMagic = record.classId === 'mage' || record.classId === 'priest';
-      const playerDefense = usesMagic ? stats.magicDefense : stats.physicalDefense;
-      const damage = Math.max(1, Math.round(monster.attack - playerDefense));
-      playerHp -= damage;
-      pushEvent({ type: 'monster_hit', amount: damage });
-
-      if (playerHp <= 0) {
-        playerHp = 0;
-        pushEvent({ type: 'player_death', message: classDefinition.name });
-        status = 'dead';
-        recoveryLeft = 0;
-        playerCooldown = 0;
-        monsterCooldown = 0;
-        break;
+    selectedIndex = activeIndex();
+    if (selectedIndex >= 0) {
+      targetIndex = selectedIndex;
+      const target = pack[selectedIndex]!;
+      const monster = getMonster(target.monsterId);
+      if (monsterCooldown <= 0) {
+        monsterCooldown += 1 / Math.max(0.1, monster.attacksPerSecond);
+        const usesMagic = record.classId === 'mage' || record.classId === 'priest';
+        const defense = usesMagic ? stats.magicDefense : stats.physicalDefense;
+        const damage = Math.max(1, Math.round(monster.attack - defense));
+        playerHp -= damage;
+        pushEvent({ type: 'monster_hit', amount: damage, message: target.slotId });
+        if (playerHp <= 0) {
+          playerHp = 0;
+          pushEvent({ type: 'player_death', message: classDefinition.name });
+          status = 'dead';
+          recoveryLeft = 0;
+          playerCooldown = 0;
+          monsterCooldown = 0;
+          break;
+        }
       }
     }
   }
 
+  const selectedIndex = activeIndex();
+  const selected = selectedIndex >= 0 ? pack[selectedIndex]! : pack[targetIndex]!;
+  if (selectedIndex >= 0) targetIndex = selectedIndex;
   const updated: CharacterRecord = {
     ...record,
-    level,
-    attributePoints,
-    experience,
-    gold,
+    level, attributePoints, experience, gold,
     currentStageId: stage.id,
     combat: {
+      ...record.combat,
       stageId: stage.id,
-      monsterId,
-      monsterHp: Math.max(1, Math.round(monsterHp)),
+      monsterId: selected.monsterId,
+      monsterHp: Math.max(0, Math.round(selected.hp)),
+      pack,
+      targetIndex,
       playerHp: Math.max(0, Math.round(playerHp)),
       playerMp: Math.max(0, Math.round(playerMp)),
-      killsInStage,
-      bossActive,
-      bossDefeated,
-      status,
+      killsInStage, bossActive, bossDefeated, status,
       playerCooldownSeconds: Math.max(0, playerCooldown),
       monsterCooldownSeconds: Math.max(0, monsterCooldown),
-      recoveringUntil:
-        recoveryLeft > 0 ? new Date(nowMs + recoveryLeft * 1000).toISOString() : null,
+      recoveringUntil: recoveryLeft > 0 ? new Date(nowMs + recoveryLeft * 1000).toISOString() : null,
       lastTickAt: new Date(nowMs).toISOString()
     }
   };
-
-  return {
-    record: updated,
-    events,
-    simulatedSeconds: elapsed,
-    drops
-  };
+  return { record: updated, events, simulatedSeconds: elapsed, drops };
 }
