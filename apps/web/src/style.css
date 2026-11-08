@@ -3065,7 +3065,8 @@ textarea {
     font-size: 8px;
   }
 }
-\n
+
+
 /* Barra de habilidades, poções e árvore de classe */
 .hud__hotbar{position:absolute;left:50%;bottom:66px;transform:translateX(-50%);display:flex;align-items:stretch;gap:7px;padding:8px;border:1px solid rgba(211,174,102,.36);border-radius:13px;background:rgba(17,12,8,.88);box-shadow:0 12px 34px rgba(0,0,0,.45);backdrop-filter:blur(8px);pointer-events:auto;max-width:calc(100vw - 20px)}
 .hud__slot{position:relative;min-width:74px;min-height:54px;padding:7px 8px;border:1px solid rgba(211,174,102,.28);border-radius:9px;background:linear-gradient(180deg,rgba(54,39,24,.96),rgba(22,16,11,.96));color:#f1dfb6;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}
