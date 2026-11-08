@@ -236,10 +236,17 @@ export function toCombatSnapshot(record: CharacterRecord, events: CombatEvent[],
   const summary = toSummary(record);
   const stage = getStage(record.combat.stageId);
   const legacyMonster = getMonster(record.combat.monsterId);
-  const pack = record.combat.pack?.length ? record.combat.pack : [{
-    slotId: 'mob-1', monsterId: record.combat.monsterId,
-    hp: record.combat.monsterHp, respawnAt: null
-  }];
+  const pack = record.combat.pack?.length ? record.combat.pack : Array.from({ length: 6 }, (_, index) => {
+    const monsterId = index === 0
+      ? record.combat.monsterId
+      : stage.monsterIds[(index - 1) % stage.monsterIds.length]!;
+    return {
+      slotId: `mob-${index + 1}`,
+      monsterId,
+      hp: index === 0 ? record.combat.monsterHp : getMonster(monsterId).maxHp,
+      respawnAt: null
+    };
+  });
   const targetIndex = Math.max(0, Math.min(pack.length - 1, record.combat.targetIndex ?? 0));
   const selectedIndex = pack[targetIndex]?.hp > 0
     ? targetIndex
