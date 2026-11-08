@@ -120,6 +120,8 @@ export function renderBlacksmithShop(
     sell.className = 'primary-button blacksmith-detail__sell';
     sell.textContent = `Vender pilha · ${formatGold(item.sellPrice * item.quantity)} 🪙`;
     sell.addEventListener('click', async () => {
+      const totalValue = item.sellPrice * item.quantity;
+      if (!window.confirm(`Vender ${item.quantity}x ${item.name} por ${formatGold(totalValue)} ouro?`)) return;
       sell.disabled = true;
       sell.textContent = 'Concluindo venda…';
       try {
