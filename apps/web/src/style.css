@@ -3102,3 +3102,83 @@ textarea {
   .hud__tools .ghost-button{padding:6px 7px;font-size:8px}
   .skill-panel__tree{grid-template-columns:1fr}
 }
+
+
+/* Inventário MMORPG: grade de itens, slots e janela de comércio */
+.inventory-panel--mmorpg{width:min(900px,100%);border-color:rgba(214,174,91,.48);background:linear-gradient(145deg,#182a37 0%,#0b1722 58%,#101a20 100%)}
+.inventory-panel__header-right{display:flex;align-items:flex-start;gap:10px}
+.inventory-panel__balance{display:grid;grid-template-columns:auto auto;grid-template-rows:auto auto;align-items:center;column-gap:8px;padding:7px 12px;border:1px solid rgba(225,187,102,.35);border-radius:10px;background:rgba(6,13,18,.72);color:#f5d98e}
+.inventory-panel__balance>span{grid-row:1/3;font-size:22px}
+.inventory-panel__balance strong{font-size:15px;font-variant-numeric:tabular-nums}
+.inventory-panel__balance small{font-size:8px;letter-spacing:.15em;color:#9eacb3}
+.inventory-panel__equipment{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
+.inventory-equipment-slot{position:relative;display:flex;min-width:0;min-height:108px;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:8px 4px;border:1px solid rgba(183,154,102,.28);border-radius:9px;background:linear-gradient(155deg,rgba(43,53,57,.9),rgba(9,18,25,.95));text-align:center}
+.inventory-equipment-slot__icon{display:grid;place-items:center;width:38px;height:38px;border:1px solid rgba(195,170,121,.28);border-radius:8px;background:linear-gradient(145deg,#33434a,#111c25);font-size:22px}
+.inventory-equipment-slot>small{color:#9baab2;font-size:9px;text-transform:uppercase;letter-spacing:.08em}
+.inventory-equipment-slot>strong{max-width:100%;overflow:hidden;color:#e5d5ae;font-size:10px;text-overflow:ellipsis;white-space:nowrap}
+.inventory-mini-action{padding:3px 7px;border:1px solid rgba(211,174,102,.28);border-radius:5px;background:#1a2b37;color:#e8cf95;font:inherit;font-size:9px;cursor:pointer}
+.inventory-panel__content{display:grid;grid-template-columns:minmax(0,1fr) 245px;gap:14px;align-items:stretch}
+.inventory-panel__bag-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));align-content:start;gap:7px;min-height:225px;padding:11px;border:1px solid rgba(137,161,174,.2);border-radius:11px;background:rgba(3,10,16,.56)}
+.inventory-bag-slot{position:relative;display:grid;place-items:center;aspect-ratio:1;min-width:0;padding:3px;border:1px solid rgba(141,157,164,.38);border-radius:7px;background:linear-gradient(145deg,#263640,#101a22 75%);box-shadow:inset 0 1px 0 rgba(255,255,255,.06);cursor:pointer;transition:transform .12s,border-color .12s,filter .12s}
+.inventory-bag-slot:hover{transform:translateY(-2px);filter:brightness(1.18)}
+.inventory-bag-slot.is-selected{border-color:#f1d18a;box-shadow:0 0 0 1px rgba(241,209,138,.45),0 0 16px rgba(225,177,83,.2)}
+.inventory-bag-slot__icon{font-size:clamp(20px,3vw,29px);filter:drop-shadow(0 2px 2px rgba(0,0,0,.6))}
+.inventory-bag-slot__quantity{position:absolute;right:4px;bottom:2px;color:#fff4d6;font-size:10px;font-weight:900;text-shadow:0 1px 3px #000}
+.inventory-bag-slot--uncommon{border-color:#65bd82}
+.inventory-bag-slot--rare{border-color:#61a9ed}
+.inventory-bag-slot--epic{border-color:#b883e8}
+.inventory-bag-slot--legendary,.inventory-bag-slot--mythic{border-color:#e5bd64;box-shadow:inset 0 0 12px rgba(229,189,100,.12)}
+.inventory-item-details{display:flex;flex-direction:column;align-items:flex-start;gap:8px;min-width:0;padding:13px;border:1px solid rgba(211,174,102,.24);border-radius:11px;background:linear-gradient(160deg,rgba(30,43,50,.92),rgba(6,15,22,.96))}
+.inventory-item-details__icon{display:grid;place-items:center;width:62px;height:62px;border:2px solid rgba(177,158,119,.4);border-radius:12px;background:linear-gradient(145deg,#35434a,#101a22);font-size:36px}
+.inventory-item-details__icon.inventory-item--uncommon{border-color:#65bd82}
+.inventory-item-details__icon.inventory-item--rare{border-color:#61a9ed}
+.inventory-item-details__icon.inventory-item--epic{border-color:#b883e8}
+.inventory-item-details__icon.inventory-item--legendary,.inventory-item-details__icon.inventory-item--mythic{border-color:#e5bd64}
+.inventory-item-details__name{margin:2px 0 0;color:#f0e5c9;font-size:15px}
+.inventory-item-details__name--uncommon{color:#8cdaa1}.inventory-item-details__name--rare{color:#8cc8ff}.inventory-item-details__name--epic{color:#d2a2ff}.inventory-item-details__name--legendary,.inventory-item-details__name--mythic{color:#f5d27c}
+.inventory-item-details__rarity{color:#a99a7d;font-size:8px;letter-spacing:.15em}
+.inventory-item-details>p{margin:0;color:#afbec5;font-size:11px;line-height:1.5}
+.inventory-item-details__meta{color:#91a4ae;font-size:10px}
+.inventory-item-details__sale{color:#f0cf82;font-size:10px}
+.inventory-item-details__stats{display:grid;gap:4px;width:100%;padding-top:7px;border-top:1px solid rgba(146,166,173,.17);color:#a5d7b3;font-size:10px}
+.inventory-item-details__actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:auto;padding-top:8px}
+.inventory-item-details__actions .primary-button,.inventory-item-details__actions .ghost-button{padding:8px 11px;font-size:10px}
+.blacksmith-panel{width:min(820px,100%);border-color:rgba(211,146,85,.55);background:linear-gradient(145deg,#2b2119,#111b22 70%,#0c151c)}
+.blacksmith-panel__intro{max-width:480px;margin:7px 0 0;color:#b6c0c3;font-size:11px;line-height:1.5}
+.blacksmith-panel__layout{display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:14px;min-height:300px}
+.blacksmith-panel__items{display:grid;align-content:start;gap:6px;max-height:55vh;overflow:auto;padding:8px;border:1px solid rgba(196,150,94,.22);border-radius:10px;background:rgba(5,12,17,.5)}
+.blacksmith-item{display:grid;grid-template-columns:42px minmax(0,1fr) auto;align-items:center;gap:9px;padding:7px;border:1px solid rgba(131,149,154,.2);border-radius:8px;background:rgba(26,38,43,.8);color:#e8e1d2;text-align:left;cursor:pointer}
+.blacksmith-item:hover,.blacksmith-item.is-selected{border-color:#d9b36b;background:rgba(102,75,39,.28)}
+.blacksmith-item__icon{display:grid;place-items:center;width:40px;height:40px;border:1px solid rgba(183,165,125,.3);border-radius:7px;background:linear-gradient(145deg,#39464a,#111c22);font-size:22px}
+.blacksmith-item__icon.inventory-item--uncommon{border-color:#65bd82}.blacksmith-item__icon.inventory-item--rare{border-color:#61a9ed}.blacksmith-item__icon.inventory-item--epic{border-color:#b883e8}.blacksmith-item__icon.inventory-item--legendary,.blacksmith-item__icon.inventory-item--mythic{border-color:#e5bd64}
+.blacksmith-item__copy{display:grid;gap:4px;min-width:0}
+.blacksmith-item__copy strong{overflow:hidden;color:#e9dfc7;font-size:11px;text-overflow:ellipsis;white-space:nowrap}
+.blacksmith-item__copy small{color:#8fa2aa;font-size:9px}
+.blacksmith-item>b{color:#e9c779;font-size:10px;white-space:nowrap}
+.blacksmith-panel__detail{display:flex;flex-direction:column;align-items:flex-start;gap:10px;padding:16px;border:1px solid rgba(208,157,91,.25);border-radius:11px;background:linear-gradient(160deg,rgba(54,42,29,.6),rgba(5,14,20,.92))}
+.blacksmith-detail__icon{display:grid;place-items:center;width:68px;height:68px;border:2px solid rgba(189,151,94,.5);border-radius:12px;background:linear-gradient(145deg,#4b3a28,#111c22);font-size:40px}
+.blacksmith-detail__icon.inventory-item--uncommon{border-color:#65bd82}.blacksmith-detail__icon.inventory-item--rare{border-color:#61a9ed}.blacksmith-detail__icon.inventory-item--epic{border-color:#b883e8}.blacksmith-detail__icon.inventory-item--legendary,.blacksmith-detail__icon.inventory-item--mythic{border-color:#e5bd64}
+.blacksmith-panel__detail h3{margin:0;color:#f2dfb4;font-size:16px}
+.blacksmith-panel__detail p{margin:0;color:#aab9bf;font-size:11px;line-height:1.5}
+.blacksmith-detail__price{color:#e9c779;font-size:12px;font-weight:800}
+.blacksmith-detail__total{color:#f4e5bf;font-size:11px}
+.blacksmith-panel__detail>small{color:#8ea1a9;font-size:10px}
+.blacksmith-detail__sell{width:100%;margin-top:auto;padding:11px;border:1px solid #9d713c;border-radius:8px;background:linear-gradient(180deg,#8a6134,#5a3c22);color:#fff0ca;font-weight:800;cursor:pointer}
+.blacksmith-detail__sell:disabled{opacity:.55;cursor:wait}
+@media(max-width:680px){
+ .inventory-panel__equipment{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .inventory-panel__content,.blacksmith-panel__layout{grid-template-columns:1fr}
+ .inventory-panel__bag-grid{grid-template-columns:repeat(5,minmax(0,1fr));min-height:180px}
+ .inventory-item-details{min-height:170px}
+ .blacksmith-panel__items{max-height:32vh}
+ .blacksmith-panel__detail{min-height:220px}
+}
+@media(max-width:420px){
+ .game-panel-overlay{padding:7px}
+ .inventory-panel--mmorpg,.blacksmith-panel{padding:14px 10px}
+ .inventory-panel__bag-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;padding:7px}
+ .inventory-panel__header-right{gap:5px}
+ .inventory-panel__balance{padding:6px 8px}
+ .inventory-panel__balance strong{font-size:12px}
+ .inventory-filter{padding:7px 9px;font-size:9px}
+}
