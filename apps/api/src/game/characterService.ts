@@ -118,7 +118,8 @@ export class CharacterService {
     const record = await this.findOwned(id, playerId);
     const definition = findSkill(record.classId, skillId);
     if (!definition) throw new CharacterError('skill_not_found', 404, 'Essa habilidade não pertence à sua classe.');
-    const levels = { ...(record.combat.skillLevels ?? {}) };
+    const firstSkillId = skillsForClass(record.classId)[0]!.id;
+    const levels = { ...(record.combat.skillLevels ?? { [firstSkillId]: 1 }) };
     const currentLevel = skillLevelFor(levels, skillId);
     if (currentLevel >= definition.maxLevel) throw new CharacterError('skill_max_level', 400, 'Essa habilidade já está no nível máximo.');
     const requiredLevel = currentLevel === 0 ? definition.requiredLevel : Math.max(definition.requiredLevel, currentLevel * 5);
@@ -154,7 +155,8 @@ export class CharacterService {
     }
     const definition = findSkill(record.classId, skillId);
     if (!definition) throw new CharacterError('skill_not_found', 404, 'Essa habilidade não pertence à sua classe.');
-    const skillLevel = skillLevelFor(record.combat.skillLevels, skillId);
+    const firstSkillId = skillsForClass(record.classId)[0]!.id;
+    const skillLevel = skillLevelFor(record.combat.skillLevels ?? { [firstSkillId]: 1 }, skillId);
     if (skillLevel < 1) throw new CharacterError('skill_locked', 400, 'Essa habilidade ainda está bloqueada. Evolua seu personagem e a árvore de habilidades.');
     const nowMs = Date.now();
     const cooldownUntil = record.combat.skillCooldowns?.[skillId] ?? 0;
@@ -175,6 +177,7 @@ export class CharacterService {
       const healing = Math.round(stats.maxHp * definition.multiplier * rankMultiplier);
       playerHp = Math.min(stats.maxHp, playerHp + healing);
     }
+    const expectedSaveAt = record.combat.lastTickAt;
     const now = new Date(nowMs).toISOString();
     record.combat = {
       ...record.combat,
@@ -357,7 +360,15 @@ export function toCombatSnapshot(record: CharacterRecord, events: CombatEvent[],
       playerHp: Math.max(0, record.combat.playerHp), playerMaxHp: summary.stats.maxHp,
       playerMp: Math.max(0, record.combat.playerMp ?? summary.stats.maxMp), playerMaxMp: summary.stats.maxMp,
       killsInStage: record.combat.killsInStage, killsRequiredForBoss: stage.killsRequiredForBoss,
-      bossActive: record.combat.bossActive, bossDefeated: record.combat.bossDefeated, status: record.combat.status
+      bossActive: record.combat.bossActive, bossDefeated: record.combat.bossDefeated, status: record.combat.status,
+      skillPoints: record.combat.skillPoints ?? 0,
+      skills: skillsForClass(record.classId).map((definition, index) => {
+        const firstSkillId = skillsForClass(record.classId)[0]!.id;
+        const levels = record.combat.skillLevels ?? { [firstSkillId]: 1 };
+        const currentLevel = skillLevelFor(levels, definition.id);
+        const requiredLevel = currentLevel === 0 ? definition.requiredLevel : Math.max(definition.requiredLevel, currentLevel * 5);
+        return { ...definition, level: currentLevel, requiredLevel, unlocked: currentLevel > 0, cooldownRemainingSeconds: Math.max(0, ((record.combat.skillCooldowns?.[definition.id] ?? 0) - now) / 1000), special: Boolean(definition.special) };
+      })
     },
     events, simulatedSeconds
   };
