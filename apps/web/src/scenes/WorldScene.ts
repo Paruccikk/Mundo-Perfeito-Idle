@@ -1455,7 +1455,7 @@ export class WorldScene extends Phaser.Scene {
       if (entry.hp <= 0) continue;
       let mob = this.mobs.find((candidate) => candidate.packSlotId === entry.slotId);
       if (!mob) {
-        const slot = Math.max(0, Number(entry.slotId.match(/(\\d+)$/)?.[1] ?? 1) - 1);
+        const slot = Math.max(0, Number(entry.slotId.match(/(\d+)$/)?.[1] ?? 1) - 1);
         const spot = AMBIENT_SPOTS[slot % AMBIENT_SPOTS.length]!;
         const view = new MonsterView(this, entry.sprite, spot.x, spot.y, {
           variant: entry.variant, tint: entry.tint, accent: entry.accent,
