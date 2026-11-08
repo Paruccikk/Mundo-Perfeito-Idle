@@ -185,18 +185,45 @@ export class CharacterService {
       playerHp,
       playerMp: Math.max(0, (record.combat.playerMp ?? stats.maxMp) - definition.manaCost),
       pendingSkillMultiplier,
-      pendingSkillId: definition.effect === 'damage' ? skillId : null,
+      pendingSkillId: definition.effect === 'damage' ? skillId : record.combat.pendingSkillId ?? null,
       skillCooldowns: { ...(record.combat.skillCooldowns ?? {}), [skillId]: nowMs + definition.cooldownSeconds * 1000 },
       lastTickAt: now
     };
-    if (!await this.repository.save(record, expectedSaveAt)) {
+
+    let combatEvents: CombatEvent[] = [];
+    let drops: Array<{ itemId: string; quantity: number; operationId: string }> = [];
+    if (definition.effect === 'damage') {
+      // Resolve um tick autoritativo imediatamente para a magia causar dano
+      // agora, sem depender do próximo ciclo automático de ataque.
+      const attackRecord: CharacterRecord = {
+        ...record,
+        combat: {
+          ...record.combat,
+          playerCooldownSeconds: 0,
+          monsterCooldownSeconds: Math.max(0.5, record.combat.monsterCooldownSeconds),
+          lastTickAt: new Date(nowMs - 200).toISOString()
+        }
+      };
+      const skillSimulation = simulateCombat(attackRecord, nowMs, 1);
+      record = skillSimulation.record;
+      combatEvents = skillSimulation.events;
+      drops = skillSimulation.drops.map((drop, index) => ({
+        ...drop,
+        operationId: `skill-drop:${id}:${expectedSaveAt}:${index}`
+      }));
+    }
+
+    if (!await this.repository.save(record, expectedSaveAt, drops)) {
       throw new CharacterError('combat_busy', 409, 'O personagem está sendo atualizado. Tente novamente.');
     }
-    return toCombatSnapshot(record, [{
+    const skillEvent: CombatEvent = {
       type: 'skill_cast',
-      amount: definition.effect === 'damage' ? Math.round((record.classId === 'mage' || record.classId === 'priest' ? stats.magicDamage : stats.physicalDamage) * definition.multiplier * rankMultiplier) : Math.round(stats.maxHp * definition.multiplier * rankMultiplier),
+      amount: definition.effect === 'damage'
+        ? Math.round((record.classId === 'mage' || record.classId === 'priest' ? stats.magicDamage : stats.physicalDamage) * definition.multiplier * rankMultiplier)
+        : Math.round(stats.maxHp * definition.multiplier * rankMultiplier),
       message: skillId
-    }], 0);
+    };
+    return toCombatSnapshot(record, [skillEvent, ...combatEvents], 0);
   }
 
   async getCharacter(id: string, playerId: unknown): Promise<CharacterSummary> {
