@@ -2109,8 +2109,13 @@ export class WorldScene extends Phaser.Scene {
     }
   };
 
+  private handleSkillCast(snapshot: CombatSnapshot): void {
+    if (this.alive) this.applySnapshot(snapshot);
+  }
+
   private handleShutdown(): void {
     this.alive = false;
+    this.game.events.off('skill-cast', this.handleSkillCast, this);
     this.targetToken += 1;
     document.body.classList.remove('in-world');
     this.scale.off(Phaser.Scale.Events.RESIZE, this.handleResize, this);
