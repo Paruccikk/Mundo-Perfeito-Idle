@@ -127,6 +127,7 @@ export function simulateCombat(
     }
 
     status = 'fighting';
+    playerMp = Math.min(stats.maxMp, playerMp + dt * 0.5);
     for (const entry of pack) {
       if (entry.hp <= 0 && entry.respawnAt && Date.parse(entry.respawnAt) <= nowAtStep) {
         entry.hp = getMonster(entry.monsterId).maxHp;
