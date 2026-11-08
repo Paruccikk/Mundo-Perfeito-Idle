@@ -252,6 +252,8 @@ export interface CombatSnapshot {
     bossActive: boolean;
     bossDefeated: number;
     status: CombatStatus;
+    skillPoints: number;
+    skills: Array<{ id: string; name: string; description: string; effect: 'damage' | 'heal' | 'group_heal'; level: number; maxLevel: number; requiredLevel: number; cooldownSeconds: number; cooldownRemainingSeconds: number; manaCost: number; unlocked: boolean; special: boolean }>;
   };
   events: CombatEvent[];
   simulatedSeconds: number;
