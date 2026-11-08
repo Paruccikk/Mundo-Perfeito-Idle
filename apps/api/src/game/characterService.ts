@@ -183,7 +183,7 @@ export class CharacterService {
       skillCooldowns: { ...(record.combat.skillCooldowns ?? {}), [skillId]: nowMs + definition.cooldownSeconds * 1000 },
       lastTickAt: now
     };
-    if (!await this.repository.save(record, simulation.simulatedSeconds > 0 ? simulation.record.combat.lastTickAt : record.combat.lastTickAt)) {
+    if (!await this.repository.save(record, expectedSaveAt)) {
       throw new CharacterError('combat_busy', 409, 'O personagem está sendo atualizado. Tente novamente.');
     }
     return toCombatSnapshot(record, [{
