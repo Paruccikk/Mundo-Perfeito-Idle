@@ -366,7 +366,7 @@ export function toCombatSnapshot(record: CharacterRecord, events: CombatEvent[],
         const firstSkillId = skillsForClass(record.classId)[0]!.id;
         const levels = record.combat.skillLevels ?? { [firstSkillId]: 1 };
         const currentLevel = skillLevelFor(levels, definition.id);
-        const requiredLevel = currentLevel === 0 ? definition.requiredLevel : Math.max(definition.requiredLevel, currentLevel * 5);
+        const requiredLevel = currentLevel === 0 ? definition.requiredLevel : Math.max(definition.requiredLevel, (currentLevel + 1) * 5);
         return { ...definition, level: currentLevel, requiredLevel, unlocked: currentLevel > 0, cooldownRemainingSeconds: Math.max(0, ((record.combat.skillCooldowns?.[definition.id] ?? 0) - now) / 1000), special: Boolean(definition.special) };
       })
     },
