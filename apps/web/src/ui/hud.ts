@@ -243,7 +243,6 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
         button.disabled = !skill.unlocked || remaining > 0 || combat.playerMp < skill.manaCost || combat.status !== 'fighting';
         button.title = `${skill.name} · ${skill.description}`;
       });
-      mpPotion.hidden = summary.classId !== 'mage' && summary.classId !== 'priest';
 
       const kills = combat.bossActive
         ? combat.killsRequiredForBoss
