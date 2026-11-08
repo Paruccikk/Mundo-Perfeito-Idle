@@ -65,48 +65,85 @@ export function renderInventoryPanel(
   bagTitle.textContent = 'Mochila';
   const list = document.createElement('div');
   list.className = 'inventory-panel__list';
-  if (!inventory.items.length) {
-    const empty = document.createElement('p');
-    empty.className = 'inventory-panel__empty';
-    empty.textContent = 'Seu inventário está vazio. Continue derrotando monstros para encontrar itens.';
-    list.append(empty);
-  }
-  for (const item of inventory.items) {
-    const row = document.createElement('article');
-    row.className = `inventory-item inventory-item--${item.rarity}`;
-    const copy = document.createElement('div');
-    const name = document.createElement('strong');
-    name.textContent = item.name;
-    const description = document.createElement('small');
-    description.textContent = `${item.description} • ${item.rarity} • Qtd: ${item.quantity}`;
-    copy.append(name, description);
-    row.append(copy);
-    if (item.slot) {
-      const equip = document.createElement('button');
-      equip.type = 'button';
-      equip.className = 'ghost-button';
-      equip.textContent = 'Equipar';
-      equip.addEventListener('click', async () => {
-        equip.disabled = true;
-        equip.textContent = 'Equipando…';
-        try { renderInventoryPanel(root, await onEquip(item.id), onEquip, onUnequip, onUse, onClose); }
-        catch (error) { equip.disabled = false; equip.textContent = error instanceof Error ? error.message : 'Erro ao equipar'; }
-      });
-      row.append(equip);
+  const filters = document.createElement('div');
+  filters.className = 'inventory-panel__filters';
+  const filterOptions = [
+    { id: 'all', label: 'Todos' },
+    { id: 'equipment', label: 'Equipamentos' },
+    { id: 'potions', label: 'Poções' },
+    { id: 'loot', label: 'Loot' }
+  ] as const;
+  let activeFilter: typeof filterOptions[number]['id'] = 'all';
+
+  const renderItems = (): void => {
+    list.replaceChildren();
+    const visibleItems = inventory.items.filter((item) => {
+      if (activeFilter === 'equipment') return Boolean(item.slot) || item.category === 'weapon' || item.category === 'armor';
+      if (activeFilter === 'potions') return item.category === 'consumable';
+      if (activeFilter === 'loot') return item.category === 'material' || item.category === 'trophy';
+      return true;
+    });
+    if (!visibleItems.length) {
+      const empty = document.createElement('p');
+      empty.className = 'inventory-panel__empty';
+      empty.textContent = inventory.items.length
+        ? 'Nenhum item nesta categoria.'
+        : 'Seu inventário está vazio. Continue derrotando monstros para encontrar itens.';
+      list.append(empty);
+      return;
     }
-    if (item.category === 'consumable' && item.itemId !== 'revive-potion') {
-      const use = document.createElement('button');
-      use.type = 'button'; use.className = 'ghost-button'; use.textContent = 'Usar';
-      use.addEventListener('click', async () => {
-        use.disabled = true; use.textContent = 'Usando…';
-        try { renderInventoryPanel(root, await onUse(item.id), onEquip, onUnequip, onUse, onClose); }
-        catch (error) { use.disabled = false; use.textContent = error instanceof Error ? error.message : 'Não foi possível usar'; }
-      });
-      row.append(use);
+    for (const item of visibleItems) {
+      const row = document.createElement('article');
+      row.className = `inventory-item inventory-item--${item.rarity}`;
+      const copy = document.createElement('div');
+      const name = document.createElement('strong');
+      name.textContent = item.name;
+      const type = item.slot ? 'Equipamento' : item.category === 'consumable' ? 'Poção' : item.category === 'material' || item.category === 'trophy' ? 'Loot de monstro' : 'Item';
+      const description = document.createElement('small');
+      description.textContent = `${type} · ${item.description} • ${item.rarity} • Qtd: ${item.quantity}`;
+      copy.append(name, description);
+      row.append(copy);
+      if (item.slot) {
+        const equip = document.createElement('button');
+        equip.type = 'button';
+        equip.className = 'ghost-button';
+        equip.textContent = 'Equipar';
+        equip.addEventListener('click', async () => {
+          equip.disabled = true;
+          equip.textContent = 'Equipando…';
+          try { renderInventoryPanel(root, await onEquip(item.id), onEquip, onUnequip, onUse, onClose); }
+          catch (error) { equip.disabled = false; equip.textContent = error instanceof Error ? error.message : 'Erro ao equipar'; }
+        });
+        row.append(equip);
+      }
+      if (item.category === 'consumable' && item.itemId !== 'revive-potion') {
+        const use = document.createElement('button');
+        use.type = 'button'; use.className = 'ghost-button'; use.textContent = 'Usar';
+        use.addEventListener('click', async () => {
+          use.disabled = true; use.textContent = 'Usando…';
+          try { renderInventoryPanel(root, await onUse(item.id), onEquip, onUnequip, onUse, onClose); }
+          catch (error) { use.disabled = false; use.textContent = error instanceof Error ? error.message : 'Não foi possível usar'; }
+        });
+        row.append(use);
+      }
+      list.append(row);
     }
-    list.append(row);
+  };
+
+  for (const option of filterOptions) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `inventory-filter${option.id === activeFilter ? ' is-active' : ''}`;
+    button.textContent = option.label;
+    button.addEventListener('click', () => {
+      activeFilter = option.id;
+      for (const child of Array.from(filters.children)) child.classList.toggle('is-active', child === button);
+      renderItems();
+    });
+    filters.append(button);
   }
-  panel.append(header, equippedTitle, equipped, bagTitle, list);
+  renderItems();
+  panel.append(header, equippedTitle, equipped, bagTitle, filters, list);
   overlay.append(panel);
   overlay.addEventListener('click', (event) => { if (event.target === overlay) onClose(); });
   root.append(overlay);
