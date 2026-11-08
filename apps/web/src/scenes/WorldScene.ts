@@ -1061,7 +1061,6 @@ export class WorldScene extends Phaser.Scene {
     this.world.add(this.playerLabel);
 
     this.buildMount();
-    this.buildAmbientMobs();
   }
 
   private buildMount(): void {
@@ -1159,6 +1158,8 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private refreshAmbientMobs(): void {
+    // As criaturas visíveis agora são os slots autoritativos do grupo de combate.
+    return;
     if (!this.alive || !this.catalog || !this.stage) {
       return;
     }
@@ -1408,8 +1409,10 @@ export class WorldScene extends Phaser.Scene {
     mob.plate = plate;
     mob.plateFill = fill;
 
-    this.targetPlate = plate;
-    this.targetPlateFill = fill;
+    if (mob.isTarget) {
+      this.targetPlate = plate;
+      this.targetPlateFill = fill;
+    }
 
     const ring = this.add.ellipse(
       0,
@@ -1439,6 +1442,64 @@ export class WorldScene extends Phaser.Scene {
     const ratio = Phaser.Math.Clamp(hp / Math.max(1, maxHp), 0, 1);
     this.targetPlateFill.setScale(ratio, 1);
     this.targetPlateFill.setFillStyle(isBoss ? 0xff9d5c : ratio <= 0.3 ? 0xff7b6b : 0x7ee07a);
+  }
+
+  private syncPack(monsters: Array<MonsterDefinition & { hp: number; slotId: string; respawnInSeconds: number; isTarget: boolean }>): void {
+    const previousTarget = this.targetMob;
+    const liveSlots = new Set(monsters.filter((entry) => entry.hp > 0).map((entry) => entry.slotId));
+    for (const mob of [...this.mobs]) {
+      if (mob.packSlotId && !liveSlots.has(mob.packSlotId)) this.disposeMob(mob, true);
+    }
+
+    for (const entry of monsters) {
+      if (entry.hp <= 0) continue;
+      let mob = this.mobs.find((candidate) => candidate.packSlotId === entry.slotId);
+      if (!mob) {
+        const slot = Math.max(0, Number(entry.slotId.match(/(\\d+)$/)?.[1] ?? 1) - 1);
+        const spot = AMBIENT_SPOTS[slot % AMBIENT_SPOTS.length]!;
+        const view = new MonsterView(this, entry.sprite, spot.x, spot.y, {
+          variant: entry.variant, tint: entry.tint, accent: entry.accent,
+          scale: (entry.visualScale ?? 1) * (entry.isBoss ? 0.94 : 0.8),
+          isBoss: entry.isBoss
+        });
+        view.root.setDepth(100 + spot.y);
+        this.world.add(view.root);
+        mob = {
+          key: entry.slotId, packSlotId: entry.slotId, serverId: entry.id, view,
+          homeX: spot.x, homeY: spot.y, isTarget: false, dying: false,
+          wanderTween: null, wanderEvent: null, plate: null, plateFill: null
+        };
+        this.mobs.push(mob);
+        this.buildTargetPlate(mob, { ...entry, hp: entry.hp });
+        this.spawnDust(spot.x, spot.y, entry.isBoss ? 1.7 : 1);
+      }
+      mob.isTarget = entry.isTarget;
+      mob.serverId = entry.id;
+      this.updateMobPlate(mob, entry.hp, entry.maxHp, entry.isBoss);
+      if (entry.isTarget) this.targetMob = mob;
+    }
+
+    if (!monsters.some((entry) => entry.isTarget && entry.hp > 0)) {
+      this.targetMob = null;
+      this.targetPlate = null;
+      this.targetPlateFill = null;
+    } else if (this.targetMob) {
+      this.targetPlate = this.targetMob.plate;
+      this.targetPlateFill = this.targetMob.plateFill;
+      if (previousTarget !== this.targetMob) {
+        const target = this.targetMob;
+        this.time.delayedCall(180, () => {
+          if (this.alive && this.targetMob === target && !target.dying) this.approachTarget(target);
+        });
+      }
+    }
+  }
+
+  private updateMobPlate(mob: Mob, hp: number, maxHp: number, isBoss: boolean): void {
+    if (!mob.plateFill) return;
+    const ratio = Phaser.Math.Clamp(hp / Math.max(1, maxHp), 0, 1);
+    mob.plateFill.setScale(ratio, 1);
+    mob.plateFill.setFillStyle(isBoss ? 0xff9d5c : ratio <= 0.3 ? 0xff7b6b : 0x7ee07a);
   }
 
   private syncTarget(monster: MonsterDefinition & { hp: number }): void {
