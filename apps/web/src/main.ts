@@ -144,7 +144,10 @@ function startGame(character: CharacterSummary): void {
       game.scene.stop('WorldScene');
       game.scene.start('CityScene');
     },
-    onMap: openWorldMap
+    onMap: openWorldMap,
+    onSkills: () => void openSkillPanel(character.id),
+    onCastSkill: (skillId) => void castSkill(character.id, skillId),
+    onUsePotion: (itemId) => void useQuickPotion(character.id, itemId)
   });
   const logout = document.createElement('button');
   logout.className = 'account-logout';
