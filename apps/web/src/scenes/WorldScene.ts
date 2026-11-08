@@ -19,31 +19,31 @@ const FONT = '"Cinzel", "MedievalSharp", Georgia, "Times New Roman", serif';
 
 const TILE_W = 104;
 const TILE_H = 52;
-const GRID_COLS = 9;
-const GRID_ROWS = 7;
+const GRID_COLS = 17;
+const GRID_ROWS = 13;
 
-const PLAYER_HOME = { x: -126, y: 34 };
+const PLAYER_HOME = { x: -270, y: 80 };
 
 // Pontos espalhados pela arena para os monstros de ambiente.
 const AMBIENT_SPOTS = [
-  { x: -318, y: -92 },
-  { x: -212, y: -142 },
-  { x: 24, y: -146 },
-  { x: 252, y: -118 },
-  { x: 356, y: 32 },
-  { x: 236, y: 128 },
-  { x: -18, y: 150 },
-  { x: -236, y: 120 },
-  { x: -388, y: 18 }
+  { x: -650, y: -220 },
+  { x: -470, y: -320 },
+  { x: -180, y: -340 },
+  { x: 190, y: -310 },
+  { x: 520, y: -180 },
+  { x: 650, y: 110 },
+  { x: 280, y: 310 },
+  { x: -180, y: 340 },
+  { x: -560, y: 170 }
 ];
 
 // O alvo autoritativo do servidor alterna entre estes pontos centrais.
 const TARGET_SPOTS = [
-  { x: 132, y: 10 },
-  { x: 20, y: -46 },
-  { x: 206, y: -56 },
-  { x: -36, y: 92 },
-  { x: 104, y: 112 }
+  { x: 430, y: 20 },
+  { x: 220, y: -150 },
+  { x: 570, y: -110 },
+  { x: -30, y: 250 },
+  { x: 340, y: 300 }
 ];
 
 interface Mob {
@@ -58,6 +58,7 @@ interface Mob {
   wanderEvent: Phaser.Time.TimerEvent | null;
   plate: Phaser.GameObjects.Container | null;
   plateFill: Phaser.GameObjects.Rectangle | null;
+  packSlotId?: string;
 }
 
 interface CombatAnchor {
@@ -236,6 +237,9 @@ export class WorldScene extends Phaser.Scene {
   private polling = false;
   private alive = true;
   private recovering = false;
+  private worldZoom = 0.78;
+  private viewportWidth = 0;
+  private viewportHeight = 0;
 
   constructor() {
     super('WorldScene');
@@ -332,6 +336,10 @@ export class WorldScene extends Phaser.Scene {
     // O Container do mundo não ordena os filhos sozinho: reordena por
     // profundidade para o herói passar corretamente na frente/atrás dos mobs.
     this.world.sort('depth');
+    this.world.setPosition(
+      this.viewportWidth / 2 - this.player.root.x * this.worldZoom,
+      this.viewportHeight / 2 - this.player.root.y * this.worldZoom
+    );
   }
 
   private async loadStageCatalog(): Promise<void> {
@@ -379,9 +387,12 @@ export class WorldScene extends Phaser.Scene {
 
   private layout(width: number, height: number): void {
     this.drawBackdrop(width, height);
-    const zoom = Phaser.Math.Clamp(Math.min(width / 1040, height / 660), 0.58, 1.12);
+    this.viewportWidth = width;
+    this.viewportHeight = height;
+    const zoom = Phaser.Math.Clamp(Math.min(width / 1450, height / 920), 0.62, 0.9);
+    this.worldZoom = zoom;
     this.world.setScale(zoom);
-    this.world.setPosition(width / 2, height / 2 + Math.max(12, height * 0.035));
+    this.world.setPosition(width / 2 - this.player.root.x * zoom, height / 2 - this.player.root.y * zoom);
   }
 
   private drawBackdrop(width: number, height: number): void {
@@ -422,22 +433,22 @@ export class WorldScene extends Phaser.Scene {
     this.world.add(base);
 
     base.fillStyle(0x040b10, 0.5);
-    base.fillEllipse(0, 96, 1010, 500);
+    base.fillEllipse(0, 96, 1740, 900);
 
-    this.fillDiamond(base, 468, 242, 30, 0x0b1a1e);
-    this.fillDiamond(base, 462, 238, 18, 0x143136);
-    this.fillDiamond(base, 452, 232, 8, 0x1c4645);
+    this.fillDiamond(base, 820, 430, 30, 0x0b1a1e);
+    this.fillDiamond(base, 814, 426, 18, 0x143136);
+    this.fillDiamond(base, 804, 420, 8, 0x1c4645);
 
     base.fillStyle(theme.ground[0], 0.5);
-    base.fillEllipse(0, -18, 780, 350);
+    base.fillEllipse(0, -18, 1480, 720);
 
     const tiles = this.add.graphics().setDepth(10);
     this.world.add(tiles);
 
     for (let row = 0; row < GRID_ROWS; row += 1) {
       for (let col = 0; col < GRID_COLS; col += 1) {
-        const x = (col - row - 1) * (TILE_W / 2);
-        const y = (col + row - 7) * (TILE_H / 2);
+        const x = (col - row - 2) * (TILE_W / 2);
+        const y = (col + row - 14) * (TILE_H / 2);
         const lane = col - row;
         const variant = (col * 7 + row * 13) % 4;
         const isPath = lane >= -1 && lane <= 1;
@@ -511,14 +522,10 @@ export class WorldScene extends Phaser.Scene {
   private buildDecor(): void {
     const theme = this.theme;
     const trees: Array<[number, number, number]> = [
-      [-352, -88, 1.08],
-      [-304, 108, 0.94],
-      [-126, -198, 1],
-      [64, -206, 0.9],
-      [302, -132, 1.04],
-      [368, 56, 0.92],
-      [222, 176, 1.08],
-      [-360, 42, 0.82]
+      [-720, -210, 1.18], [-610, 240, 1.05], [-470, -360, 1.12],
+      [-260, -500, 0.95], [40, -470, 1.08], [320, -420, 1.12],
+      [590, -300, 1.16], [730, -30, 1.05], [620, 330, 1.18],
+      [300, 480, 1.02], [-80, 490, 1.1], [-450, 420, 0.98], [-760, 40, 0.9]
     ];
 
     if (theme.treeStyle !== 'none') {
@@ -528,14 +535,8 @@ export class WorldScene extends Phaser.Scene {
     }
 
     const propSpots: Array<[number, number, number]> = [
-      [-238, 154, 1],
-      [330, -30, 0.85],
-      [-64, 190, 0.95],
-      [70, -150, 0.7],
-      [-392, 118, 1],
-      [356, -178, 0.85],
-      [-430, -20, 0.9],
-      [250, 140, 0.9]
+      [-690, 320, 1.1], [-520, -180, 0.95], [-300, 420, 1.15], [-80, -430, 0.9],
+      [180, 410, 1.1], [390, -360, 1], [650, 220, 1.05], [740, -260, 0.9]
     ];
     theme.props.forEach((prop, index) => {
       const spot = propSpots[index % propSpots.length]!;
@@ -544,9 +545,9 @@ export class WorldScene extends Phaser.Scene {
 
     // Tufos de grama, flores e detritos.
     for (let i = 0; i < 34; i += 1) {
-      const x = Phaser.Math.Between(-390, 390);
-      const y = Phaser.Math.Between(-185, 190);
-      if (Math.abs(x) < 190 && y > -70 && y < 90) {
+      const x = Phaser.Math.Between(-760, 760);
+      const y = Phaser.Math.Between(-430, 430);
+      if (Math.abs(x) < 250 && y > -120 && y < 140) {
         continue;
       }
       this.addGrass(x, y, Phaser.Math.FloatBetween(0.7, 1.2), i % 4 === 0);
@@ -1061,7 +1062,6 @@ export class WorldScene extends Phaser.Scene {
 
     this.buildMount();
     this.buildAmbientMobs();
-    this.spawnTarget(this.initialMonster ?? FALLBACK_MONSTER);
   }
 
   private buildMount(): void {
@@ -1523,7 +1523,7 @@ export class WorldScene extends Phaser.Scene {
     this.hud?.update(snapshot);
 
     const anchor = this.targetAnchor();
-    this.syncTarget(snapshot.combat.monster);
+    this.syncPack(snapshot.combat.monsters ?? [{ ...snapshot.combat.monster, slotId: 'mob-1', respawnInSeconds: 0, isTarget: true }]);
 
     const recovering = snapshot.combat.status === 'recovering';
     this.recovering = recovering;
@@ -1984,8 +1984,8 @@ export class WorldScene extends Phaser.Scene {
 
   private buildMotes(): void {
     for (let i = 0; i < 16; i += 1) {
-      const x = Phaser.Math.Between(-420, 420);
-      const y = Phaser.Math.Between(-190, 200);
+      const x = Phaser.Math.Between(-780, 780);
+      const y = Phaser.Math.Between(-440, 440);
       const mote = this.add.circle(
         x,
         y,
