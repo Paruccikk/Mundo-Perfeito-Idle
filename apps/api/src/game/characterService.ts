@@ -4,7 +4,7 @@ import {
   experienceToNextLevel, statsForLevel
 } from './classes.js';
 import type { CharacterRepository } from './characterRepository.js';
-import { simulateCombat } from './combat.js';
+import { simulateCombat } from './combat.js';\nimport { findSkill, skillsForClass, skillLevelFor } from './skills.js';
 import {
   STAGE_ONE, STAGES, getMonster, getStage, isStageUnlocked, nextNormalMonster, stageCatalog,
   type StageCatalog
@@ -101,7 +101,7 @@ export class CharacterService {
       combat: {
         stageId: STAGE_ONE.id, monsterId: initialMonsterId, monsterHp: initialMonster.maxHp,
         pack: Array.from({ length: 6 }, (_, index) => { const monsterId = STAGE_ONE.monsterIds[index % STAGE_ONE.monsterIds.length]!; return { slotId: `mob-${index + 1}`, monsterId, hp: getMonster(monsterId).maxHp, respawnAt: null }; }), targetIndex: 0,
-        playerHp: stats.maxHp, playerMp: stats.maxMp, killsInStage: 0, bossActive: false, bossDefeated: 0,
+        playerHp: stats.maxHp, playerMp: stats.maxMp, killsInStage: 0, bossActive: false, bossDefeated: 0,\n        skillPoints: 0, skillLevels: { [skillsForClass(payload.classId)[0]!.id]: 1 }, skillCooldowns: {}, pendingSkillMultiplier: 1, pendingSkillId: null,
         status: 'fighting', playerCooldownSeconds: 0, monsterCooldownSeconds: 0,
         recoveringUntil: null, lastTickAt: now
       },
@@ -109,6 +109,88 @@ export class CharacterService {
     };
     await this.repository.create(record);
     return toSummary(record);
+  }
+
+  async upgradeSkill(id: string, playerId: unknown, skillId: string): Promise<CombatSnapshot> {
+    assertPlayerId(playerId);
+    const record = await this.findOwned(id, playerId);
+    const definition = findSkill(record.classId, skillId);
+    if (!definition) throw new CharacterError('skill_not_found', 404, 'Essa habilidade não pertence à sua classe.');
+    const levels = { ...(record.combat.skillLevels ?? {}) };
+    const currentLevel = skillLevelFor(levels, skillId);
+    if (currentLevel >= definition.maxLevel) throw new CharacterError('skill_max_level', 400, 'Essa habilidade já está no nível máximo.');
+    const requiredLevel = currentLevel === 0 ? definition.requiredLevel : Math.max(definition.requiredLevel, currentLevel * 5);
+    if (record.level < requiredLevel) throw new CharacterError('skill_level_required', 400, `Você precisa alcançar o nível ${requiredLevel} para evoluir essa habilidade.`);
+    if ((record.combat.skillPoints ?? 0) < 1) throw new CharacterError('no_skill_points', 400, 'Você não possui pontos de habilidade disponíveis.');
+    const expected = record.combat.lastTickAt;
+    const now = new Date().toISOString();
+    record.combat = {
+      ...record.combat,
+      skillPoints: (record.combat.skillPoints ?? 0) - 1,
+      skillLevels: { ...levels, [skillId]: currentLevel + 1 },
+      lastTickAt: now
+    };
+    if (!await this.repository.save(record, expected)) {
+      throw new CharacterError('combat_busy', 409, 'O personagem está sendo atualizado. Tente novamente.');
+    }
+    return toCombatSnapshot(record, [], 0);
+  }
+
+  async castSkill(id: string, playerId: unknown, skillId: string): Promise<CombatSnapshot> {
+    assertPlayerId(playerId);
+    let record = await this.findOwned(id, playerId);
+    if (record.combat.status === 'dead') throw new CharacterError('character_dead', 400, 'Não é possível usar habilidades enquanto estiver derrotado.');
+    const simulation = simulateCombat(record, Date.now());
+    if (simulation.simulatedSeconds > 0) {
+      const drops = simulation.drops.map((drop, index) => ({
+        ...drop, operationId: `drop:${id}:${record.combat.lastTickAt}:${index}`
+      }));
+      if (!await this.repository.save(simulation.record, record.combat.lastTickAt, drops)) {
+        throw new CharacterError('combat_busy', 409, 'O personagem está sendo atualizado. Tente novamente.');
+      }
+      record = simulation.record;
+    }
+    const definition = findSkill(record.classId, skillId);
+    if (!definition) throw new CharacterError('skill_not_found', 404, 'Essa habilidade não pertence à sua classe.');
+    const skillLevel = skillLevelFor(record.combat.skillLevels, skillId);
+    if (skillLevel < 1) throw new CharacterError('skill_locked', 400, 'Essa habilidade ainda está bloqueada. Evolua seu personagem e a árvore de habilidades.');
+    const nowMs = Date.now();
+    const cooldownUntil = record.combat.skillCooldowns?.[skillId] ?? 0;
+    if (cooldownUntil > nowMs) {
+      const seconds = Math.ceil((cooldownUntil - nowMs) / 1000);
+      throw new CharacterError('skill_cooldown', 400, `A habilidade estará pronta em ${seconds}s.`);
+    }
+    if ((record.combat.playerMp ?? 0) < definition.manaCost) {
+      throw new CharacterError('not_enough_mana', 400, 'Mana insuficiente para usar essa habilidade.');
+    }
+    const stats = statsForLevel(record.classId, record.level, record.attributes, record.equipmentBonuses);
+    const rankMultiplier = 1 + (skillLevel - 1) * 0.22;
+    let playerHp = record.combat.playerHp;
+    let pendingSkillMultiplier = record.combat.pendingSkillMultiplier ?? 1;
+    if (definition.effect === 'damage') {
+      pendingSkillMultiplier = Math.max(pendingSkillMultiplier, definition.multiplier * rankMultiplier);
+    } else {
+      const healing = Math.round(stats.maxHp * definition.multiplier * rankMultiplier);
+      playerHp = Math.min(stats.maxHp, playerHp + healing);
+    }
+    const now = new Date(nowMs).toISOString();
+    record.combat = {
+      ...record.combat,
+      playerHp,
+      playerMp: Math.max(0, (record.combat.playerMp ?? stats.maxMp) - definition.manaCost),
+      pendingSkillMultiplier,
+      pendingSkillId: definition.effect === 'damage' ? skillId : null,
+      skillCooldowns: { ...(record.combat.skillCooldowns ?? {}), [skillId]: nowMs + definition.cooldownSeconds * 1000 },
+      lastTickAt: now
+    };
+    if (!await this.repository.save(record, simulation.simulatedSeconds > 0 ? simulation.record.combat.lastTickAt : record.combat.lastTickAt)) {
+      throw new CharacterError('combat_busy', 409, 'O personagem está sendo atualizado. Tente novamente.');
+    }
+    return toCombatSnapshot(record, [{
+      type: 'skill_cast',
+      amount: definition.effect === 'damage' ? Math.round(stats.magicDamage * definition.multiplier * rankMultiplier) : Math.round(stats.maxHp * definition.multiplier * rankMultiplier),
+      message: skillId
+    }], 0);
   }
 
   async getCharacter(id: string, playerId: unknown): Promise<CharacterSummary> {
