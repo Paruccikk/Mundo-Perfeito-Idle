@@ -32,7 +32,7 @@ export class ApiError extends Error {
   }
 }
 
-export interface InventorySnapshot { items: InventoryItem[]; equipment: EquipmentItem[]; }
+export interface InventorySnapshot { gold: number; goldReceived?: number; items: InventoryItem[]; equipment: EquipmentItem[]; }
 
 interface RequestOptions {
   method?: 'GET' | 'POST';
@@ -130,6 +130,9 @@ export const api = {
   },
   async getInventory(id: string): Promise<InventorySnapshot> {
     return request<InventorySnapshot>(`/api/v1/characters/${encodeURIComponent(id)}/inventory`);
+  },
+  async sellItem(id: string, inventoryItemId: string, quantity: number): Promise<InventorySnapshot> {
+    return request<InventorySnapshot>(`/api/v1/characters/${encodeURIComponent(id)}/sell-item`, { method: 'POST', body: { inventoryItemId, quantity } });
   },
   async useItem(id: string, inventoryItemId: string): Promise<InventorySnapshot> {
     return request<InventorySnapshot>(`/api/v1/characters/${encodeURIComponent(id)}/use-item`, { method: 'POST', body: { inventoryItemId } });
