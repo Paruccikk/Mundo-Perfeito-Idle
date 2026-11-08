@@ -130,7 +130,8 @@ export class PrismaCharacterRepository implements CharacterRepository {
       equipment: equipment.map((entry) => ({ slot: entry.slot, item: {
         id: entry.id, itemId: entry.itemId, name: entry.item.name, description: entry.item.description,
         rarity: entry.item.rarity, category: entry.item.category, slot: entry.item.slot,
-        quantity: 1, levelReq: entry.item.levelReq, stats: (entry.item.stats ?? {}) as Record<string, number>
+        quantity: 1, levelReq: entry.item.levelReq, stats: (entry.item.stats ?? {}) as Record<string, number>,
+        sellPrice: itemSellPrice({ category: entry.item.category, rarity: entry.item.rarity, levelReq: entry.item.levelReq, stats: (entry.item.stats ?? {}) as Record<string, number> })
       } }))
     };
   }
