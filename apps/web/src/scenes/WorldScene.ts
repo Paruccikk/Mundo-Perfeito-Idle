@@ -273,7 +273,8 @@ export class WorldScene extends Phaser.Scene {
     this.scale.on(Phaser.Scale.Events.RESIZE, this.handleResize, this);
     document.addEventListener('visibilitychange', this.handleVisibility);
 
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);\n    this.game.events.on('skill-cast', this.handleSkillCast, this);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
+    this.game.events.on('skill-cast', this.handleSkillCast, this);
 
     this.hud?.setConnection('connecting');
     this.updateLocation();
@@ -1705,7 +1706,15 @@ export class WorldScene extends Phaser.Scene {
         break;
       }
 
-      case 'skill_cast': {\n        this.player.facePoint(anchor.x, anchor.y);\n        this.fireProjectile(true, anchor);\n        this.spawnBurst(this.player.root.x, this.player.root.y - 70, this.character.classId === 'mage' ? 0x9d7cff : this.character.classId === 'priest' ? 0xffe7a3 : this.character.classId === 'archer' ? 0x8be0b0 : 0xffb86b, 8);\n        this.popText(anchor.x, anchor.y - anchor.height - 32, event.message?.replace(/-/g, ' ') ?? 'Habilidade', '#ffe28a', 14);\n        break;\n      }\n\n      case 'monster_hit': {
+      case 'skill_cast': {
+        this.player.facePoint(anchor.x, anchor.y);
+        this.fireProjectile(true, anchor);
+        this.spawnBurst(this.player.root.x, this.player.root.y - 70, this.character.classId === 'mage' ? 0x9d7cff : this.character.classId === 'priest' ? 0xffe7a3 : this.character.classId === 'archer' ? 0x8be0b0 : 0xffb86b, 8);
+        this.popText(anchor.x, anchor.y - anchor.height - 32, event.message?.replace(/-/g, ' ') ?? 'Habilidade', '#ffe28a', 14);
+        break;
+      }
+
+      case 'monster_hit': {
         const attacker =
           this.targetMob && !this.targetMob.dying ? this.targetMob : anchor.mob;
         if (attacker && !attacker.dying) {
