@@ -199,7 +199,7 @@ export interface CombatStateRecord {
   monsterHp: number;
   /** Grupo persistido de monstros; ausente em personagens legados até a primeira sincronização. */
   pack?: CombatMonsterRecord[];
-  targetIndex?: number;
+  targetIndex?: number;\n  skillPoints?: number;\n  skillLevels?: Record<string, number>;\n  skillCooldowns?: Record<string, number>;\n  pendingSkillMultiplier?: number;\n  pendingSkillId?: string | null;
   playerHp: number;
   killsInStage: number;
   bossActive: boolean;
