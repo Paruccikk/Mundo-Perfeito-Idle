@@ -21,6 +21,7 @@ import { renderFatalError, renderLoading } from './ui/screens';
 import { renderCharacterSelector } from './ui/selector';
 import { renderCharacterPanel } from './ui/character-panel';
 import { renderInventoryPanel } from './ui/inventory-panel';
+import { renderBlacksmithShop } from './ui/blacksmith-panel';
 import { renderSkillPanel } from './ui/skill-panel';
 import { closeStageMap, openStageMap } from './ui/stage-map';
 import './style.css';
@@ -182,6 +183,7 @@ function startGame(character: CharacterSummary): void {
         instance.registry.set('character', character);
         instance.registry.set('playerId', playerId);
         instance.registry.set('hud', hud);
+        instance.registry.set('openBlacksmithShop', () => void openBlacksmithShop(character.id));
       }
     }
   };
@@ -262,6 +264,22 @@ async function useQuickPotion(characterId: string, itemId: string): Promise<void
     hud?.pushFeed(itemId === 'mp-potion' ? 'Poção de Mana utilizada.' : 'Poção de Vida utilizada.', 'gold');
   } catch (error) {
     hud?.pushFeed(error instanceof Error ? error.message : 'Não foi possível usar a poção.', 'danger');
+  }
+}
+
+async function openBlacksmithShop(characterId: string): Promise<void> {
+  closeGamePanel();
+  sfxInventory();
+  try {
+    const inventory = await api.getInventory(characterId);
+    renderBlacksmithShop(root, inventory, async (itemId, quantity) => {
+      const updated = await api.sellItem(characterId, itemId, quantity);
+      hud?.setGold(updated.gold);
+      hud?.pushFeed(`Venda concluída: +${(updated.goldReceived ?? 0).toLocaleString('pt-BR')} ouro.`, 'gold');
+      return updated;
+    }, closeGamePanel);
+  } catch (error) {
+    hud?.pushFeed(error instanceof Error ? error.message : 'Não foi possível abrir o comércio do ferreiro.', 'danger');
   }
 }
 
