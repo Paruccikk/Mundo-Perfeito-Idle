@@ -220,6 +220,12 @@ export function renderInventoryPanel(
       empty.className = 'inventory-panel__empty';
       empty.textContent = inventory.items.length ? 'Nenhum item nesta categoria.' : 'Sua mochila está vazia. Derrote monstros para encontrar equipamentos e materiais.';
       grid.append(empty);
+      for (let index = 0; index < 30; index += 1) {
+        const emptySlot = document.createElement('div');
+        emptySlot.className = 'inventory-bag-slot inventory-bag-slot--empty';
+        emptySlot.setAttribute('aria-hidden', 'true');
+        grid.append(emptySlot);
+      }
       selectedItemId = '';
       renderDetails();
       return;
