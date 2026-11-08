@@ -23,6 +23,7 @@ export interface GameHudOptions {
 
 export interface GameHud {
   update(snapshot: CombatSnapshot): void;
+  setGold(value: number): void;
   setLocation(name: string, label: string, safeZone?: boolean): void;
   setConnection(state: HudConnectionState): void;
   pushFeed(text: string, tone?: HudFeedTone): void;
@@ -197,6 +198,10 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
   metaEl.textContent = `${character.className} • Nível ${character.level}`;
 
   return {
+    setGold(value: number): void {
+      goldEl.querySelector('.hud__gold-value')!.textContent = formatNumber(value);
+    },
+
     setLocation(name: string, label: string, safeZone = false): void {
       stageNameEl.textContent = name;
       stageEyebrow.textContent = label;
