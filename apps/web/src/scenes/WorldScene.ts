@@ -1158,33 +1158,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private refreshAmbientMobs(): void {
-    // As criaturas visíveis agora são os slots autoritativos do grupo de combate.
-    return;
-    if (!this.alive || !this.catalog || !this.stage) {
-      return;
-    }
-
-    const entry = this.catalog.stages.find((candidate) => candidate.id === this.stage!.id);
-    if (!entry || entry.monsters.length <= 1) {
-      return;
-    }
-
-    const ambient = this.mobs.filter((mob) => !mob.isTarget && !mob.dying);
-    const expected = new Set(entry.monsters.map((monster) => monster.id));
-    const current = new Set(ambient.map((mob) => mob.serverId));
-    const alreadyVaried =
-      ambient.length === AMBIENT_SPOTS.length &&
-      expected.size === current.size &&
-      [...expected].every((id) => current.has(id));
-
-    if (alreadyVaried) {
-      return;
-    }
-
-    for (const mob of ambient) {
-      this.disposeMob(mob, false);
-    }
-    this.buildAmbientMobs();
+    // Os monstros de combate são sincronizados exclusivamente pelo pacote autoritativo da API.
   }
 
   private startWander(mob: Mob): void {
