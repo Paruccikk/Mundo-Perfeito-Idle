@@ -172,7 +172,8 @@ export type CombatEventType =
   | 'boss_spawn'
   | 'boss_defeated'
   | 'player_death'
-  | 'item_drop'\n  | 'skill_cast';
+  | 'item_drop'
+  | 'skill_cast';
 
 export interface CombatEvent {
   type: CombatEventType;
@@ -180,7 +181,22 @@ export interface CombatEvent {
   message?: string;
 }
 
-export interface SkillSnapshot {\n  id: string;\n  name: string;\n  description: string;\n  effect: 'damage' | 'heal' | 'group_heal';\n  level: number;\n  maxLevel: number;\n  requiredLevel: number;\n  cooldownSeconds: number;\n  cooldownRemainingSeconds: number;\n  manaCost: number;\n  unlocked: boolean;\n  special: boolean;\n}\n\nexport interface CombatSnapshot {
+export interface SkillSnapshot {
+  id: string;
+  name: string;
+  description: string;
+  effect: 'damage' | 'heal' | 'group_heal';
+  level: number;
+  maxLevel: number;
+  requiredLevel: number;
+  cooldownSeconds: number;
+  cooldownRemainingSeconds: number;
+  manaCost: number;
+  unlocked: boolean;
+  special: boolean;
+}
+
+export interface CombatSnapshot {
   character: CharacterSummary;
   combat: {
     stageId: string;
