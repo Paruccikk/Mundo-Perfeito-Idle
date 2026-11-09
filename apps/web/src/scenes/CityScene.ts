@@ -221,6 +221,8 @@ export class CityScene extends Phaser.Scene {
         else this.avatar.setWalking(false);
       }
     }
+    const playerRoot = this.mountedHorse?.root ?? this.avatar.root;
+    this.nameLabel.setPosition(playerRoot.x, playerRoot.y - NAME_LIFT);
     this.updateCamera(delta);
     this.updateDistrict();
     this.syncLocalPosition();
