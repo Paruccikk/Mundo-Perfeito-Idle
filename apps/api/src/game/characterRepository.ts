@@ -18,6 +18,7 @@ const CONSUMABLE_DROPS: Record<string, { name: string; description: string; rari
 
 export interface InventorySnapshot {
   gold: number;
+  mount: { id: 'starter-horse'; name: string; rarity: 'white'; equipped: boolean };
   items: Array<{ id: string; itemId: string; name: string; description: string; rarity: string; category: string; slot: string | null; quantity: number; levelReq: number; stats: Record<string, number>; sellPrice: number }>;
   equipment: Array<{ slot: string; item: { id: string; itemId: string; name: string; description: string; rarity: string; category: string; slot: string | null; quantity: number; levelReq: number; stats: Record<string, number>; sellPrice: number } }>;
 }
@@ -32,6 +33,7 @@ export interface CharacterRepository {
   allocateAttributes(characterId: string, accountId: string, allocation: Record<string, number>): Promise<CharacterRecord | null>;
   getInventory(characterId: string, accountId: string): Promise<InventorySnapshot | null>;
   equipItem(characterId: string, accountId: string, inventoryItemId: string): Promise<{ error: string | null }>;
+  setMount(characterId: string, accountId: string, equipped: boolean): Promise<{ error: string | null }>;
   unequipItem(characterId: string, accountId: string, slot: string): Promise<{ error: string | null }>;
   addDrop(characterId: string, itemId: string, quantity: number, operationId: string): Promise<void>;
   useItem(characterId: string, accountId: string, inventoryItemId: string, maxHp: number, maxMp: number): Promise<{ error: string | null }>;
@@ -114,19 +116,20 @@ export class MemoryCharacterRepository implements CharacterRepository {
   async getInventory(characterId: string, accountId: string): Promise<InventorySnapshot | null> {
     const record = this.characters.get(characterId);
     if (!record || record.playerId !== accountId) return null;
-    return { gold: record.gold, items: (this.inventory.get(characterId) ?? []).map((item) => ({ ...item, stats: { ...item.stats }, sellPrice: itemSellPrice(item) })), equipment: (this.equipment.get(characterId) ?? []).map((entry) => ({ ...entry, item: { ...entry.item, stats: { ...entry.item.stats }, sellPrice: itemSellPrice(entry.item) } })) };
+    return { gold: record.gold, mount: { id: 'starter-horse', name: 'Cavalo Castanho', rarity: 'white', equipped: record.combat.mountId === 'starter-horse' }, items: (this.inventory.get(characterId) ?? []).map((item) => ({ ...item, stats: { ...item.stats }, sellPrice: itemSellPrice(item) })), equipment: (this.equipment.get(characterId) ?? []).map((entry) => ({ ...entry, item: { ...entry.item, stats: { ...entry.item.stats }, sellPrice: itemSellPrice(entry.item) } })) };
   }
 
   async equipItem(characterId: string, accountId: string, inventoryItemId: string): Promise<{ error: string | null }> {
     const record = this.characters.get(characterId);
     if (!record || record.playerId !== accountId) return { error: 'not_found' };
     const items = this.inventory.get(characterId) ?? [];
-    const index = items.findIndex((item) => item.id === inventoryItemId && item.slot);
+    const index = items.findIndex((item) => item.id === inventoryItemId && equipmentSlot(item));
     if (index < 0) return { error: 'item_not_equippable' };
     const item = items[index]!;
+    const slot = equipmentSlot(item)!;
     if (record.level < item.levelReq) return { error: 'level_required' };
     const equipped = this.equipment.get(characterId) ?? [];
-    const previous = equipped.findIndex((entry) => entry.slot === item.slot);
+    const previous = equipped.findIndex((entry) => entry.slot === slot);
     if (previous >= 0) {
       const oldItem = equipped[previous]!.item;
       const returned = items.find((entry) => entry.itemId === oldItem.itemId);
@@ -136,9 +139,17 @@ export class MemoryCharacterRepository implements CharacterRepository {
     }
     if (item.quantity <= 1) items.splice(index, 1);
     else item.quantity -= 1;
-    equipped.push({ slot: item.slot!, item: { ...item, quantity: 1 } });
+    equipped.push({ slot, item: { ...item, quantity: 1 } });
     this.inventory.set(characterId, items);
     this.equipment.set(characterId, equipped);
+    return { error: null };
+  }
+
+  async setMount(characterId: string, accountId: string, equipped: boolean): Promise<{ error: string | null }> {
+    const record = this.characters.get(characterId);
+    if (!record || record.playerId !== accountId) return { error: 'not_found' };
+    record.combat = { ...record.combat, mountId: equipped ? 'starter-horse' : null };
+    this.characters.set(characterId, record);
     return { error: null };
   }
 
@@ -283,4 +294,16 @@ function withEquipmentBonuses(record: CharacterRecord, equipment: Array<{ slot: 
     bonuses.magicDefense = (bonuses.magicDefense ?? 0) + 2;
   }
   return { ...record, equipmentBonuses: bonuses };
+}
+
+function equipmentSlot(item: InventoryItemRecord): string | null {
+  if (item.slot) return item.slot;
+  const id = item.itemId.toLowerCase();
+  if (item.category === 'weapon' || /sword|bow|staff|mace|dagger|axe/.test(id)) return 'weapon';
+  if (/hood|helmet|hat|head/.test(id)) return 'head';
+  if (/chest|armor|armour|robe|tunic|vest/.test(id)) return 'chest';
+  if (/legs|pants|trousers/.test(id)) return 'legs';
+  if (/boots|shoes/.test(id)) return 'boots';
+  if (/ring|amulet|accessory/.test(id)) return 'accessory';
+  return null;
 }
