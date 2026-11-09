@@ -3184,3 +3184,42 @@ textarea {
 }
 
 .inventory-bag-slot--empty{border-style:dashed;border-color:rgba(115,135,144,.16);background:rgba(13,24,31,.34);box-shadow:none;cursor:default}
+
+
+/* Símbolo de ouro vetorial em CSS: não depende de emoji ou fonte do sistema. */
+.coin-glyph {
+  display: inline-grid !important;
+  place-items: center;
+  width: 19px;
+  height: 19px;
+  border: 2px solid #8f682c;
+  border-radius: 50%;
+  background: radial-gradient(circle at 32% 26%, #fff0b3 0%, #e8bd5f 42%, #a87528 100%);
+  color: #5b3b13 !important;
+  font: 900 10px/1 Georgia, serif !important;
+  text-shadow: none;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.38), 0 1px 4px rgba(0,0,0,.35);
+}
+.hud__coin.coin-glyph { width: 15px; height: 15px; font-size: 8px !important; }
+.inventory-panel__balance > .coin-glyph { grid-row: 1 / 3; width: 25px; height: 25px; font-size: 13px !important; }
+
+.city-mount-control {
+  position: absolute;
+  left: 16px;
+  bottom: 18px;
+  z-index: 40;
+  min-width: 138px;
+  border-color: rgba(226, 190, 112, .7);
+  background: linear-gradient(180deg, rgba(76, 55, 31, .96), rgba(34, 27, 20, .96));
+  color: #ffe1a0;
+  font-weight: 700;
+  box-shadow: 0 8px 24px rgba(0,0,0,.38);
+}
+.city-mount-control:hover,
+.city-mount-control.is-mounted {
+  border-color: #f4d58d;
+  color: #fff0c4;
+}
+@media (max-width: 540px) {
+  .city-mount-control { left: 10px; bottom: 12px; min-width: 116px; padding: 8px 10px; }
+}
