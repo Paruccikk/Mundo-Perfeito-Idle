@@ -3223,3 +3223,15 @@ textarea {
 @media (max-width: 540px) {
   .city-mount-control { left: 10px; bottom: 12px; min-width: 116px; padding: 8px 10px; }
 }
+
+
+/* Escala de raridade compartilhada para futuras montarias, pets e armaduras. */
+.rank-white { --rank-color: #e8edf2; }
+.rank-green { --rank-color: #65d28a; }
+.rank-blue { --rank-color: #63a9ff; }
+.rank-orange { --rank-color: #ff9a45; }
+.rank-red { --rank-color: #f04452; }
+.rank-white, .rank-green, .rank-blue, .rank-orange, .rank-red {
+  border-color: color-mix(in srgb, var(--rank-color) 72%, transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--rank-color) 16%, transparent);
+}
