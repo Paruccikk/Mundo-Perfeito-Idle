@@ -55,7 +55,11 @@ export function renderInventoryPanel(
   heading.append(eyebrow, title);
   const balance = document.createElement('div');
   balance.className = 'inventory-panel__balance';
-  balance.innerHTML = '<span aria-hidden="true">🪙</span>';
+  const coin = document.createElement('span');
+  coin.className = 'coin-glyph';
+  coin.setAttribute('aria-hidden', 'true');
+  coin.textContent = 'G';
+  balance.append(coin);
   const balanceValue = document.createElement('strong');
   balanceValue.textContent = formatGold(inventory.gold);
   const balanceLabel = document.createElement('small');
@@ -162,7 +166,7 @@ export function renderInventoryPanel(
     meta.textContent = `Quantidade: ${item.quantity} · Nível necessário: ${item.levelReq}`;
     const sale = document.createElement('div');
     sale.className = 'inventory-item-details__sale';
-    sale.textContent = `Valor no ferreiro: 🪙 ${formatGold(item.sellPrice)} por unidade`;
+    sale.textContent = `Valor no ferreiro: ${formatGold(item.sellPrice)} ouro por unidade`;
     details.append(icon, name, rarity, description, meta, sale);
 
     if (item.stats && Object.keys(item.stats).length) {
@@ -185,7 +189,7 @@ export function renderInventoryPanel(
 
     const actions = document.createElement('div');
     actions.className = 'inventory-item-details__actions';
-    if (item.slot) {
+    if (item.slot || item.category === 'weapon' || item.category === 'armor') {
       const equip = document.createElement('button');
       equip.type = 'button';
       equip.className = 'primary-button';
