@@ -78,7 +78,7 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
 
   const stageBottom = el('div', 'hud__stage-bottom');
   const goldEl = el('span', 'hud__gold');
-  goldEl.append(el('span', 'hud__coin', '🪙'), el('b', 'hud__gold-value', '0'));
+  goldEl.append(el('span', 'hud__coin coin-glyph', 'G'), el('b', 'hud__gold-value', '0'));
   const bossesEl = el('span', 'hud__bosses', 'Chefes: 0');
   stageBottom.append(goldEl, bossesEl);
 
