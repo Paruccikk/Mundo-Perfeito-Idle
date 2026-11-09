@@ -205,6 +205,8 @@ export interface CombatStateRecord {
   skillCooldowns?: Record<string, number>;
   pendingSkillMultiplier?: number;
   pendingSkillId?: string | null;
+  /** Montaria atualmente equipada; null mantém o personagem a pé. */
+  mountId?: string | null;
   playerHp: number;
   killsInStage: number;
   bossActive: boolean;
