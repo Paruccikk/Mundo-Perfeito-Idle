@@ -306,24 +306,6 @@ export class PlayerAvatar {
     this.setWalking(false);
   }
 
-  setWalking(walking: boolean): void {
-    if (!walking) {
-      this.legTween?.stop();
-      this.legTween = null;
-      this.legs.angle = 0;
-      return;
-    }
-    if (this.legTween) return;
-    this.legTween = this.scene.tweens.add({
-      targets: this.legs,
-      angle: { from: -2.2, to: 2.2 },
-      duration: 230,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Linear'
-    });
-  }
-
   walkTo(x: number, y: number, duration: number): void {
     this.walkTween?.stop();
     this.setFacing(x >= this.root.x ? 1 : -1);
@@ -2282,6 +2264,24 @@ export class HorseView {
     if (this.facing === direction) return;
     this.facing = direction;
     this.rig.scaleX = Math.abs(this.rig.scaleX) * direction;
+  }
+
+  setWalking(walking: boolean): void {
+    if (!walking) {
+      this.legTween?.stop();
+      this.legTween = null;
+      this.legs.angle = 0;
+      return;
+    }
+    if (this.legTween) return;
+    this.legTween = this.scene.tweens.add({
+      targets: this.legs,
+      angle: { from: -2.2, to: 2.2 },
+      duration: 230,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Linear'
+    });
   }
 
   walkTo(x: number, y: number, duration: number): void {
