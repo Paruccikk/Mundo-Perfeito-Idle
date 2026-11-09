@@ -1,4 +1,5 @@
-export type CollectibleRank = 'white' | 'green' | 'blue' | 'orange' | 'red';
+export const COLLECTIBLE_RANKS = ['white', 'green', 'blue', 'orange', 'red'] as const;
+export type CollectibleRank = (typeof COLLECTIBLE_RANKS)[number];
 
 export type Rarity =
   | 'common'
