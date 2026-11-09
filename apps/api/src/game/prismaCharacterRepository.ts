@@ -127,7 +127,7 @@ export class PrismaCharacterRepository implements CharacterRepository {
       mount: { id: 'starter-horse' as const, name: 'Cavalo Castanho', rarity: 'white' as const, equipped: combatState?.mountId === 'starter-horse' },
       items: items.map((entry) => ({ id: entry.id, itemId: entry.itemId, name: entry.item.name,
         description: entry.item.description, rarity: entry.item.rarity, category: entry.item.category,
-        slot: entry.item.slot, quantity: entry.quantity, levelReq: entry.item.levelReq,
+        slot: resolveEquipmentSlot(entry.item.slot, entry.item.category, entry.itemId), quantity: entry.quantity, levelReq: entry.item.levelReq,
         stats: (entry.item.stats ?? {}) as Record<string, number>,
         sellPrice: itemSellPrice({ category: entry.item.category, rarity: entry.item.rarity, levelReq: entry.item.levelReq, stats: (entry.item.stats ?? {}) as Record<string, number> }) })),
       equipment: equipment.map((entry) => ({ slot: entry.slot, item: {
