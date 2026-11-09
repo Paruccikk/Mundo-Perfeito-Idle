@@ -1,3 +1,5 @@
+export type CollectibleRank = 'white' | 'green' | 'blue' | 'orange' | 'red';
+
 export type Rarity =
   | 'common'
   | 'uncommon'
