@@ -99,6 +99,15 @@ export function createCharacterRoutes(repository: CharacterRepository) {
       } catch (error) { return sendError(reply, error); }
     });
 
+    app.post('/api/v1/characters/:id/mount', { preHandler: authenticate }, async (request, reply) => {
+      try {
+        const { id } = request.params as { id: string };
+        const body = request.body as { equipped?: unknown } | null;
+        if (!body || typeof body.equipped !== 'boolean') throw new CharacterError('validation_error', 400, 'Informe se deseja montar ou desmontar.');
+        return reply.send(await service.setMount(id, accountId(request), body.equipped));
+      } catch (error) { return sendError(reply, error); }
+    });
+
     app.post('/api/v1/characters/:id/unequip', { preHandler: authenticate }, async (request, reply) => {
       try {
         const { id } = request.params as { id: string };
