@@ -276,6 +276,14 @@ export class CharacterService {
     return this.getInventory(id, playerId);
   }
 
+  async setMount(id: string, playerId: unknown, equipped: boolean) {
+    assertPlayerId(playerId);
+    const result = await this.repository.setMount(id, playerId, equipped);
+    if (result.error === 'not_found') throw new CharacterError('character_not_found', 404, 'Personagem não encontrado.');
+    if (result.error) throw new CharacterError('mount_update_failed', 400, 'Não foi possível alterar a montaria.');
+    return this.getInventory(id, playerId);
+  }
+
   async unequipItem(id: string, playerId: unknown, slot: string) {
     assertPlayerId(playerId);
     const result = await this.repository.unequipItem(id, playerId, slot);
