@@ -44,7 +44,11 @@ export function renderBlacksmithShop(
   headerRight.className = 'inventory-panel__header-right';
   const balance = document.createElement('div');
   balance.className = 'inventory-panel__balance';
-  balance.innerHTML = '<span aria-hidden="true">🪙</span>';
+  const coin = document.createElement('span');
+  coin.className = 'coin-glyph';
+  coin.setAttribute('aria-hidden', 'true');
+  coin.textContent = 'G';
+  balance.append(coin);
   const balanceValue = document.createElement('strong');
   balanceValue.textContent = formatGold(inventory.gold);
   const balanceLabel = document.createElement('small');
@@ -92,7 +96,7 @@ export function renderBlacksmithShop(
       meta.textContent = `Qtd. ${item.quantity} · ${item.rarity}`;
       copy.append(name, meta);
       const price = document.createElement('b');
-      price.textContent = `🪙 ${formatGold(item.sellPrice * item.quantity)}`;
+      price.textContent = `ouro ${formatGold(item.sellPrice * item.quantity)}`;
       button.append(icon, copy, price);
       button.addEventListener('click', () => { selectedId = item.id; render(); });
       list.append(button);
