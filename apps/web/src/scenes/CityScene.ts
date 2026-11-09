@@ -1301,7 +1301,7 @@ export class CityScene extends Phaser.Scene {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'city-mount-control ghost-button';
-    button.textContent = 'Montar cavalo';
+    button.textContent = 'Montar cavalo · Branco';
     button.addEventListener('click', async () => {
       if (button.disabled) return;
       button.disabled = true;
@@ -1352,7 +1352,7 @@ export class CityScene extends Phaser.Scene {
       this.avatar.root.setDepth(300 + y);
     }
     if (this.mountControl) {
-      this.mountControl.textContent = equipped ? 'Desmontar' : 'Montar cavalo';
+      this.mountControl.textContent = equipped ? 'Desmontar cavalo' : 'Montar cavalo · Branco';
       this.mountControl.classList.toggle('is-mounted', equipped);
     }
   }
