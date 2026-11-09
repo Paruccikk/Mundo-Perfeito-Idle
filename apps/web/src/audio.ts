@@ -1,5 +1,10 @@
 /** Gerenciador de playlist MP3 e efeitos sonoros WebAudio. */
 type OscillatorKind = OscillatorType;
+
+// Converte nota MIDI em frequência (Hz) para os efeitos musicais.
+function midiToFrequency(midi: number): number {
+  return 440 * Math.pow(2, (midi - 69) / 12);
+}
 const MUTE_KEY = 'mundo-perfeito:audio-muted';
 let context: AudioContext | null = null;
 let master: GainNode | null = null;
