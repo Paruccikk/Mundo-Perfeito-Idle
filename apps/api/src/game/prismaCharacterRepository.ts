@@ -120,8 +120,11 @@ export class PrismaCharacterRepository implements CharacterRepository {
       this.prisma.inventoryItem.findMany({ where: { characterId }, include: { item: true }, orderBy: { acquiredAt: 'desc' } }),
       this.prisma.characterEquipment.findMany({ where: { characterId }, include: { item: true } })
     ]);
+    const characterState = await this.prisma.character.findFirst({ where: { id: characterId, accountId }, select: { combat: true } });
+    const combatState = characterState?.combat as { mountId?: string | null } | undefined;
     return {
       gold: Number(owner.gold),
+      mount: { id: 'starter-horse' as const, name: 'Cavalo Castanho', rarity: 'white' as const, equipped: combatState?.mountId === 'starter-horse' },
       items: items.map((entry) => ({ id: entry.id, itemId: entry.itemId, name: entry.item.name,
         description: entry.item.description, rarity: entry.item.rarity, category: entry.item.category,
         slot: entry.item.slot, quantity: entry.quantity, levelReq: entry.item.levelReq,
@@ -129,7 +132,7 @@ export class PrismaCharacterRepository implements CharacterRepository {
         sellPrice: itemSellPrice({ category: entry.item.category, rarity: entry.item.rarity, levelReq: entry.item.levelReq, stats: (entry.item.stats ?? {}) as Record<string, number> }) })),
       equipment: equipment.map((entry) => ({ slot: entry.slot, item: {
         id: entry.id, itemId: entry.itemId, name: entry.item.name, description: entry.item.description,
-        rarity: entry.item.rarity, category: entry.item.category, slot: entry.item.slot,
+        rarity: entry.item.rarity, category: entry.item.category, slot: resolveEquipmentSlot(entry.item.slot, entry.item.category, entry.itemId),
         quantity: 1, levelReq: entry.item.levelReq, stats: (entry.item.stats ?? {}) as Record<string, number>,
         sellPrice: itemSellPrice({ category: entry.item.category, rarity: entry.item.rarity, levelReq: entry.item.levelReq, stats: (entry.item.stats ?? {}) as Record<string, number> })
       } }))
@@ -143,10 +146,11 @@ export class PrismaCharacterRepository implements CharacterRepository {
       const inventory = await tx.inventoryItem.findFirst({
         where: { id: inventoryItemId, characterId }, include: { item: true }
       });
-      if (!inventory || !inventory.item.slot) return { error: 'item_not_equippable' as const };
+      const slot = inventory ? resolveEquipmentSlot(inventory.item.slot, inventory.item.category, inventory.itemId) : null;
+      if (!inventory || !slot) return { error: 'item_not_equippable' as const };
       if (character.level < inventory.item.levelReq) return { error: 'level_required' as const };
       const existing = await tx.characterEquipment.findUnique({
-        where: { characterId_slot: { characterId, slot: inventory.item.slot } }
+        where: { characterId_slot: { characterId, slot } }
       });
       if (existing) {
         const returned = await tx.inventoryItem.findFirst({ where: { characterId, itemId: existing.itemId } });
@@ -157,10 +161,21 @@ export class PrismaCharacterRepository implements CharacterRepository {
         }
         await tx.characterEquipment.delete({ where: { id: existing.id } });
       }
-      await tx.characterEquipment.create({ data: { characterId, slot: inventory.item.slot, itemId: inventory.itemId } });
+      await tx.characterEquipment.create({ data: { characterId, slot, itemId: inventory.itemId } });
       if (inventory.quantity <= 1) await tx.inventoryItem.delete({ where: { id: inventory.id } });
       else await tx.inventoryItem.update({ where: { id: inventory.id }, data: { quantity: { decrement: 1 } } });
       return { error: null as null };
+    });
+  }
+
+  async setMount(characterId: string, accountId: string, equipped: boolean): Promise<{ error: string | null }> {
+    return this.prisma.$transaction(async (tx) => {
+      const row = await tx.character.findFirst({ where: { id: characterId, accountId } });
+      if (!row) return { error: 'not_found' };
+      const combat = row.combat as unknown as CharacterRecord['combat'];
+      const updated = { ...combat, mountId: equipped ? 'starter-horse' : null, lastTickAt: new Date().toISOString() };
+      await tx.character.update({ where: { id: characterId }, data: { combat: updated as unknown as Prisma.InputJsonValue, lastSimulatedAt: new Date(updated.lastTickAt) } });
+      return { error: null };
     });
   }
 
@@ -361,4 +376,16 @@ async function addDropInTransaction(
   await tx.economyLedger.create({ data: {
     characterId, operationId, assetType: 'item', amount: BigInt(quantity), reason: `drop:${itemId}`
   } });
+}
+
+function resolveEquipmentSlot(slot: string | null, category: string, itemId: string): string | null {
+  if (slot) return slot;
+  const id = itemId.toLowerCase();
+  if (category === 'weapon' || /sword|bow|staff|mace|dagger|axe/.test(id)) return 'weapon';
+  if (/hood|helmet|hat|head/.test(id)) return 'head';
+  if (/chest|armor|armour|robe|tunic|vest/.test(id)) return 'chest';
+  if (/legs|pants|trousers/.test(id)) return 'legs';
+  if (/boots|shoes/.test(id)) return 'boots';
+  if (/ring|amulet|accessory/.test(id)) return 'accessory';
+  return null;
 }
