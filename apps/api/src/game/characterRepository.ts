@@ -116,7 +116,7 @@ export class MemoryCharacterRepository implements CharacterRepository {
   async getInventory(characterId: string, accountId: string): Promise<InventorySnapshot | null> {
     const record = this.characters.get(characterId);
     if (!record || record.playerId !== accountId) return null;
-    return { gold: record.gold, mount: { id: 'starter-horse', name: 'Cavalo Castanho', rarity: 'white', equipped: record.combat.mountId === 'starter-horse' }, items: (this.inventory.get(characterId) ?? []).map((item) => ({ ...item, stats: { ...item.stats }, sellPrice: itemSellPrice(item) })), equipment: (this.equipment.get(characterId) ?? []).map((entry) => ({ ...entry, item: { ...entry.item, stats: { ...entry.item.stats }, sellPrice: itemSellPrice(entry.item) } })) };
+    return { gold: record.gold, mount: { id: 'starter-horse', name: 'Cavalo Castanho', rarity: 'white', equipped: record.combat.mountId === 'starter-horse' }, items: (this.inventory.get(characterId) ?? []).map((item) => ({ ...item, slot: equipmentSlot(item), stats: { ...item.stats }, sellPrice: itemSellPrice(item) })), equipment: (this.equipment.get(characterId) ?? []).map((entry) => ({ ...entry, item: { ...entry.item, slot: equipmentSlot(entry.item), stats: { ...entry.item.stats }, sellPrice: itemSellPrice(entry.item) } })) };
   }
 
   async equipItem(characterId: string, accountId: string, inventoryItemId: string): Promise<{ error: string | null }> {
