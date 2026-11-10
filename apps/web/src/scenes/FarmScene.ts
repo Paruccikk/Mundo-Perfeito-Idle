@@ -26,7 +26,6 @@ export class FarmScene extends Phaser.Scene {
   private character!: CharacterSummary;
   private hud: GameHud | null = null;
   private world!: Phaser.GameObjects.Container;
-  private selectedPlot: Phaser.GameObjects.Graphics | null = null;
   private alive = true;
 
   constructor() {
@@ -180,7 +179,7 @@ export class FarmScene extends Phaser.Scene {
   }
 
   private drawDecorations(): void {
-    const treeSpots = [[1, 1], [11, 1], [1, 9], [12, 9], [5, 2], [11, 10]];
+    const treeSpots: Array<[number, number]> = [[1, 1], [11, 1], [1, 9], [12, 9], [5, 2], [11, 10]];
     for (const [col, row] of treeSpots) {
       const p = this.iso(col, row);
       const g = this.add.graphics().setDepth(30);
@@ -211,8 +210,8 @@ export class FarmScene extends Phaser.Scene {
   private handleFarmClick(pointer: Phaser.Input.Pointer): void {
     if (!this.alive) return;
     const point = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
-    const col = Math.round((point.x / (TILE_W / 2) + point.y / (TILE_H / 2)) / 2 + (COLS + ROWS - 2) / 4);
-    const row = Math.round((point.y / (TILE_H / 2) - point.x / (TILE_W / 2)) / 2 + (COLS - ROWS) / 4);
+    const col = Math.round(point.x / TILE_W + point.y / TILE_H + (COLS + ROWS) / 4);
+    const row = Math.round(point.y / TILE_H - point.x / TILE_W + (ROWS - 1) / 2);
     const plot = PLOTS.find((entry) => entry.col === col && entry.row === row);
     if (plot) {
       this.hud?.pushFeed(`${plot.label}: sistema de cultivo será ativado na próxima etapa.`, 'gold');
