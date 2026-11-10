@@ -23,6 +23,7 @@ import { renderCharacterSelector } from './ui/selector';
 import { renderCharacterPanel } from './ui/character-panel';
 import { renderInventoryPanel } from './ui/inventory-panel';
 import { renderBlacksmithShop } from './ui/blacksmith-panel';
+import { renderFarmShop } from './ui/farm-shop-panel';
 import { renderSkillPanel } from './ui/skill-panel';
 import { closeStageMap, openStageMap } from './ui/stage-map';
 import './style.css';
@@ -194,6 +195,7 @@ function startGame(character: CharacterSummary): void {
         instance.registry.set('playerId', playerId);
         instance.registry.set('hud', hud);
         instance.registry.set('openBlacksmithShop', () => void openBlacksmithShop(character.id));
+        instance.registry.set('openFarmShop', () => void openFarmShop(character.id));
       }
     }
   };
@@ -291,6 +293,40 @@ async function openBlacksmithShop(characterId: string): Promise<void> {
     }, closeGamePanel);
   } catch (error) {
     hud?.pushFeed(error instanceof Error ? error.message : 'Não foi possível abrir o comércio do ferreiro.', 'danger');
+  }
+}
+
+async function openFarmShop(characterId: string): Promise<void> {
+  closeGamePanel();
+  sfxClick();
+  try {
+    const farmData = await api.getFarm(characterId);
+    renderFarmShop(
+      root,
+      farmData,
+      async (buildingId) => {
+        const updated = await api.buyFarmBuilding(characterId, buildingId);
+        hud?.setGold(updated.gold);
+        hud?.pushFeed(updated.message ?? 'Construção concluída na fazenda!', 'gold');
+        return updated;
+      },
+      async (animalId) => {
+        const updated = await api.buyFarmAnimal(characterId, animalId);
+        hud?.setGold(updated.gold);
+        hud?.pushFeed(updated.message ?? 'Animal adquirido!', 'gold');
+        return updated;
+      },
+      () => {
+        if (!game) return;
+        game.scene.stop('CityScene');
+        game.scene.stop('WorldScene');
+        game.scene.start('FarmScene');
+        sfxClick();
+      },
+      closeGamePanel
+    );
+  } catch (error) {
+    hud?.pushFeed(error instanceof Error ? error.message : 'Não foi possível abrir o comércio agropecuário.', 'danger');
   }
 }
 

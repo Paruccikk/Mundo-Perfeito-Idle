@@ -16,6 +16,19 @@ import type {
 import {
   MAX_CHARACTERS_PER_PLAYER, isValidPlayerId, nameKey, type CreateCharacterPayload
 } from './validation.js';
+import {
+  type FarmBuildingId,
+  type FarmState,
+  type CropTypeId
+} from '@mundo-perfeito/shared';
+import {
+  createDefaultFarm,
+  sanitizeFarmState,
+  processBuyBuilding,
+  processBuyAnimal,
+  processPlantCrop,
+  processHarvestCrop
+} from './farm.js';
 
 export class CharacterError extends Error {
   readonly code: string;
@@ -347,6 +360,65 @@ export class CharacterService {
       record = resolved.record;
     }
     return toCombatSnapshot(record, [], 0);
+  }
+
+  async getFarm(id: string, playerId: unknown): Promise<{ farm: FarmState; gold: number }> {
+    assertPlayerId(playerId);
+    const record = await this.findOwned(id, playerId);
+    const farm = sanitizeFarmState(record.combat.farm);
+    return { farm, gold: record.gold };
+  }
+
+  async buyFarmBuilding(id: string, playerId: unknown, buildingId: FarmBuildingId): Promise<{ farm: FarmState; gold: number; message: string }> {
+    assertPlayerId(playerId);
+    const record = await this.findOwned(id, playerId);
+    const result = processBuyBuilding(record.combat.farm ?? createDefaultFarm(), record.gold, buildingId);
+    if (!result.ok) {
+      throw new CharacterError('farm_error', 400, result.error ?? 'Não foi possível construir.');
+    }
+    record.combat.farm = result.farm;
+    record.gold = result.gold;
+    await this.repository.save(record);
+    return { farm: result.farm, gold: result.gold, message: result.message ?? 'Construção realizada!' };
+  }
+
+  async buyFarmAnimal(id: string, playerId: unknown, animalId: string, customName?: string): Promise<{ farm: FarmState; gold: number; message: string }> {
+    assertPlayerId(playerId);
+    const record = await this.findOwned(id, playerId);
+    const result = processBuyAnimal(record.combat.farm ?? createDefaultFarm(), record.gold, animalId, customName);
+    if (!result.ok) {
+      throw new CharacterError('farm_error', 400, result.error ?? 'Não foi possível comprar o animal.');
+    }
+    record.combat.farm = result.farm;
+    record.gold = result.gold;
+    await this.repository.save(record);
+    return { farm: result.farm, gold: result.gold, message: result.message ?? 'Animal adquirido!' };
+  }
+
+  async plantFarmCrop(id: string, playerId: unknown, plotIndex: number, cropId: CropTypeId): Promise<{ farm: FarmState; gold: number; message: string }> {
+    assertPlayerId(playerId);
+    const record = await this.findOwned(id, playerId);
+    const result = processPlantCrop(record.combat.farm ?? createDefaultFarm(), record.gold, plotIndex, cropId);
+    if (!result.ok) {
+      throw new CharacterError('farm_error', 400, result.error ?? 'Não foi possível plantar.');
+    }
+    record.combat.farm = result.farm;
+    record.gold = result.gold;
+    await this.repository.save(record);
+    return { farm: result.farm, gold: result.gold, message: result.message ?? 'Cultura plantada!' };
+  }
+
+  async harvestFarmCrop(id: string, playerId: unknown, plotIndex: number): Promise<{ farm: FarmState; gold: number; message: string }> {
+    assertPlayerId(playerId);
+    const record = await this.findOwned(id, playerId);
+    const result = processHarvestCrop(record.combat.farm ?? createDefaultFarm(), record.gold, plotIndex);
+    if (!result.ok) {
+      throw new CharacterError('farm_error', 400, result.error ?? 'Não foi possível colher.');
+    }
+    record.combat.farm = result.farm;
+    record.gold = result.gold;
+    await this.repository.save(record);
+    return { farm: result.farm, gold: result.gold, message: result.message ?? 'Colheita realizada!' };
   }
 
   private async findOwned(id: string, playerId: string): Promise<CharacterRecord> {

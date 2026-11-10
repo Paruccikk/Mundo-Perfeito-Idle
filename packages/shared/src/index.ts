@@ -281,3 +281,228 @@ export interface OfflineSummary {
   goldGained: number;
   items: Array<{ itemId: string; quantity: number }>;
 }
+
+export type FarmBuildingId = 'coop' | 'corral' | 'stable';
+
+export interface FarmBuildingDefinition {
+  id: FarmBuildingId;
+  name: string;
+  description: string;
+  cost: number;
+  icon: string;
+  capacity: number;
+  allowedSpecies: AnimalSpeciesId[];
+}
+
+export const FARM_BUILDINGS: Record<FarmBuildingId, FarmBuildingDefinition> = {
+  coop: {
+    id: 'coop',
+    name: 'Galinheiro',
+    description: 'Abriga galinhas e galos para postura de ovos e reprodução.',
+    cost: 500,
+    icon: '🐔',
+    capacity: 6,
+    allowedSpecies: ['chicken']
+  },
+  corral: {
+    id: 'corral',
+    name: 'Curral',
+    description: 'Instalação cercada com cochos para criação de vacas e touros leiteiros.',
+    cost: 1500,
+    icon: '🐄',
+    capacity: 4,
+    allowedSpecies: ['cow']
+  },
+  stable: {
+    id: 'stable',
+    name: 'Estábulo',
+    description: 'Celeiro reforçado para cavalos e éguas reprodutoras.',
+    cost: 3000,
+    icon: '🐎',
+    capacity: 4,
+    allowedSpecies: ['horse']
+  }
+};
+
+export type AnimalSpeciesId = 'chicken' | 'cow' | 'horse';
+export type AnimalGender = 'male' | 'female';
+
+export interface AnimalDefinition {
+  id: string;
+  name: string;
+  species: AnimalSpeciesId;
+  speciesName: string;
+  gender: AnimalGender;
+  requiredBuilding: FarmBuildingId;
+  requiredBuildingName: string;
+  tier: CollectibleRank;
+  cost: number;
+  icon: string;
+  description: string;
+  produceName?: string;
+}
+
+export const FARM_ANIMALS: Record<string, AnimalDefinition> = {
+  'chicken-male': {
+    id: 'chicken-male',
+    name: 'Galo Caipira',
+    species: 'chicken',
+    speciesName: 'Aves',
+    gender: 'male',
+    requiredBuilding: 'coop',
+    requiredBuildingName: 'Galinheiro',
+    tier: 'white',
+    cost: 150,
+    icon: '🐓',
+    description: 'Galo reprodutor saudável. Essencial para fecundar ovos futuramente.'
+  },
+  'chicken-female': {
+    id: 'chicken-female',
+    name: 'Galinha Poedeira',
+    species: 'chicken',
+    speciesName: 'Aves',
+    gender: 'female',
+    requiredBuilding: 'coop',
+    requiredBuildingName: 'Galinheiro',
+    tier: 'white',
+    cost: 200,
+    icon: '🐔',
+    description: 'Galinha fértil. Produz ovos frescos periodicamente na fazenda.',
+    produceName: 'Ovo Caipira'
+  },
+  'cow-male': {
+    id: 'cow-male',
+    name: 'Touro Campeiro',
+    species: 'cow',
+    speciesName: 'Bovinos',
+    gender: 'male',
+    requiredBuilding: 'corral',
+    requiredBuildingName: 'Curral',
+    tier: 'white',
+    cost: 600,
+    icon: '🐂',
+    description: 'Touro forte e imponente. Essencial para a linhagem de rebanhos bovinos.'
+  },
+  'cow-female': {
+    id: 'cow-female',
+    name: 'Vaca Leiteira',
+    species: 'cow',
+    speciesName: 'Bovinos',
+    gender: 'female',
+    requiredBuilding: 'corral',
+    requiredBuildingName: 'Curral',
+    tier: 'white',
+    cost: 750,
+    icon: '🐄',
+    description: 'Vaca dócil de alta lactação. Produz leite fresco para alimentos e poções.',
+    produceName: 'Balde de Leite'
+  },
+  'horse-male': {
+    id: 'horse-male',
+    name: 'Cavalo Árabe',
+    species: 'horse',
+    speciesName: 'Equinos',
+    gender: 'male',
+    requiredBuilding: 'stable',
+    requiredBuildingName: 'Estábulo',
+    tier: 'green',
+    cost: 1200,
+    icon: '🐎',
+    description: 'Garanhão veloz e ágil. Gera potros velozes e serve de montaria.'
+  },
+  'horse-female': {
+    id: 'horse-female',
+    name: 'Égua Puro-Sangue',
+    species: 'horse',
+    speciesName: 'Equinos',
+    gender: 'female',
+    requiredBuilding: 'stable',
+    requiredBuildingName: 'Estábulo',
+    tier: 'green',
+    cost: 1400,
+    icon: '🐴',
+    description: 'Matriz equina nobre com excelente linhagem genética.'
+  }
+};
+
+export type CropTypeId = 'corn' | 'wheat' | 'carrot';
+
+export interface CropDefinition {
+  id: CropTypeId;
+  name: string;
+  seedName: string;
+  cost: number;
+  growthSeconds: number;
+  icon: string;
+  yieldMin: number;
+  yieldMax: number;
+  description: string;
+}
+
+export const FARM_CROPS: Record<CropTypeId, CropDefinition> = {
+  corn: {
+    id: 'corn',
+    name: 'Milho',
+    seedName: 'Sementes de Milho',
+    cost: 15,
+    growthSeconds: 30,
+    icon: '🌽',
+    yieldMin: 2,
+    yieldMax: 4,
+    description: 'Grãos dourados ideais para alimentar galinhas e aves.'
+  },
+  wheat: {
+    id: 'wheat',
+    name: 'Trigo',
+    seedName: 'Sementes de Trigo',
+    cost: 20,
+    growthSeconds: 45,
+    icon: '🌾',
+    yieldMin: 2,
+    yieldMax: 5,
+    description: 'Cereal dourado usado para rações bovinas e pães.'
+  },
+  carrot: {
+    id: 'carrot',
+    name: 'Cenoura',
+    seedName: 'Sementes de Cenoura',
+    cost: 30,
+    growthSeconds: 60,
+    icon: '🥕',
+    yieldMin: 1,
+    yieldMax: 3,
+    description: 'Raiz nutritiva e saborosa, o alimento predileto dos equinos.'
+  }
+};
+
+export interface FarmPlotState {
+  plotIndex: number;
+  cropId: CropTypeId | null;
+  plantedAt: string | null;
+  readyAt: string | null;
+}
+
+export interface OwnedAnimal {
+  id: string;
+  definitionId: string;
+  name: string;
+  species: AnimalSpeciesId;
+  gender: AnimalGender;
+  tier: CollectibleRank;
+  buildingId: FarmBuildingId;
+  acquiredAt: string;
+}
+
+export interface FarmState {
+  buildings: FarmBuildingId[];
+  plots: FarmPlotState[];
+  animals: OwnedAnimal[];
+  storage: Record<string, number>;
+}
+
+export interface FarmResponse {
+  farm: FarmState;
+  gold: number;
+  message?: string;
+}
+

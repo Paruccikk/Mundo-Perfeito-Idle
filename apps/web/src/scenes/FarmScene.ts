@@ -1,5 +1,13 @@
 import Phaser from 'phaser';
-import type { CharacterSummary } from '@mundo-perfeito/shared';
+import type {
+  CharacterSummary,
+  FarmBuildingId,
+  FarmState,
+  CropTypeId
+} from '@mundo-perfeito/shared';
+import { FARM_BUILDINGS, FARM_ANIMALS, FARM_CROPS } from '@mundo-perfeito/shared';
+import { api } from '../api';
+import { sfxClick } from '../audio';
 import type { GameHud } from '../ui/hud';
 
 const TILE_W = 96;
@@ -7,19 +15,25 @@ const TILE_H = 48;
 const COLS = 13;
 const ROWS = 11;
 
-interface FarmPlot {
+interface PlotLayout {
+  index: number;
   col: number;
   row: number;
-  label: string;
 }
 
-const PLOTS: FarmPlot[] = [
-  { col: 2, row: 6, label: 'Canteiro de milho' },
-  { col: 3, row: 6, label: 'Canteiro de trigo' },
-  { col: 4, row: 6, label: 'Canteiro de cenoura' },
-  { col: 2, row: 7, label: 'Canteiro vazio' },
-  { col: 3, row: 7, label: 'Canteiro vazio' },
-  { col: 4, row: 7, label: 'Canteiro vazio' }
+const PLOT_LAYOUTS: PlotLayout[] = [
+  { index: 0, col: 2, row: 6 },
+  { index: 1, col: 3, row: 6 },
+  { index: 2, col: 4, row: 6 },
+  { index: 3, col: 2, row: 7 },
+  { index: 4, col: 3, row: 7 },
+  { index: 5, col: 4, row: 7 }
+];
+
+const BUILDING_PADS = [
+  { id: 'coop' as FarmBuildingId, col: 10, row: 5, name: 'Galinheiro', icon: '🐔' },
+  { id: 'corral' as FarmBuildingId, col: 10, row: 7, name: 'Curral', icon: '🐄' },
+  { id: 'stable' as FarmBuildingId, col: 7, row: 9, name: 'Estábulo', icon: '🐎' }
 ];
 
 export class FarmScene extends Phaser.Scene {
@@ -27,6 +41,11 @@ export class FarmScene extends Phaser.Scene {
   private hud: GameHud | null = null;
   private world!: Phaser.GameObjects.Container;
   private alive = true;
+  private farm: FarmState | null = null;
+  private farmGold = 0;
+  private interactiveElements: Phaser.GameObjects.GameObject[] = [];
+  private seedPickerContainer: Phaser.GameObjects.Container | null = null;
+  private refreshTimer: Phaser.Time.TimerEvent | null = null;
 
   constructor() {
     super('FarmScene');
@@ -36,19 +55,52 @@ export class FarmScene extends Phaser.Scene {
     this.character = this.registry.get('character') as CharacterSummary;
     this.hud = (this.registry.get('hud') as GameHud | undefined) ?? null;
     this.alive = true;
-    this.cameras.main.setBackgroundColor('#9acb78');
+    this.cameras.main.setBackgroundColor('#8dbf6d');
     this.world = this.add.container(0, 0);
-    this.drawFarm();
-    this.layout();
-    this.scale.on(Phaser.Scale.Events.RESIZE, this.layout, this);
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      this.alive = false;
-      this.scale.off(Phaser.Scale.Events.RESIZE, this.layout, this);
-    });
-    this.input.on('pointerdown', this.handleFarmClick, this);
+
     this.hud?.setConnection('online');
     this.hud?.setLocation('Minha Fazenda', 'Propriedade particular', true);
     this.hud?.pushFeed(`Bem-vindo à sua fazenda, ${this.character.name}!`, 'gold');
+
+    this.layout();
+    this.scale.on(Phaser.Scale.Events.RESIZE, this.layout, this);
+
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.alive = false;
+      this.scale.off(Phaser.Scale.Events.RESIZE, this.layout, this);
+      this.refreshTimer?.destroy();
+      this.seedPickerContainer?.destroy();
+    });
+
+    void this.loadAndRenderFarm();
+
+    // Atualiza timers de colheita a cada 1 segundo
+    this.refreshTimer = this.time.addEvent({
+      delay: 1000,
+      loop: true,
+      callback: () => {
+        if (!this.alive || !this.farm) return;
+        this.renderPlotsOnly();
+      }
+    });
+  }
+
+  private async loadAndRenderFarm(): Promise<void> {
+    try {
+      const data = await api.getFarm(this.character.id);
+      if (!this.alive) return;
+      this.farm = data.farm;
+      this.farmGold = data.gold;
+      this.hud?.setGold(data.gold);
+      this.renderFullScene();
+    } catch (error) {
+      if (!this.alive) return;
+      this.hud?.pushFeed(
+        error instanceof Error ? error.message : 'Não foi possível carregar os dados da fazenda.',
+        'danger'
+      );
+      this.renderFullScene();
+    }
   }
 
   private iso(col: number, row: number): { x: number; y: number } {
@@ -58,7 +110,13 @@ export class FarmScene extends Phaser.Scene {
     };
   }
 
-  private diamond(graphics: Phaser.GameObjects.Graphics, x: number, y: number, fill: number, line = 0x496d3d): void {
+  private diamond(
+    graphics: Phaser.GameObjects.Graphics,
+    x: number,
+    y: number,
+    fill: number,
+    line = 0x496d3d
+  ): void {
     graphics.fillStyle(fill, 1);
     graphics.lineStyle(1, line, 0.55);
     graphics.beginPath();
@@ -71,27 +129,40 @@ export class FarmScene extends Phaser.Scene {
     graphics.strokePath();
   }
 
-  private drawFarm(): void {
+  private plotsContainer!: Phaser.GameObjects.Container;
+  private buildingsContainer!: Phaser.GameObjects.Container;
+
+  private renderFullScene(): void {
+    this.world.removeAll(true);
+    this.interactiveElements = [];
+
+    // Chão e gramado
     const ground = this.add.graphics();
     this.world.add(ground);
     for (let row = 0; row < ROWS; row += 1) {
       for (let col = 0; col < COLS; col += 1) {
         const p = this.iso(col, row);
         const variation = (col + row) % 4;
-        const color = variation === 0 ? 0x8fbd68 : variation === 1 ? 0x99c875 : variation === 2 ? 0x94c16e : 0x88b961;
+        const color =
+          variation === 0 ? 0x86b85e : variation === 1 ? 0x90c268 : variation === 2 ? 0x8bbb61 : 0x7eb357;
         this.diamond(ground, p.x, p.y, color);
       }
     }
 
     this.drawPath(ground);
     this.drawHouse();
-    this.drawPlots();
-    this.drawBuildingPads();
+    this.drawTownExit();
+
+    this.buildingsContainer = this.add.container(0, 0);
+    this.world.add(this.buildingsContainer);
+    this.drawBuildings();
+
+    this.plotsContainer = this.add.container(0, 0);
+    this.world.add(this.plotsContainer);
+    this.renderPlotsOnly();
+
     this.drawDecorations();
-    this.add.text(0, 330, 'Sua propriedade • Expanda, plante e crie seus animais', {
-      fontFamily: 'Georgia, serif', fontSize: '17px', color: '#fff4d5',
-      stroke: '#294526', strokeThickness: 4, align: 'center'
-    }).setOrigin(0.5).setDepth(100);
+    this.drawFarmHUD();
   }
 
   private drawPath(graphics: Phaser.GameObjects.Graphics): void {
@@ -116,70 +187,376 @@ export class FarmScene extends Phaser.Scene {
     g.fillRect(p.x - 43, p.y + 17, 20, 18);
     g.fillRect(p.x + 23, p.y + 17, 20, 18);
     this.world.add(g);
-    this.world.add(this.add.text(p.x, p.y - 78, 'CASA PRINCIPAL', {
-      fontFamily: 'Georgia, serif', fontSize: '12px', color: '#fff0c2',
-      stroke: '#3d2b1b', strokeThickness: 4
-    }).setOrigin(0.5).setDepth(25));
+    this.world.add(
+      this.add
+        .text(p.x, p.y - 78, '🏡 CASA PRINCIPAL', {
+          fontFamily: 'Georgia, serif',
+          fontSize: '12px',
+          color: '#fff0c2',
+          stroke: '#3d2b1b',
+          strokeThickness: 4
+        })
+        .setOrigin(0.5)
+        .setDepth(25)
+    );
   }
 
-  private drawPlots(): void {
-    for (const plot of PLOTS) {
-      const p = this.iso(plot.col, plot.row);
-      const g = this.add.graphics().setDepth(10);
-      this.diamond(g, p.x, p.y, 0x795333, 0x50371f);
-      g.fillStyle(0x4f351f, 1);
-      for (let row = -1; row <= 1; row += 1) {
-        g.fillRoundedRect(p.x - 27, p.y + row * 8 - 2, 54, 4, 2);
+  private drawTownExit(): void {
+    const p = this.iso(8, 10);
+    const sign = this.add
+      .text(p.x, p.y + 35, '🚪 Voltar para Cidade de Valedouro', {
+        fontFamily: 'Georgia, serif',
+        fontSize: '13px',
+        fontStyle: 'bold',
+        color: '#fef08a',
+        backgroundColor: '#1b3b22',
+        padding: { x: 12, y: 7 },
+        stroke: '#0e2314',
+        strokeThickness: 3
+      })
+      .setOrigin(0.5)
+      .setDepth(80)
+      .setInteractive({ useHandCursor: true });
+
+    sign.on('pointerdown', () => {
+      sfxClick();
+      this.scene.stop('FarmScene');
+      this.scene.start('CityScene');
+    });
+
+    this.world.add(sign);
+  }
+
+  private drawBuildings(): void {
+    this.buildingsContainer.removeAll(true);
+    const owned = this.farm?.buildings ?? [];
+
+    for (const pad of BUILDING_PADS) {
+      const p = this.iso(pad.col, pad.row);
+      const isBuilt = owned.includes(pad.id);
+      const g = this.add.graphics().setDepth(12);
+
+      if (isBuilt) {
+        // Terreno da construção
+        this.diamond(g, p.x, p.y, 0xa18258, 0x6e5333);
+
+        // Desenha a construção completa
+        if (pad.id === 'coop') {
+          // Galinheiro de madeira
+          g.fillStyle(0x854d0e, 1);
+          g.fillRect(p.x - 36, p.y - 20, 72, 36);
+          g.fillStyle(0xca8a04, 1);
+          g.fillTriangle(p.x - 44, p.y - 20, p.x, p.y - 48, p.x + 44, p.y - 20);
+          g.fillStyle(0x451a03, 1);
+          g.fillRect(p.x - 10, p.y - 5, 20, 21);
+          g.fillStyle(0xfde047, 1);
+          g.fillRect(p.x - 28, p.y - 12, 12, 12);
+        } else if (pad.id === 'corral') {
+          // Curral com cercado de tábuas e cocho
+          g.lineStyle(3, 0x78350f, 1);
+          g.strokeRect(p.x - 42, p.y - 24, 84, 48);
+          g.fillStyle(0x92400e, 1);
+          g.fillRect(p.x - 20, p.y - 14, 40, 14); // Cocho de feno
+          g.fillStyle(0xfef08a, 1);
+          g.fillCircle(p.x, p.y - 7, 5); // Feno
+        } else if (pad.id === 'stable') {
+          // Estábulo rústico de cavalos
+          g.fillStyle(0x713f12, 1);
+          g.fillRect(p.x - 46, p.y - 26, 92, 48);
+          g.fillStyle(0x991b1b, 1);
+          g.fillTriangle(p.x - 52, p.y - 26, p.x, p.y - 58, p.x + 52, p.y - 26);
+          g.fillStyle(0x3f2208, 1);
+          g.fillRect(p.x - 14, p.y - 6, 28, 28);
+        }
+
+        this.buildingsContainer.add(g);
+
+        // Rótulo da construção
+        const title = this.add
+          .text(p.x, p.y - 56, `✓ ${pad.name}`, {
+            fontFamily: 'Georgia, serif',
+            fontSize: '11px',
+            fontStyle: 'bold',
+            color: '#86efac',
+            stroke: '#1c341f',
+            strokeThickness: 3
+          })
+          .setOrigin(0.5)
+          .setDepth(18);
+        this.buildingsContainer.add(title);
+
+        // Desenha animais criados dentro da instalação
+        const animalsInBuilding = (this.farm?.animals ?? []).filter((a) => a.buildingId === pad.id);
+        const countText = this.add
+          .text(p.x, p.y + 26, `${animalsInBuilding.length} animais`, {
+            fontFamily: 'Georgia, serif',
+            fontSize: '10px',
+            color: '#fef08a',
+            stroke: '#2c1e14',
+            strokeThickness: 3
+          })
+          .setOrigin(0.5)
+          .setDepth(18);
+        this.buildingsContainer.add(countText);
+
+        animalsInBuilding.slice(0, 4).forEach((animal, idx) => {
+          const offsetX = (idx % 2 === 0 ? -1 : 1) * (14 + idx * 4);
+          const offsetY = idx < 2 ? -6 : 10;
+          const def = FARM_ANIMALS[animal.definitionId];
+          const icon = def?.icon ?? (pad.id === 'coop' ? '🐔' : pad.id === 'corral' ? '🐄' : '🐎');
+          const sprite = this.add
+            .text(p.x + offsetX, p.y + offsetY, icon, { fontSize: '18px' })
+            .setOrigin(0.5)
+            .setDepth(22);
+          this.buildingsContainer.add(sprite);
+        });
+      } else {
+        // Pad vazio (não construído)
+        this.diamond(g, p.x, p.y, 0xb4a078, 0x806d4b);
+        g.lineStyle(1.5, 0xf1e0b6, 0.85);
+        g.strokeRect(p.x - 24, p.y - 14, 48, 28);
+        this.buildingsContainer.add(g);
+
+        const iconText = this.add
+          .text(p.x, p.y - 20, pad.icon, { fontSize: '20px' })
+          .setOrigin(0.5)
+          .setDepth(18);
+        const nameText = this.add
+          .text(p.x, p.y + 18, `Lote do ${pad.name}\n(Comprar no NPC)`, {
+            fontFamily: 'Georgia, serif',
+            fontSize: '9px',
+            align: 'center',
+            color: '#fed7aa',
+            stroke: '#3b2512',
+            strokeThickness: 3
+          })
+          .setOrigin(0.5)
+          .setDepth(18);
+
+        this.buildingsContainer.add([iconText, nameText]);
       }
-      if (plot.label.includes('milho')) {
-        for (let i = -1; i <= 1; i += 1) {
-          g.fillStyle(0x4c8b39, 1);
-          g.fillRoundedRect(p.x + i * 17 - 3, p.y - 17, 6, 31, 3);
-          g.fillStyle(0xe5c34e, 1);
-          g.fillEllipse(p.x + i * 17, p.y - 13, 7, 12);
-        }
-      } else if (plot.label.includes('trigo')) {
-        for (let i = -1; i <= 1; i += 1) {
-          g.lineStyle(3, 0xd8c06b, 1);
-          g.lineBetween(p.x + i * 16, p.y + 8, p.x + i * 16 - 3, p.y - 17);
-          g.fillStyle(0xe8d17b, 1);
-          g.fillCircle(p.x + i * 16 - 3, p.y - 18, 4);
-        }
-      } else if (plot.label.includes('cenoura')) {
-        for (let i = -1; i <= 1; i += 1) {
-          g.fillStyle(0x4d9b42, 1);
-          g.fillTriangle(p.x + i * 16, p.y - 20, p.x + i * 16 - 7, p.y - 7, p.x + i * 16 + 7, p.y - 7);
-          g.fillStyle(0xe58b38, 1);
-          g.fillTriangle(p.x + i * 16, p.y - 7, p.x + i * 16 - 5, p.y + 5, p.x + i * 16 + 5, p.y + 5);
-        }
-      }
-      this.world.add(g);
     }
   }
 
-  private drawBuildingPads(): void {
-    const pads = [
-      { col: 10, row: 5, name: 'Galinheiro', icon: '🐔' },
-      { col: 10, row: 7, name: 'Curral', icon: '🐄' },
-      { col: 7, row: 9, name: 'Estábulo', icon: '🐎' }
-    ];
-    for (const pad of pads) {
-      const p = this.iso(pad.col, pad.row);
-      const g = this.add.graphics().setDepth(12);
-      this.diamond(g, p.x, p.y, 0xb4a078, 0x806d4b);
-      g.lineStyle(2, 0xf1e0b6, 0.9);
-      g.strokeRect(p.x - 23, p.y - 12, 46, 24);
-      this.world.add(g);
-      this.world.add(this.add.text(p.x, p.y - 25, pad.icon, { fontSize: '20px' }).setOrigin(0.5).setDepth(18));
-      this.world.add(this.add.text(p.x, p.y + 20, pad.name, {
-        fontFamily: 'Georgia, serif', fontSize: '10px', color: '#fff4d5',
-        stroke: '#3b3020', strokeThickness: 3
-      }).setOrigin(0.5).setDepth(18));
+  private renderPlotsOnly(): void {
+    if (!this.plotsContainer) return;
+    this.plotsContainer.removeAll(true);
+    const plots = this.farm?.plots ?? [];
+    const now = Date.now();
+
+    for (const layout of PLOT_LAYOUTS) {
+      const p = this.iso(layout.col, layout.row);
+      const plotState = plots.find((x) => x.plotIndex === layout.index);
+      const g = this.add.graphics().setDepth(10);
+
+      // Terra arada do canteiro
+      this.diamond(g, p.x, p.y, 0x694627, 0x482e16);
+      g.fillStyle(0x452c17, 1);
+      for (let row = -1; row <= 1; row += 1) {
+        g.fillRoundedRect(p.x - 26, p.y + row * 8 - 2, 52, 4, 2);
+      }
+      this.plotsContainer.add(g);
+
+      if (plotState?.cropId && plotState.readyAt) {
+        const readyTime = new Date(plotState.readyAt).getTime();
+        const isReady = now >= readyTime;
+        const crop = FARM_CROPS[plotState.cropId];
+
+        // Desenho da plantação
+        if (plotState.cropId === 'corn') {
+          for (let i = -1; i <= 1; i += 1) {
+            g.fillStyle(isReady ? 0x22c55e : 0x4ade80, 1);
+            g.fillRoundedRect(p.x + i * 16 - 3, p.y - 16, 6, 28, 3);
+            if (isReady) {
+              g.fillStyle(0xfacc15, 1);
+              g.fillEllipse(p.x + i * 16, p.y - 12, 8, 14);
+            }
+          }
+        } else if (plotState.cropId === 'wheat') {
+          for (let i = -1; i <= 1; i += 1) {
+            g.lineStyle(3, isReady ? 0xfacc15 : 0x86efac, 1);
+            g.lineBetween(p.x + i * 15, p.y + 6, p.x + i * 15 - 2, p.y - 16);
+            if (isReady) {
+              g.fillStyle(0xfde047, 1);
+              g.fillCircle(p.x + i * 15 - 2, p.y - 17, 4);
+            }
+          }
+        } else if (plotState.cropId === 'carrot') {
+          for (let i = -1; i <= 1; i += 1) {
+            g.fillStyle(0x16a34a, 1);
+            g.fillTriangle(p.x + i * 16, p.y - 18, p.x + i * 16 - 6, p.y - 6, p.x + i * 16 + 6, p.y - 6);
+            if (isReady) {
+              g.fillStyle(0xf97316, 1);
+              g.fillTriangle(p.x + i * 16, p.y - 6, p.x + i * 16 - 4, p.y + 6, p.x + i * 16 + 4, p.y + 6);
+            }
+          }
+        }
+
+        // Indicador de status
+        if (isReady) {
+          const badge = this.add
+            .text(p.x, p.y - 28, `✨ COLHER ${crop?.name.toUpperCase()}`, {
+              fontFamily: 'Georgia, serif',
+              fontSize: '10px',
+              fontStyle: 'bold',
+              color: '#fef08a',
+              backgroundColor: '#166534',
+              padding: { x: 5, y: 3 },
+              stroke: '#052e16',
+              strokeThickness: 2
+            })
+            .setOrigin(0.5)
+            .setDepth(20)
+            .setInteractive({ useHandCursor: true });
+
+          badge.on('pointerdown', () => void this.harvestPlot(layout.index, p.x, p.y));
+          this.plotsContainer.add(badge);
+        } else {
+          const remainingSec = Math.max(1, Math.ceil((readyTime - now) / 1000));
+          const timeBadge = this.add
+            .text(p.x, p.y - 25, `⏳ ${crop?.name} (${remainingSec}s)`, {
+              fontFamily: 'Georgia, serif',
+              fontSize: '9px',
+              color: '#e2e8f0',
+              backgroundColor: 'rgba(15, 23, 42, 0.75)',
+              padding: { x: 4, y: 2 }
+            })
+            .setOrigin(0.5)
+            .setDepth(19);
+          this.plotsContainer.add(timeBadge);
+        }
+      } else {
+        // Canteiro vazio
+        const emptyText = this.add
+          .text(p.x, p.y - 8, '🌱 Plantar', {
+            fontFamily: 'Georgia, serif',
+            fontSize: '10px',
+            color: '#bbf7d0',
+            backgroundColor: 'rgba(22, 101, 52, 0.7)',
+            padding: { x: 6, y: 3 }
+          })
+          .setOrigin(0.5)
+          .setDepth(18)
+          .setInteractive({ useHandCursor: true });
+
+        emptyText.on('pointerdown', () => this.openSeedPicker(layout.index, p.x, p.y));
+        this.plotsContainer.add(emptyText);
+      }
+    }
+  }
+
+  private openSeedPicker(plotIndex: number, worldX: number, worldY: number): void {
+    sfxClick();
+    this.seedPickerContainer?.destroy();
+
+    const picker = this.add.container(worldX, worldY - 50).setDepth(120);
+    const bg = this.add
+      .rectangle(0, 0, 240, 110, 0x111c24, 0.96)
+      .setStrokeStyle(2, 0x86efac, 0.9);
+    const title = this.add
+      .text(0, -42, 'Escolha a semente para plantar:', {
+        fontFamily: 'Georgia, serif',
+        fontSize: '11px',
+        color: '#fef08a'
+      })
+      .setOrigin(0.5);
+
+    const crops: CropTypeId[] = ['corn', 'wheat', 'carrot'];
+    const buttons: Phaser.GameObjects.GameObject[] = [];
+
+    crops.forEach((cropId, i) => {
+      const crop = FARM_CROPS[cropId];
+      const btnY = -14 + i * 26;
+      const btn = this.add
+        .text(0, btnY, `${crop.icon} ${crop.name} (${crop.cost} G • ${crop.growthSeconds}s)`, {
+          fontFamily: 'Georgia, serif',
+          fontSize: '11px',
+          color: '#f0fdf4',
+          backgroundColor: '#1b432a',
+          padding: { x: 8, y: 4 }
+        })
+        .setOrigin(0.5)
+        .setInteractive({ useHandCursor: true });
+
+      btn.on('pointerdown', () => {
+        picker.destroy();
+        void this.plantPlot(plotIndex, cropId);
+      });
+      buttons.push(btn);
+    });
+
+    const closeBtn = this.add
+      .text(105, -42, '✕', { fontSize: '13px', color: '#f87171' })
+      .setInteractive({ useHandCursor: true });
+    closeBtn.on('pointerdown', () => picker.destroy());
+
+    picker.add([bg, title, ...buttons, closeBtn]);
+    this.seedPickerContainer = picker;
+  }
+
+  private async plantPlot(plotIndex: number, cropId: CropTypeId): Promise<void> {
+    try {
+      const res = await api.plantFarmCrop(this.character.id, plotIndex, cropId);
+      this.farm = res.farm;
+      this.farmGold = res.gold;
+      this.hud?.setGold(res.gold);
+      this.hud?.pushFeed(res.message ?? 'Semente plantada!', 'gold');
+      sfxClick();
+      this.renderPlotsOnly();
+    } catch (err) {
+      this.hud?.pushFeed(
+        err instanceof Error ? err.message : 'Não foi possível plantar neste canteiro.',
+        'danger'
+      );
+    }
+  }
+
+  private async harvestPlot(plotIndex: number, x: number, y: number): Promise<void> {
+    try {
+      const res = await api.harvestFarmCrop(this.character.id, plotIndex);
+      this.farm = res.farm;
+      this.hud?.pushFeed(res.message ?? 'Colheita concluída com sucesso!', 'gold');
+      sfxClick();
+
+      // Feedback visual flutuante
+      const floatText = this.add
+        .text(x, y - 20, '✨ +Colheita!', {
+          fontFamily: 'Georgia, serif',
+          fontSize: '14px',
+          fontStyle: 'bold',
+          color: '#fde047',
+          stroke: '#14532d',
+          strokeThickness: 3
+        })
+        .setOrigin(0.5)
+        .setDepth(200);
+
+      this.tweens.add({
+        targets: floatText,
+        y: y - 55,
+        alpha: 0,
+        duration: 1200,
+        onComplete: () => floatText.destroy()
+      });
+
+      this.renderPlotsOnly();
+    } catch (err) {
+      this.hud?.pushFeed(
+        err instanceof Error ? err.message : 'Não foi possível colher esta plantação.',
+        'danger'
+      );
     }
   }
 
   private drawDecorations(): void {
-    const treeSpots: Array<[number, number]> = [[1, 1], [11, 1], [1, 9], [12, 9], [5, 2], [11, 10]];
+    const treeSpots: Array<[number, number]> = [
+      [1, 1],
+      [11, 1],
+      [1, 9],
+      [12, 9],
+      [5, 2],
+      [11, 10]
+    ];
     for (const [col, row] of treeSpots) {
       const p = this.iso(col, row);
       const g = this.add.graphics().setDepth(30);
@@ -191,6 +568,7 @@ export class FarmScene extends Phaser.Scene {
       g.fillCircle(p.x - 9, p.y - 23, 13);
       this.world.add(g);
     }
+
     const player = this.add.container(-20, 110).setDepth(60);
     const shadow = this.add.ellipse(0, 10, 28, 12, 0x25351e, 0.35);
     const body = this.add.ellipse(0, -8, 22, 30, 0x3e668e);
@@ -200,21 +578,30 @@ export class FarmScene extends Phaser.Scene {
     this.world.add(player);
   }
 
+  private drawFarmHUD(): void {
+    const buildingsCount = this.farm?.buildings.length ?? 0;
+    const animalsCount = this.farm?.animals.length ?? 0;
+    const statusText = `Fazenda de ${this.character.name} • Instalações: ${buildingsCount}/3 • Animais Criados: ${animalsCount}`;
+
+    this.world.add(
+      this.add
+        .text(0, 320, statusText, {
+          fontFamily: 'Georgia, serif',
+          fontSize: '15px',
+          color: '#fff4d5',
+          stroke: '#294526',
+          strokeThickness: 4,
+          align: 'center'
+        })
+        .setOrigin(0.5)
+        .setDepth(100)
+    );
+  }
+
   private layout(): void {
     if (!this.alive) return;
     const scale = Math.min(this.scale.width / 1050, this.scale.height / 650, 1);
     this.cameras.main.setZoom(Math.max(0.55, scale * 0.95));
     this.cameras.main.centerOn(0, 0);
-  }
-
-  private handleFarmClick(pointer: Phaser.Input.Pointer): void {
-    if (!this.alive) return;
-    const point = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
-    const col = Math.round(point.x / TILE_W + point.y / TILE_H + (COLS + ROWS) / 4);
-    const row = Math.round(point.y / TILE_H - point.x / TILE_W + (ROWS - 1) / 2);
-    const plot = PLOTS.find((entry) => entry.col === col && entry.row === row);
-    if (plot) {
-      this.hud?.pushFeed(`${plot.label}: sistema de cultivo será ativado na próxima etapa.`, 'gold');
-    }
   }
 }

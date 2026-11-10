@@ -6,7 +6,10 @@ import type {
   CombatSnapshot,
   InventoryItem,
   EquipmentItem,
-  StageCatalog
+  StageCatalog,
+  FarmBuildingId,
+  FarmResponse,
+  CropTypeId
 } from '@mundo-perfeito/shared';
 import { getAuthToken } from './player';
 
@@ -145,5 +148,20 @@ export const api = {
   },
   async unequipItem(id: string, slot: string): Promise<InventorySnapshot> {
     return request<InventorySnapshot>(`/api/v1/characters/${encodeURIComponent(id)}/unequip`, { method: 'POST', body: { slot } });
+  },
+  async getFarm(id: string): Promise<FarmResponse> {
+    return request<FarmResponse>(`/api/v1/characters/${encodeURIComponent(id)}/farm`);
+  },
+  async buyFarmBuilding(id: string, buildingId: FarmBuildingId): Promise<FarmResponse> {
+    return request<FarmResponse>(`/api/v1/characters/${encodeURIComponent(id)}/farm/buy-building`, { method: 'POST', body: { buildingId } });
+  },
+  async buyFarmAnimal(id: string, animalId: string, name?: string): Promise<FarmResponse> {
+    return request<FarmResponse>(`/api/v1/characters/${encodeURIComponent(id)}/farm/buy-animal`, { method: 'POST', body: { animalId, ...(name ? { name } : {}) } });
+  },
+  async plantFarmCrop(id: string, plotIndex: number, cropId: CropTypeId): Promise<FarmResponse> {
+    return request<FarmResponse>(`/api/v1/characters/${encodeURIComponent(id)}/farm/plant`, { method: 'POST', body: { plotIndex, cropId } });
+  },
+  async harvestFarmCrop(id: string, plotIndex: number): Promise<FarmResponse> {
+    return request<FarmResponse>(`/api/v1/characters/${encodeURIComponent(id)}/farm/harvest`, { method: 'POST', body: { plotIndex } });
   }
 };

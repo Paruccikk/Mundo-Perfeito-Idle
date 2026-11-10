@@ -12,6 +12,7 @@
     "db:migrate": "prisma migrate dev"
   },
   "dependencies": {
+    "@mundo-perfeito/shared": "*",
     "@fastify/cors": "^10.0.2",
     "@prisma/client": "^6.5.0",
     "@types/node": "^22.13.10",

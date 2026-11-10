@@ -207,6 +207,8 @@ export interface CombatStateRecord {
   pendingSkillId?: string | null;
   /** Montaria atualmente equipada; null mantém o personagem a pé. */
   mountId?: string | null;
+  /** Estado da fazenda particular do personagem. */
+  farm?: import('@mundo-perfeito/shared').FarmState;
   playerHp: number;
   killsInStage: number;
   bossActive: boolean;

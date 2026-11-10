@@ -42,7 +42,7 @@ const DISTRICTS: DistrictDefinition[] = [
   { id: 'fields', name: 'Campos de Valedouro', hint: 'Estradas do reino', x: 0, y: 0, radius: 9999 }
 ];
 
-type NpcId = 'adventurer' | 'blacksmith' | 'merchant' | 'alchemist' | 'keeper' | 'guard' | 'chaplain';
+type NpcId = 'adventurer' | 'blacksmith' | 'farmer' | 'merchant' | 'alchemist' | 'keeper' | 'guard' | 'chaplain';
 
 interface NpcDefinition {
   id: NpcId;
@@ -60,6 +60,7 @@ interface NpcDefinition {
 const NPCS: NpcDefinition[] = [
   { id: 'adventurer', name: 'Alden', title: 'Mestre das Aventuras', classId: 'warrior', x: 415, y: 75, accent: 0xe7bd70, icon: '✦', restFacing: -1, greeting: 'As estradas além dos muros guardam criaturas e tesouros. Está pronto para partir?' },
   { id: 'blacksmith', name: 'Brom', title: 'Ferreiro', classId: 'warrior', x: -575, y: 150, accent: 0xe28a58, icon: '⚒', restFacing: 1, greeting: 'Traga seus equipamentos. Um bom aventureiro nunca descuida de sua armadura.' },
+  { id: 'farmer', name: 'Barnabé', title: 'Mestre da Fazenda', classId: 'archer', x: -280, y: 160, accent: 0x76b852, icon: '🌾', restFacing: 1, greeting: 'Procurando expandir sua propriedade? Aqui você compra casas de animais (galinheiro, curral, estábulo), reprodutores machos e fêmeas e sementes.' },
   { id: 'merchant', name: 'Mira', title: 'Mercadora', classId: 'mage', x: 535, y: 5, accent: 0x8bd6bd, icon: '◈', restFacing: -1, greeting: 'Poções, provisões e ferramentas! As melhores mercadorias do reino passam por aqui.' },
   { id: 'alchemist', name: 'Elowen', title: 'Alquimista', classId: 'priest', x: -455, y: -360, accent: 0x9edc91, icon: '❧', restFacing: 1, greeting: 'A natureza oferece ingredientes poderosos. Cada erva tem seu segredo.' },
   { id: 'keeper', name: 'Tomas', title: 'Guardião do Armazém', classId: 'archer', x: 345, y: 470, accent: 0x9bbbe8, icon: '▤', restFacing: -1, greeting: 'Seus pertences estarão seguros comigo. O armazém será aberto em breve.' },
@@ -1506,6 +1507,19 @@ export class CityScene extends Phaser.Scene {
         this.closeDialogue();
         sfxClick();
         const openShop = this.registry.get('openBlacksmithShop');
+        if (typeof openShop === 'function') (openShop as () => void)();
+      });
+      panel.add(action);
+    } else if (npc.id === 'farmer') {
+      const action = this.add.text(-bg.width / 2 + 18, 43, '🌾  Comércio de Fazenda & Animais', {
+        fontFamily: FONT, fontSize: '13px', fontStyle: 'bold', color: '#c3f0b8',
+        backgroundColor: '#204b28', padding: { x: 12, y: 8 }
+      }).setInteractive({ useHandCursor: true });
+      action.on('pointerdown', (_pointer: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
+        event.stopPropagation();
+        this.closeDialogue();
+        sfxClick();
+        const openShop = this.registry.get('openFarmShop');
         if (typeof openShop === 'function') (openShop as () => void)();
       });
       panel.add(action);
