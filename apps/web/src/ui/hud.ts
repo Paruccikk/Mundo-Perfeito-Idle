@@ -15,6 +15,7 @@ export interface GameHudOptions {
   onCharacter: () => void;
   onInventory: () => void;
   onTown: () => void;
+  onFarm: () => void;
   onMap: () => void;
   onSkills: () => void;
   onCastSkill: (skillId: string) => void;
@@ -39,7 +40,7 @@ const CLASS_GLYPHS: Record<CharacterClassId, string> = {
 };
 
 export function createGameHud(root: HTMLElement, options: GameHudOptions): GameHud {
-  const { character, onSwitch, onCharacter, onInventory, onTown, onMap, onSkills, onCastSkill, onUsePotion } = options;
+  const { character, onSwitch, onCharacter, onInventory, onTown, onFarm, onMap, onSkills, onCastSkill, onUsePotion } = options;
 
   const hud = el('div', 'hud');
   hud.setAttribute('aria-live', 'polite');
@@ -120,6 +121,10 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
     sfxClick();
     onMap();
   });
+  const farmButton = el('button', 'ghost-button hud__farm-button', '⌂ Fazenda') as HTMLButtonElement;
+  farmButton.type = 'button';
+  farmButton.title = 'Ir para minha fazenda';
+  farmButton.addEventListener('click', onFarm);
   const townButton = el('button', 'ghost-button', 'Cidade') as HTMLButtonElement;
   townButton.type = 'button';
   townButton.addEventListener('click', onTown);
@@ -144,7 +149,7 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
     soundButton.setAttribute('aria-pressed', nowMuted ? 'false' : 'true');
     if (!nowMuted) sfxClick();
   });
-  tools.append(mapButton, townButton, characterButton, inventoryButton, skillsButton, switchButton, soundButton);
+  tools.append(mapButton, farmButton, townButton, characterButton, inventoryButton, skillsButton, switchButton, soundButton);
 
   const hotbar = el('div', 'hud__hotbar');
   const skillSlots = Array.from({ length: 4 }, (_, index) => {

@@ -14,6 +14,7 @@ import {
 } from './player';
 import { CityScene } from './scenes/CityScene';
 import { WorldScene } from './scenes/WorldScene';
+import { FarmScene } from './scenes/FarmScene';
 import { renderAuthScreen } from './ui/auth';
 import { renderCharacterCreator } from './ui/creator';
 import { createGameHud, type GameHud } from './ui/hud';
@@ -143,7 +144,16 @@ function startGame(character: CharacterSummary): void {
     onTown: () => {
       if (!game) return;
       game.scene.stop('WorldScene');
+      game.scene.stop('FarmScene');
       game.scene.start('CityScene');
+      sfxClick();
+    },
+    onFarm: () => {
+      if (!game) return;
+      game.scene.stop('CityScene');
+      game.scene.stop('WorldScene');
+      game.scene.start('FarmScene');
+      sfxClick();
     },
     onMap: openWorldMap,
     onSkills: () => void openSkillPanel(character.id),
@@ -176,7 +186,7 @@ function startGame(character: CharacterSummary): void {
       width: 960,
       height: 600
     },
-    scene: [CityScene, WorldScene],
+    scene: [CityScene, WorldScene, FarmScene],
     render: { pixelArt: false, antialias: true, roundPixels: false },
     callbacks: {
       preBoot: (instance) => {
@@ -206,6 +216,7 @@ function enterWorld(snapshot: CombatSnapshot): void {
   game.registry.set('character', snapshot.character);
   game.registry.set('travelSnapshot', snapshot);
   game.scene.stop('CityScene');
+  game.scene.stop('FarmScene');
   game.scene.start('WorldScene');
   sfxClick();
 }
