@@ -121,6 +121,7 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
 
   const tools = el('div', 'hud__tools');
   const mapButton = el('button', 'ghost-button', 'Mapa') as HTMLButtonElement;
+  mapButton.hidden = true;
   mapButton.type = 'button';
   mapButton.addEventListener('click', () => {
     sfxClick();
@@ -143,6 +144,7 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
   inventoryButton.type = 'button';
   inventoryButton.addEventListener('click', onInventory);
   const skillsButton = el('button', 'ghost-button', 'Habilidades') as HTMLButtonElement;
+  skillsButton.hidden = true;
   skillsButton.type = 'button';
   skillsButton.addEventListener('click', onSkills);
   const soundButton = el('button', 'ghost-button hud__sound', isAudioMuted() ? 'Som: mudo' : 'Som: ligado') as HTMLButtonElement;
