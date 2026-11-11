@@ -92,7 +92,7 @@ Primeiros cultivos sugeridos:
 
 As culturas devem ter usos diferentes. Milho, trigo e cenoura podem alimentar espécies específicas; capim/feno sustenta herbívoros. Futuramente, receitas transformarão colheitas em rações balanceadas e produtos processados.
 
-A primeira versão deve ter plantio, crescimento, colheita e armazenamento. Não introduzir irrigação, fertilizantes ou clima complexo antes do loop básico funcionar.
+A primeira versão deve ter sementes, plantio, irrigação simples obrigatória, crescimento, colheita e armazenamento. Fertilizantes e clima complexo ficam para depois do loop básico funcionar.
 
 ## 7. Animais
 
