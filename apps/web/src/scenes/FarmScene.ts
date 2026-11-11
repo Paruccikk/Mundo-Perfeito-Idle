@@ -574,7 +574,8 @@ export class FarmScene extends Phaser.Scene {
     const plots = this.farm?.plots ?? [];
     const now = Date.now();
 
-    for (const layout of PLOT_LAYOUTS) {
+    const layouts = Array.from({ length: this.farm?.plots.length ?? PLOT_LAYOUTS.length }, (_, index) => PLOT_LAYOUTS[index] ?? ({ index, col: 7 + (index % 6), row: 10 + Math.floor(index / 6) }));
+    for (const layout of layouts) {
       const p = this.iso(layout.col, layout.row);
       const plotState = plots.find((x) => x.plotIndex === layout.index);
       const g = this.add.graphics().setDepth(10);
