@@ -518,6 +518,7 @@ export interface FarmEgg {
   fertilized: boolean;
   hatchAt: string | null;
   tier: CollectibleRank;
+  fatherTier?: CollectibleRank | null;
 }
 
 export interface FarmAnimalCare {
