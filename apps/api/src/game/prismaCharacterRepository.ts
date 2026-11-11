@@ -320,8 +320,8 @@ function fromDb(row: DbCharacter): CharacterRecord {
     attributePoints: row.attributePoints, equipmentBonuses: sumEquipmentBonuses(row.equipment ?? []), currentStageId: row.currentStageId,
     gender: ((row.combat as { profile?: { gender?: string } }).profile?.gender === 'female' ? 'female' : 'male'),
     professionId: ((row.combat as { profile?: { professionId?: string } }).profile?.professionId ?? 'farmer') as CharacterRecord['professionId'],
-    professionExperience: Number((row.combat as { profile?: { professionExperience?: number } }).profile?.professionExperience ?? row.experience),
-    professionLevel: Number((row.combat as { profile?: { professionLevel?: number } }).profile?.professionLevel ?? row.level),
+    professionExperience: Number((row.combat as { profile?: { professionExperience?: number } }).profile?.professionExperience ?? 0),
+    professionLevel: Number((row.combat as { profile?: { professionLevel?: number } }).profile?.professionLevel ?? 1),
     combat: row.combat as unknown as CharacterRecord['combat'], createdAt: row.createdAt.toISOString()
   };
 }

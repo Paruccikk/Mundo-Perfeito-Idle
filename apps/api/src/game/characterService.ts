@@ -492,12 +492,12 @@ export class CharacterService {
 export function toSummary(record: CharacterRecord): CharacterSummary {
   const definition = CLASS_DEFINITIONS[record.classId];
   const professionNames = { animal_caretaker: 'Cuidador de Animais', lumberjack: 'Lenhador', fisher: 'Pescador', farmer: 'Agricultor' } as const;
-  const professionLevel = record.professionLevel ?? record.level;
+  const professionLevel = record.professionLevel ?? 1;
   const professionRank = professionLevel >= 50 ? 'Grão-mestre' : professionLevel >= 30 ? 'Mestre' : professionLevel >= 15 ? 'Oficial' : professionLevel >= 5 ? 'Aprendiz' : 'Novato';
   return {
     gender: record.gender ?? 'male', professionId: record.professionId ?? 'farmer',
     professionName: professionNames[record.professionId ?? 'farmer'],
-    professionExperience: record.professionExperience ?? record.experience, professionLevel, professionRank,
+    professionExperience: record.professionExperience ?? 0, professionLevel, professionRank,
     id: record.id, name: record.name, title: record.title, guildName: record.guildName,
     classId: record.classId, className: definition.name, level: record.level,
     experience: record.experience, experienceToNextLevel: experienceToNextLevel(record.level),
