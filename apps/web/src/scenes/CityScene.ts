@@ -630,6 +630,12 @@ export class CityScene extends Phaser.Scene {
     dock.fillStyle(0x765333, 1); dock.fillRoundedRect(540, 425, 160, 28, 5);
     dock.lineStyle(3, 0x39291d, 1); dock.strokeRoundedRect(540, 425, 160, 28, 5);
     this.world.add(dock);
+    const fishingSpot = this.add.zone(620, 425, 190, 90).setDepth(30).setInteractive({ useHandCursor: true });
+    fishingSpot.on('pointerdown', (_pointer: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
+      event.stopPropagation();
+      this.openFishingSpot();
+    });
+    this.world.add(fishingSpot);
   }
 
   private buildOuterField(): void {
@@ -1482,17 +1488,8 @@ export class CityScene extends Phaser.Scene {
   private handleGroundClick(pointer: Phaser.Input.Pointer): void {
     if (this.dialogue || pointer.button !== 0) return;
     const point = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
-    if (Phaser.Math.Distance.Between(point.x, point.y, 620, 335) < 245) {
-      const mover = this.mountedHorse?.root ?? this.avatar.root;
-      if (Phaser.Math.Distance.Between(mover.x, mover.y, 930, 520) <= 255) {
-        this.openFishingSpot();
-      } else {
-        const targetX = 800;
-        const targetY = 520;
-        const distance = Phaser.Math.Distance.Between(mover.x, mover.y, targetX, targetY);
-        if (this.mountedHorse) this.mountedHorse.walkTo(targetX, targetY, Phaser.Math.Clamp(distance * 1.9, 180, 3200));
-        else this.avatar.walkTo(targetX, targetY, Phaser.Math.Clamp(distance * 3.1, 220, 4200));
-      }
+    if (((point.x - 620) ** 2) / (200 ** 2) + ((point.y - 335) ** 2) / (110 ** 2) <= 1) {
+      this.openFishingSpot();
       return;
     }
     let targetX = Phaser.Math.Clamp((point.x - this.world.x) / this.world.scaleX, CITY_LIMITS.minX, CITY_LIMITS.maxX);
