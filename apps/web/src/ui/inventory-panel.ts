@@ -197,7 +197,7 @@ export function renderInventoryPanel(
       equip.textContent = 'Equipar';
       equip.addEventListener('click', async () => {
         equip.disabled = true;
-        try { renderInventoryPanel(root, await onEquip(item.id), onEquip, onUnequip, onUse, onClose); }
+        try { renderInventoryPanel(root, await onEquip(item.id), onEquip, onUnequip, onUse, onSellFarmItem, onClose); }
         catch (error) { equip.disabled = false; equip.textContent = error instanceof Error ? error.message : 'Erro ao equipar'; }
       });
       actions.append(equip);
@@ -209,7 +209,7 @@ export function renderInventoryPanel(
       use.textContent = 'Usar item';
       use.addEventListener('click', async () => {
         use.disabled = true;
-        try { renderInventoryPanel(root, await onUse(item.id), onEquip, onUnequip, onUse, onClose); }
+        try { renderInventoryPanel(root, await onUse(item.id), onEquip, onUnequip, onUse, onSellFarmItem, onClose); }
         catch (error) { use.disabled = false; use.textContent = error instanceof Error ? error.message : 'Não foi possível usar'; }
       });
       actions.append(use);
