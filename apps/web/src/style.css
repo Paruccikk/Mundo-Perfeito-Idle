@@ -3285,3 +3285,10 @@ textarea {
 .inventory-farm-item__sell:hover:not(:disabled){filter:brightness(1.15)}
 .inventory-farm-item__sell:disabled{opacity:.55;cursor:wait}
 @media(max-width:720px){.inventory-panel__farm-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.inventory-farm-item{flex-wrap:wrap}.inventory-farm-item__sell{width:100%}}
+
+
+/* Reativa identidade e inventário na interface rural simplificada. */
+.hud__card--player .hud__identity{display:flex!important;flex-direction:column;gap:3px;min-width:0;margin-bottom:8px}
+.hud__card--player .hud__name{display:block!important;color:#f6e6bd;font-size:15px;font-weight:800}
+.hud__card--player .hud__meta{display:block!important;color:#c8b58f;font-size:10px;line-height:1.4}
+.game-panel.inventory-panel{display:block!important}
