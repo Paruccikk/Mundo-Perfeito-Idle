@@ -251,43 +251,59 @@ export function processFarmCycles(currentFarm: FarmState): FarmState {
   const now = Date.now();
   const last = Date.parse(farm.lastNeedsAt ?? new Date(now).toISOString());
   const elapsedHours = Math.min(24 * 7, Math.floor(Math.max(0, now - last) / 3_600_000));
-  let next = farm;
+  let animals = farm.animals;
+  let care = { ...farm.animalCare };
+
   if (elapsedHours > 0 && farm.animals.length > 0) {
-    const care = { ...farm.animalCare };
-    const animals = farm.animals.map((animal) => {
-      const trough = care[animal.buildingId] ?? { feed: 0, water: 0 };
-      const fedHours = Math.min(elapsedHours, Math.floor(trough.feed / Math.max(1, farm.animals.filter((a) => a.buildingId === animal.buildingId).length)));
-      const wateredHours = Math.min(elapsedHours, Math.floor(trough.water / Math.max(1, farm.animals.filter((a) => a.buildingId === animal.buildingId).length)));
-      return {
-        ...animal,
-        hunger: Math.max(0, Math.min(100, (animal.hunger ?? 100) + fedHours * 10 - (elapsedHours - fedHours) * 10)),
-        hydration: Math.max(0, Math.min(100, (animal.hydration ?? 100) + wateredHours * 10 - (elapsedHours - wateredHours) * 10))
-      };
-    });
+    const feedRemaining: Record<string, number> = {};
+    const waterRemaining: Record<string, number> = {};
     for (const buildingId of farm.buildings) {
-      const group = farm.animals.filter((a) => a.buildingId === buildingId).length;
-      if (!group) continue;
       const trough = care[buildingId] ?? { feed: 0, water: 0 };
-      trough.feed = Math.max(0, trough.feed - Math.min(trough.feed, elapsedHours * group));
-      trough.water = Math.max(0, trough.water - Math.min(trough.water, elapsedHours * group));
-      care[buildingId] = trough;
+      feedRemaining[buildingId] = trough.feed;
+      waterRemaining[buildingId] = trough.water;
     }
-    next = { ...farm, animals, animalCare: care };
+
+    animals = farm.animals.map((animal) => {
+      let hunger = animal.hunger ?? 100;
+      let hydration = animal.hydration ?? 100;
+      for (let hour = 0; hour < elapsedHours; hour += 1) {
+        if ((feedRemaining[animal.buildingId] ?? 0) > 0) {
+          feedRemaining[animal.buildingId] = (feedRemaining[animal.buildingId] ?? 0) - 1;
+          hunger = Math.min(100, hunger + 10);
+        } else {
+          hunger = Math.max(0, hunger - 10);
+        }
+        if ((waterRemaining[animal.buildingId] ?? 0) > 0) {
+          waterRemaining[animal.buildingId] = (waterRemaining[animal.buildingId] ?? 0) - 1;
+          hydration = Math.min(100, hydration + 10);
+        } else {
+          hydration = Math.max(0, hydration - 10);
+        }
+      }
+      return { ...animal, hunger, hydration };
+    });
+
+    for (const buildingId of farm.buildings) {
+      care[buildingId] = {
+        feed: feedRemaining[buildingId] ?? 0,
+        water: waterRemaining[buildingId] ?? 0
+      };
+    }
   }
 
+  const farmAfterNeeds: FarmState = { ...farm, animals, animalCare: care };
   // Se uma plantação madura ficar esquecida por 60 segundos, animais compatíveis
   // podem consumi-la. A colheita não gera fruto nem sementes nesse caso.
-  const plots = next.plots.map((plot) => {
+  const diets: Record<CropTypeId, AnimalSpeciesId[]> = {
+    corn: ['chicken', 'cow'], wheat: ['chicken', 'cow', 'horse'], carrot: ['horse']
+  };
+  const plots = farmAfterNeeds.plots.map((plot) => {
     if (!plot.cropId || !plot.readyAt || now - Date.parse(plot.readyAt) < 60_000) return plot;
-    const diets: Record<CropTypeId, AnimalSpeciesId[]> = {
-      corn: ['chicken', 'cow'], wheat: ['chicken', 'cow', 'horse'], carrot: ['horse']
-    };
-    const eater = next.animals.some((animal) => diets[plot.cropId!].includes(animal.species));
+    const eater = farmAfterNeeds.animals.some((animal) => diets[plot.cropId!].includes(animal.species));
     return eater ? { ...plot, cropId: null, plantedAt: null, readyAt: null, wateredAt: null } : plot;
   });
-  const advancedHours = elapsedHours > 0 ? elapsedHours : 0;
-  const lastNeedsAt = advancedHours > 0
-    ? new Date(last + advancedHours * 3_600_000).toISOString()
+  const lastNeedsAt = elapsedHours > 0
+    ? new Date(last + elapsedHours * 3_600_000).toISOString()
     : farm.lastNeedsAt;
-  return { ...next, plots, lastNeedsAt };
+  return { ...farmAfterNeeds, plots, lastNeedsAt };
 }
