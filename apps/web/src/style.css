@@ -3266,3 +3266,9 @@ textarea {
   gap: 6px !important;
   margin: 0 !important;
 }
+
+.hud__card--player > .hud__gold {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+}
