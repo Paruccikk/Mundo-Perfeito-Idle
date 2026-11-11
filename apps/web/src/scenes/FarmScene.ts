@@ -255,9 +255,32 @@ export class FarmScene extends Phaser.Scene {
   }
 
   private drawPath(graphics: Phaser.GameObjects.Graphics): void {
-    for (let step = 0; step < 8; step += 1) {
-      const p = this.iso(12, step + 11);
-      this.diamond(graphics, p.x, p.y, 0xb99a68, 0x876c43);
+    // Estrada principal de terra entre a casa, as instalações e a saída.
+    const roadTiles = new Set<string>();
+    const addRoad = (col: number, row: number) => roadTiles.add(`${col}:${row}`);
+    for (let row = 6; row <= 20; row += 1) addRoad(12, row);
+    for (let col = 12; col <= 18; col += 1) addRoad(col, 9);
+    for (let row = 9; row <= 12; row += 1) addRoad(18, row);
+    for (let col = 12; col <= 17; col += 1) addRoad(col, 15);
+    for (let row = 12; row <= 15; row += 1) addRoad(17, row);
+    for (let row = 7; row <= 11; row += 1) addRoad(13, row);
+    for (let row = 6; row <= 20; row += 1) {
+      for (let col = 0; col < COLS; col += 1) {
+        if (!roadTiles.has(`${col}:${row}`)) continue;
+        const p = this.iso(col, row);
+        this.diamond(graphics, p.x, p.y, (col + row) % 3 === 0 ? 0xb99a68 : 0xc5a875, 0x94754c);
+        graphics.fillStyle(0x8b704b, 0.24);
+        graphics.fillEllipse(p.x - 10, p.y + 1, 16, 5);
+        graphics.fillEllipse(p.x + 13, p.y - 2, 12, 4);
+      }
+    }
+    // Pedras de borda e pequenos trechos de trilha batida.
+    for (const [col, row] of [[11, 9], [19, 9], [16, 14], [13, 16], [12, 18]] as Array<[number, number]>) {
+      const p = this.iso(col, row);
+      graphics.fillStyle(0x8d8064, 0.8);
+      graphics.fillEllipse(p.x + 22, p.y - 8, 9, 5);
+      graphics.fillStyle(0xd0c2a0, 0.8);
+      graphics.fillCircle(p.x + 20, p.y - 10, 2);
     }
   }
 
@@ -812,25 +835,81 @@ export class FarmScene extends Phaser.Scene {
   }
 
   private drawDecorations(): void {
-    const treeSpots: Array<[number, number]> = [
-      [2, 2],
-      [22, 2],
-      [2, 18],
-      [23, 18],
-      [7, 4],
-      [21, 19]
+    // Árvores com copa em camadas, sombra, tronco e pequenos frutos.
+    const treeSpots: Array<[number, number, number]> = [
+      [2, 2, 1], [5, 3, 0], [22, 2, 1], [24, 7, 0], [2, 16, 1],
+      [4, 20, 0], [23, 19, 1], [20, 18, 0], [7, 5, 0], [15, 3, 1],
+      [1, 10, 0], [5, 16, 1], [21, 5, 0], [10, 19, 0], [19, 16, 1]
     ];
-    for (const [col, row] of treeSpots) {
+    treeSpots.forEach(([col, row, variant], index) => {
       const p = this.iso(col, row);
-      const g = this.add.graphics().setDepth(30);
-      g.fillStyle(0x68462c, 1);
-      g.fillRect(p.x - 4, p.y - 2, 8, 28);
-      g.fillStyle(0x397a42, 1);
-      g.fillCircle(p.x, p.y - 16, 20);
-      g.fillStyle(0x4f914b, 1);
-      g.fillCircle(p.x - 9, p.y - 23, 13);
+      const g = this.add.graphics().setDepth(30 + p.y);
+      g.fillStyle(0x354d2b, 0.22); g.fillEllipse(p.x + 5, p.y + 12, 54, 18);
+      g.fillStyle(variant ? 0x69452b : 0x765033, 1); g.fillRoundedRect(p.x - 5, p.y - 7, 10, 35, 3);
+      g.fillStyle(variant ? 0x28613a : 0x347446, 1); g.fillCircle(p.x, p.y - 27, variant ? 25 : 21);
+      g.fillStyle(variant ? 0x438b4d : 0x4d9851, 1); g.fillCircle(p.x - 12, p.y - 35, 16);
+      g.fillStyle(variant ? 0x5ca85a : 0x70ad5a, 0.95); g.fillCircle(p.x + 10, p.y - 39, 13);
+      g.fillStyle(0x9acb68, 0.8); g.fillCircle(p.x - 6, p.y - 45, 7);
+      if (index % 3 === 0) {
+        g.fillStyle(0xc85d45, 1); g.fillCircle(p.x + 15, p.y - 29, 3); g.fillCircle(p.x - 15, p.y - 20, 3);
+      }
       this.world.add(g);
+    });
+
+    // Arbustos, flores silvestres e pedras ao longo das cercas e caminhos.
+    const groundDetails: Array<[number, number, number]> = [
+      [3, 7, 0], [6, 8, 1], [8, 4, 2], [20, 4, 0], [22, 10, 1],
+      [3, 13, 2], [6, 18, 0], [9, 18, 1], [20, 19, 2], [23, 14, 0],
+      [14, 3, 1], [16, 19, 2], [5, 10, 0], [21, 8, 2], [8, 15, 1]
+    ];
+    groundDetails.forEach(([col, row, kind], index) => {
+      const p = this.iso(col, row);
+      const g = this.add.graphics().setDepth(35 + p.y);
+      if (kind === 0) {
+        g.fillStyle(0x376c3b, 1); g.fillEllipse(p.x, p.y, 23, 12);
+        g.fillStyle(0x5b984d, 1); g.fillCircle(p.x - 6, p.y - 5, 7); g.fillCircle(p.x + 5, p.y - 6, 8);
+      } else if (kind === 1) {
+        g.fillStyle(0x8c826e, 1); g.fillEllipse(p.x, p.y, 17, 9);
+        g.fillStyle(0xb6a98e, 1); g.fillEllipse(p.x - 3, p.y - 2, 7, 4);
+      } else {
+        const petals = [0xf2d36b, 0xe9a6b5, 0xf4eee0, 0xb8a0df];
+        g.lineStyle(2, 0x47783d, 1); g.lineBetween(p.x, p.y, p.x - 1, p.y - 9);
+        g.fillStyle(petals[index % petals.length], 1);
+        g.fillCircle(p.x - 4, p.y - 10, 3); g.fillCircle(p.x + 3, p.y - 10, 3);
+        g.fillCircle(p.x, p.y - 14, 3); g.fillStyle(0xe3b94f, 1); g.fillCircle(p.x, p.y - 10, 2);
+      }
+      this.world.add(g);
+    });
+
+    // Pequeno lago na borda do terreno com margem de pedras e vegetação.
+    const pond = this.add.graphics().setDepth(8);
+    const water = this.iso(4, 5);
+    pond.fillStyle(0x79694c, 0.45); pond.fillEllipse(water.x, water.y + 5, 118, 62);
+    pond.fillStyle(0x4d9eae, 1); pond.fillEllipse(water.x, water.y, 104, 48);
+    pond.fillStyle(0x79c4c5, 0.9); pond.fillEllipse(water.x - 10, water.y - 5, 62, 19);
+    pond.lineStyle(3, 0x9a9b72, 1); pond.strokeEllipse(water.x, water.y, 110, 53);
+    pond.fillStyle(0xd7d0ae, 1);
+    for (const [dx, dy] of [[-48, 2], [43, 7], [-25, 22], [29, -20]] as Array<[number, number]>) pond.fillCircle(water.x + dx, water.y + dy, 4);
+    this.world.add(pond);
+
+    // Cerca perimetral do rancho: mourões e travessas em madeira.
+    const boundary = this.add.graphics().setDepth(16);
+    boundary.lineStyle(5, 0x5c3d25, 0.96);
+    boundary.strokePoints([
+      new Phaser.Math.Vector2(this.iso(0, 0).x, this.iso(0, 0).y),
+      new Phaser.Math.Vector2(this.iso(COLS - 1, 0).x, this.iso(COLS - 1, 0).y),
+      new Phaser.Math.Vector2(this.iso(COLS - 1, ROWS - 1).x, this.iso(COLS - 1, ROWS - 1).y),
+      new Phaser.Math.Vector2(this.iso(0, ROWS - 1).x, this.iso(0, ROWS - 1).y),
+      new Phaser.Math.Vector2(this.iso(0, 0).x, this.iso(0, 0).y)
+    ], false, false);
+    for (let col = 0; col < COLS; col += 3) {
+      for (const row of [0, ROWS - 1]) {
+        const p = this.iso(col, row);
+        boundary.fillStyle(0x4a3020, 1); boundary.fillRect(p.x - 3, p.y - 11, 6, 22);
+        boundary.fillStyle(0xb7854e, 1); boundary.fillRect(p.x - 2, p.y - 10, 3, 18);
+      }
     }
+    this.world.add(boundary);
 
     // Personagem controlável desenhado por drawPlayer().
   }
