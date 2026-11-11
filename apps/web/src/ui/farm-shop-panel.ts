@@ -416,6 +416,7 @@ export function renderFarmShop(
       const bought = currentFarm.dailySeedPurchases?.quantities[crop.id] ?? 0;
       const remaining = Math.max(0, 10 - bought);
       const stock = currentFarm.seeds?.[crop.id] ?? 0;
+      const purchaseQuantity = Math.min(5, remaining, Math.floor(currentGold / crop.cost));
       const card = document.createElement('div');
       card.style.background = 'rgba(25, 36, 45, 0.7)';
       card.style.border = '1px solid rgba(255, 255, 255, 0.12)';
@@ -435,12 +436,16 @@ export function renderFarmShop(
       button.type = 'button';
       button.className = 'button-primary';
       button.style.width = '100%';
-      button.textContent = remaining > 0 ? `Comprar ${Math.min(5, remaining)} sementes (${crop.cost * Math.min(5, remaining)} G)` : 'Limite diário atingido';
-      button.disabled = remaining <= 0 || currentGold < crop.cost * Math.min(5, remaining);
+      button.textContent = remaining <= 0
+        ? 'Limite diário atingido'
+        : purchaseQuantity > 0
+          ? `Comprar ${purchaseQuantity} sementes (${crop.cost * purchaseQuantity} G)`
+          : 'Ouro insuficiente';
+      button.disabled = purchaseQuantity <= 0;
       button.addEventListener('click', async () => {
         button.disabled = true;
         try {
-          const result = await onBuySeeds(crop.id, Math.min(5, remaining));
+          const result = await onBuySeeds(crop.id, purchaseQuantity);
           currentFarm = result.farm;
           currentGold = result.gold;
           updateBalance();
