@@ -16,7 +16,7 @@ import type {
 import {
   MAX_CHARACTERS_PER_PLAYER, isValidPlayerId, nameKey, type CreateCharacterPayload
 } from './validation.js';
-import { FARM_CROPS } from '@mundo-perfeito/shared';
+import { FARM_CROPS, FARM_BUILDINGS } from '@mundo-perfeito/shared';
 import {
   type FarmBuildingId,
   type FarmState,
@@ -280,10 +280,8 @@ export class CharacterService {
     const farmItems: Array<{ key: string; name: string; icon: string; quantity: number; category: 'crop' | 'seed' | 'feed'; sellPrice: number }> = [];
     for (const cropId of ['corn', 'wheat', 'carrot'] as CropTypeId[]) {
       const crop = FARM_CROPS[cropId];
-      const seedQuantity = farm.seeds?.[cropId] ?? 0;
-      if (seedQuantity > 0) farmItems.push({ key: `seed-${cropId}`, name: `Semente de ${crop.name}`, icon: crop.icon, quantity: seedQuantity, category: 'seed', sellPrice: 0 });
-      const cropQuantity = farm.storage[`crop-${cropId}`] ?? 0;
-      if (cropQuantity > 0) farmItems.push({ key: `crop-${cropId}`, name: crop.name, icon: crop.icon, quantity: cropQuantity, category: 'crop', sellPrice: 1000 });
+      farmItems.push({ key: `seed-${cropId}`, name: `Semente de ${crop.name}`, icon: crop.icon, quantity: farm.seeds?.[cropId] ?? 0, category: 'seed', sellPrice: 0 });
+      farmItems.push({ key: `crop-${cropId}`, name: crop.name, icon: crop.icon, quantity: farm.storage[`crop-${cropId}`] ?? 0, category: 'crop', sellPrice: 1000 });
     }
     const feeds = [
       { key: 'feed-chicken', name: 'Ração para aves', icon: '🐔' },
@@ -291,10 +289,18 @@ export class CharacterService {
       { key: 'feed-horse', name: 'Ração para equinos', icon: '🐎' }
     ];
     for (const feed of feeds) {
-      const quantity = farm.storage[feed.key] ?? 0;
-      if (quantity > 0) farmItems.push({ ...feed, quantity, category: 'feed', sellPrice: 0 });
+      farmItems.push({ ...feed, quantity: farm.storage[feed.key] ?? 0, category: 'feed', sellPrice: 0 });
     }
-    return { ...inventory, farmItems };
+    return {
+      ...inventory,
+      farmItems,
+      farmSummary: {
+        installations: farm.buildings.length,
+        maxInstallations: Object.keys(FARM_BUILDINGS).length,
+        animals: farm.animals.length,
+        plots: farm.plots.length
+      }
+    };
   }
 
   async sellFarmItem(id: string, playerId: unknown, itemKey: string) {
