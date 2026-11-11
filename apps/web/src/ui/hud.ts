@@ -53,7 +53,7 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
 
   const identity = el('div', 'hud__identity');
   const nameEl = el('strong', 'hud__name', character.name);
-  const metaEl = el('span', 'hud__meta', `${character.className} • Nível ${character.level}`);
+  const metaEl = el('span', 'hud__meta', `Profissão: ${character.professionName ?? 'Agricultor'} • Rank: ${character.professionRank ?? 'Novato'} • Nv. ${character.professionLevel ?? 1}`);
   identity.append(nameEl, metaEl);
 
   const bars = el('div', 'hud__bars');
@@ -201,7 +201,7 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
   mpBar.value.textContent = `${formatNumber(character.stats.maxMp)} / ${formatNumber(character.stats.maxMp)}`;
   xpBar.fill.style.width = '0%';
   goldEl.querySelector('.hud__gold-value')!.textContent = formatNumber(character.gold);
-  metaEl.textContent = `${character.className} • Nível ${character.level}`;
+  metaEl.textContent = `Profissão: ${character.professionName ?? 'Agricultor'} • Rank: ${character.professionRank ?? 'Novato'} • Nv. ${character.professionLevel ?? 1}`;
 
   return {
     setGold(value: number): void {
@@ -228,7 +228,7 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
       const combat = snapshot.combat;
 
       nameEl.textContent = summary.name;
-      metaEl.textContent = `${summary.className} • Nível ${summary.level}`;
+      metaEl.textContent = `Profissão: ${summary.professionName ?? 'Agricultor'} • Rank: ${summary.professionRank ?? 'Novato'} • Nv. ${summary.professionLevel ?? 1}`;
       stageNameEl.textContent = combat.stageName;
       stageEyebrow.textContent = `${combat.stage.region} · Fase ${combat.stage.order + 1}`;
       farmEl.textContent = `Farm: ${combat.stage.farm.name}`;
