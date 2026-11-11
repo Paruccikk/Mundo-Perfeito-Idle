@@ -564,6 +564,7 @@ export class CityScene extends Phaser.Scene {
     this.buildGround();
     this.buildWalls();
     this.buildPlaza();
+    this.buildPublicLake();
 
     this.addBuilding(-140, -500, 1.24, 0xa58a66, 0x6e3b34, 'SANTUÁRIO');
     this.addBuilding(400, -430, 1.1, 0x9e845f, 0x3f5e51, 'CONSELHO');
@@ -610,6 +611,25 @@ export class CityScene extends Phaser.Scene {
     this.buildLivestock();
     this.buildCitizens();
     this.buildOuterFarms();
+  }
+
+  private buildPublicLake(): void {
+    const lake = this.add.graphics().setDepth(4);
+    lake.fillStyle(0x263e35, 0.45); lake.fillEllipse(930, 475, 430, 250);
+    lake.fillStyle(0x397f91, 1); lake.fillEllipse(930, 460, 400, 220);
+    lake.lineStyle(12, 0x806b49, 1); lake.strokeEllipse(930, 460, 414, 232);
+    lake.lineStyle(3, 0x8fc6c4, 0.55); lake.strokeEllipse(930, 460, 365, 184);
+    lake.fillStyle(0xd9c28a, 1); lake.fillEllipse(770, 520, 74, 22); lake.fillEllipse(1090, 510, 88, 24);
+    lake.fillStyle(0xf0dfad, 0.75); lake.fillEllipse(850, 420, 70, 8); lake.fillEllipse(1010, 475, 92, 8);
+    this.world.add(lake);
+    const sign = this.add.text(930, 330, 'LAGO DE VALEDOURO · PESCA PÚBLICA', {
+      fontFamily: FONT, fontSize: '18px', color: '#e7f7e8', stroke: '#173b45', strokeThickness: 5, fontStyle: 'bold'
+    }).setOrigin(0.5).setDepth(20);
+    this.world.add(sign);
+    const dock = this.add.graphics().setDepth(8);
+    dock.fillStyle(0x765333, 1); dock.fillRoundedRect(850, 548, 160, 28, 5);
+    dock.lineStyle(3, 0x39291d, 1); dock.strokeRoundedRect(850, 548, 160, 28, 5);
+    this.world.add(dock);
   }
 
   private buildOuterField(): void {
@@ -1462,6 +1482,10 @@ export class CityScene extends Phaser.Scene {
   private handleGroundClick(pointer: Phaser.Input.Pointer): void {
     if (this.dialogue || pointer.button !== 0) return;
     const point = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+    if (Phaser.Math.Distance.Between(point.x, point.y, 930, 460) < 245) {
+      this.openFishingSpot();
+      return;
+    }
     let targetX = Phaser.Math.Clamp((point.x - this.world.x) / this.world.scaleX, CITY_LIMITS.minX, CITY_LIMITS.maxX);
     let targetY = Phaser.Math.Clamp((point.y - this.world.y) / this.world.scaleY, CITY_LIMITS.minY, CITY_LIMITS.maxY);
 
@@ -1475,6 +1499,37 @@ export class CityScene extends Phaser.Scene {
     this.moving = false;
     if (this.mountedHorse) this.mountedHorse.walkTo(targetX, targetY, Phaser.Math.Clamp(distance * 1.9, 180, 3200));
     else this.avatar.walkTo(targetX, targetY, Phaser.Math.Clamp(distance * 3.1, 220, 4200));
+  }
+
+  private openFishingSpot(): void {
+    this.closeDialogue();
+    const panel = this.add.container(this.scale.width / 2, this.scale.height - 118).setScrollFactor(0).setDepth(5000);
+    const bg = this.add.rectangle(0, 0, Math.min(520, this.scale.width - 28), 142, 0x10232a, 0.97).setStrokeStyle(2, 0x64b7c1, 0.9);
+    const heading = this.add.text(-bg.width / 2 + 18, -52, '🎣 Lago público de Valedouro', { fontFamily: FONT, fontSize: '16px', color: '#bcecf0', fontStyle: 'bold' });
+    const info = this.add.text(-bg.width / 2 + 18, -24, 'Pesque aqui junto de outros moradores. Cada tentativa consome um momento e o peixe vai para seu inventário.', {
+      fontFamily: FONT, fontSize: '12px', color: '#d9e4ef', wordWrap: { width: bg.width - 36 }, lineSpacing: 4
+    });
+    const action = this.add.text(-bg.width / 2 + 18, 36, '🎣  Lançar a vara', {
+      fontFamily: FONT, fontSize: '14px', fontStyle: 'bold', color: '#e6fbff',
+      backgroundColor: '#205b65', padding: { x: 14, y: 8 }
+    }).setInteractive({ useHandCursor: true });
+    action.on('pointerdown', (_pointer: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
+      event.stopPropagation();
+      action.disableInteractive();
+      action.setText('Pescando…');
+      void api.fishAtCity(this.character.id).then((result) => {
+        action.setText('🎣  Pescar novamente');
+        action.setInteractive({ useHandCursor: true });
+        info.setText(result.message ?? 'Você conseguiu um peixe!');
+        this.hud?.pushFeed(result.message ?? 'Peixe adicionado ao inventário.', 'gold');
+      }).catch((error: unknown) => {
+        action.setText('Tentar novamente');
+        action.setInteractive({ useHandCursor: true });
+        info.setText(error instanceof Error ? error.message : 'Não foi possível pescar agora.');
+      });
+    });
+    panel.add([bg, heading, info, action]);
+    this.dialogue = panel;
   }
 
   private openNpc(npc: NpcDefinition): void {
