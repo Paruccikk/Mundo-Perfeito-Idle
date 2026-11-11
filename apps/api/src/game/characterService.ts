@@ -19,7 +19,8 @@ import {
 import {
   type FarmBuildingId,
   type FarmState,
-  type CropTypeId
+  type CropTypeId,
+  type AnimalSpeciesId
 } from '@mundo-perfeito/shared';
 import {
   createDefaultFarm,
@@ -27,7 +28,12 @@ import {
   processBuyBuilding,
   processBuyAnimal,
   processPlantCrop,
-  processHarvestCrop
+  processHarvestCrop,
+  processBuySeeds,
+  processWaterCrop,
+  processCraftFeed,
+  processFillTrough,
+  processFarmCycles
 } from './farm.js';
 
 export class CharacterError extends Error {
@@ -364,11 +370,15 @@ export class CharacterService {
 
   async getFarm(id: string, playerId: unknown): Promise<{ farm: FarmState; gold: number }> {
     assertPlayerId(playerId);
-    // Consolida recompensas de combate pendentes para que o saldo exibido
-    // na loja da fazenda seja sempre o saldo atualizado do servidor.
     await this.getCombat(id, playerId);
     const record = await this.findOwned(id, playerId);
-    const farm = sanitizeFarmState(record.combat.farm);
+    const expected = record.combat.lastTickAt;
+    const farm = processFarmCycles(sanitizeFarmState(record.combat.farm));
+    const nextTick = new Date(Math.max(Date.now(), Date.parse(expected) + 1)).toISOString();
+    record.combat = { ...record.combat, farm, lastTickAt: nextTick };
+    if (!await this.repository.save(record, expected)) {
+      throw new CharacterError('farm_busy', 409, 'A fazenda foi atualizada em outra ação. Atualize e tente novamente.');
+    }
     return { farm, gold: record.gold };
   }
 
@@ -396,6 +406,30 @@ export class CharacterService {
       'Não foi possível colher.');
   }
 
+  async buyFarmSeeds(id: string, playerId: unknown, cropId: CropTypeId, quantity: number) {
+    return this.applyFarmOperation(id, playerId,
+      (farm, gold) => processBuySeeds(farm, gold, cropId, quantity),
+      'Não foi possível comprar sementes.');
+  }
+
+  async waterFarmCrop(id: string, playerId: unknown, plotIndex: number) {
+    return this.applyFarmOperation(id, playerId,
+      (farm, gold) => processWaterCrop(farm, gold, plotIndex),
+      'Não foi possível regar o canteiro.');
+  }
+
+  async craftFarmFeed(id: string, playerId: unknown, species: AnimalSpeciesId, quantity: number) {
+    return this.applyFarmOperation(id, playerId,
+      (farm, gold) => processCraftFeed(farm, gold, species, quantity),
+      'Não foi possível preparar a ração.');
+  }
+
+  async fillFarmTrough(id: string, playerId: unknown, buildingId: FarmBuildingId, kind: 'feed' | 'water', quantity: number) {
+    return this.applyFarmOperation(id, playerId,
+      (farm, gold) => processFillTrough(farm, gold, buildingId, kind, quantity),
+      'Não foi possível abastecer o cocho.');
+  }
+
   /**
    * Consolida o combate pendente antes de alterar a fazenda e usa o último
    * instante simulado como controle otimista de concorrência. Assim, duas
@@ -412,7 +446,8 @@ export class CharacterService {
 
     const record = await this.findOwned(id, playerId);
     const expectedLastTickAt = record.combat.lastTickAt;
-    const result = operation(record.combat.farm ?? createDefaultFarm(), record.gold);
+    const currentFarm = processFarmCycles(sanitizeFarmState(record.combat.farm ?? createDefaultFarm()));
+    const result = operation(currentFarm, record.gold);
     if (!result.ok) {
       throw new CharacterError('farm_error', 400, result.error ?? fallbackMessage);
     }
