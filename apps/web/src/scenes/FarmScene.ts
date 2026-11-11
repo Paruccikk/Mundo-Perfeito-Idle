@@ -353,49 +353,101 @@ export class FarmScene extends Phaser.Scene {
         // Terreno da construção
         this.diamond(g, p.x, p.y, 0xa18258, 0x6e5333);
 
-        // Desenha a construção completa
-        if (pad.id === 'coop') {
-          // Galinheiro de madeira
-          g.fillStyle(0x854d0e, 1);
-          g.fillRect(p.x - 36, p.y - 20, 72, 36);
-          g.fillStyle(0xca8a04, 1);
-          g.fillTriangle(p.x - 44, p.y - 20, p.x, p.y - 48, p.x + 44, p.y - 20);
-          g.fillStyle(0x451a03, 1);
-          g.fillRect(p.x - 10, p.y - 5, 20, 21);
-          g.fillStyle(0xfde047, 1);
-          g.fillRect(p.x - 28, p.y - 12, 12, 12);
-        } else if (pad.id === 'corral') {
-          // Abrigo de bovinos com cocho e bebedouro.
-          g.fillStyle(0x92400e, 1);
-          g.fillRect(p.x - 20, p.y - 14, 40, 14);
-          g.fillStyle(0xfef08a, 1);
-          g.fillCircle(p.x, p.y - 7, 5);
-        } else if (pad.id === 'stable') {
-          // Estábulo rústico de cavalos.
-          g.fillStyle(0x713f12, 1);
-          g.fillRect(p.x - 46, p.y - 26, 92, 48);
-          g.fillStyle(0x991b1b, 1);
-          g.fillTriangle(p.x - 52, p.y - 26, p.x, p.y - 58, p.x + 52, p.y - 26);
-          g.fillStyle(0x3f2208, 1);
-          g.fillRect(p.x - 14, p.y - 6, 28, 28);
-        }
+        // Base ampla de terra batida para cada instalação.
+        g.fillStyle(0x5f482e, 0.22); g.fillEllipse(p.x + 4, p.y + 20, 230, 118);
+        this.diamond(g, p.x, p.y + 4, 0xb99a69, 0x80613e);
 
-        // Cercado individual da instalação, com postes e travessas de madeira.
-        g.lineStyle(5, 0x694326, 0.98);
-        g.strokeRect(p.x - 66, p.y - 42, 132, 84);
-        g.lineStyle(2, 0xc08a4e, 0.95);
-        g.strokeRect(p.x - 66, p.y - 28, 132, 56);
-        for (const fenceX of [-66, -22, 22, 66]) {
-          g.fillStyle(0x4b2f1b, 1);
-          g.fillRect(p.x + fenceX - 3, p.y - 46, 6, 92);
-          g.fillStyle(0xc08a4e, 1);
-          g.fillRect(p.x + fenceX - 2, p.y - 45, 4, 90);
+        // Construções maiores, com telhados, portas, janelas e detalhes de madeira.
+        if (pad.id === 'coop') {
+          // Galinheiro campestre com telhado vermelho, varanda e ninho.
+          g.fillStyle(0x633b22, 1); g.fillRect(p.x - 56, p.y - 42, 112, 62);
+          g.fillStyle(0xb97843, 1); g.fillRect(p.x - 50, p.y - 36, 100, 50);
+          g.fillStyle(0x9f4535, 1);
+          g.fillTriangle(p.x - 68, p.y - 40, p.x, p.y - 94, p.x + 68, p.y - 40);
+          g.fillStyle(0xc96c4c, 1);
+          g.fillTriangle(p.x - 48, p.y - 44, p.x, p.y - 82, p.x + 48, p.y - 44);
+          g.lineStyle(3, 0x6b3829, 1); g.lineBetween(p.x - 64, p.y - 39, p.x + 64, p.y - 39);
+          g.fillStyle(0x3e2418, 1); g.fillRect(p.x - 15, p.y - 8, 30, 28);
+          g.fillStyle(0x23170f, 1); g.fillRect(p.x - 9, p.y - 3, 18, 22);
+          g.fillStyle(0xf0cf82, 1); g.fillRect(p.x - 43, p.y - 28, 17, 15); g.fillRect(p.x + 26, p.y - 28, 17, 15);
+          g.lineStyle(2, 0x6b3829, 1); g.strokeRect(p.x - 43, p.y - 28, 17, 15); g.strokeRect(p.x + 26, p.y - 28, 17, 15);
+          g.fillStyle(0x8b5a31, 1); g.fillRect(p.x - 42, p.y + 17, 84, 8);
+          g.lineStyle(3, 0x684326, 1); g.lineBetween(p.x - 38, p.y + 17, p.x - 38, p.y + 28); g.lineBetween(p.x + 38, p.y + 17, p.x + 38, p.y + 28);
+          g.fillStyle(0xead9ad, 1); g.fillEllipse(p.x - 34, p.y + 8, 17, 9); g.fillEllipse(p.x + 34, p.y + 8, 17, 9);
+          g.fillStyle(0xf0d88b, 1); g.fillCircle(p.x - 34, p.y + 5, 4); g.fillCircle(p.x + 34, p.y + 5, 4);
+          // Palha e caixa de ninho.
+          g.fillStyle(0xc99b55, 1); g.fillRect(p.x + 49, p.y - 4, 19, 15);
+          g.fillStyle(0xf3e6c6, 1); g.fillEllipse(p.x + 58, p.y - 5, 8, 6);
+        } else if (pad.id === 'corral') {
+          // Curral bovino com abrigo aberto, cocho de feno e telhado verde.
+          g.fillStyle(0x5a3922, 1); g.fillRect(p.x - 65, p.y - 38, 130, 56);
+          g.fillStyle(0x9b6a3b, 1); g.fillRect(p.x - 59, p.y - 31, 118, 45);
+          g.fillStyle(0x557d43, 1);
+          g.fillTriangle(p.x - 78, p.y - 34, p.x, p.y - 91, p.x + 78, p.y - 34);
+          g.fillStyle(0x78a653, 1);
+          g.fillTriangle(p.x - 58, p.y - 38, p.x, p.y - 78, p.x + 58, p.y - 38);
+          g.lineStyle(4, 0x644329, 1);
+          for (const dx of [-55, -18, 18, 55]) g.lineBetween(p.x + dx, p.y - 28, p.x + dx, p.y + 18);
+          g.fillStyle(0x402919, 1); g.fillRect(p.x - 24, p.y - 9, 48, 26);
+          g.fillStyle(0xdec17e, 1); g.fillEllipse(p.x, p.y - 8, 34, 11);
+          g.fillStyle(0x6e8c8d, 1); g.fillRoundedRect(p.x + 48, p.y + 19, 30, 13, 4);
+          g.fillStyle(0xb6dce0, 1); g.fillEllipse(p.x + 62, p.y + 20, 22, 5);
+          g.fillStyle(0xc79a51, 1); g.fillRoundedRect(p.x - 83, p.y + 18, 33, 13, 3);
+          g.fillStyle(0xe0bd71, 1); g.fillEllipse(p.x - 67, p.y + 18, 28, 7);
+        } else if (pad.id === 'stable') {
+          // Estábulo de cavalos com duas baias, portas e telhado de telhas.
+          g.fillStyle(0x55351f, 1); g.fillRect(p.x - 73, p.y - 45, 146, 68);
+          g.fillStyle(0x98643b, 1); g.fillRect(p.x - 65, p.y - 38, 130, 56);
+          g.fillStyle(0x713d31, 1);
+          g.fillTriangle(p.x - 86, p.y - 42, p.x, p.y - 104, p.x + 86, p.y - 42);
+          g.fillStyle(0xa95743, 1);
+          g.fillTriangle(p.x - 66, p.y - 47, p.x, p.y - 91, p.x + 66, p.y - 47);
+          g.lineStyle(3, 0x5a3525, 1); g.lineBetween(p.x, p.y - 49, p.x, p.y + 17);
+          for (const dx of [-42, 42]) {
+            g.fillStyle(0x3e281c, 1); g.fillRect(p.x + dx - 16, p.y - 12, 32, 31);
+            g.lineStyle(3, 0xd0a56a, 1); g.strokeRect(p.x + dx - 16, p.y - 12, 32, 31);
+            g.lineStyle(2, 0xd0a56a, 1); g.lineBetween(p.x + dx - 15, p.y + 1, p.x + dx + 15, p.y + 1);
+          }
+          g.fillStyle(0xe2c18b, 1); g.fillRect(p.x - 8, p.y - 33, 16, 9);
+          g.fillStyle(0x593b25, 1); g.fillRect(p.x - 5, p.y - 31, 10, 5);
+          g.fillStyle(0x6e8c8d, 1); g.fillRoundedRect(p.x + 76, p.y + 18, 30, 13, 3);
+          g.fillStyle(0xb6dce0, 1); g.fillEllipse(p.x + 91, p.y + 19, 22, 5);
         }
-        // Bebedouro e comedouro visíveis dentro do cercado.
-        g.fillStyle(0x647f8b, 1);
-        g.fillRoundedRect(p.x + 34, p.y + 7, 23, 10, 3);
-        g.fillStyle(0x9a6a32, 1);
-        g.fillRoundedRect(p.x - 57, p.y + 7, 23, 10, 3);
+        // Cercado amplo em madeira: dois trilhos, mourões e porteira frontal.
+        const fenceW = pad.id === 'stable' ? 224 : 210;
+        const fenceH = pad.id === 'stable' ? 146 : 138;
+        const left = p.x - fenceW / 2, right = p.x + fenceW / 2;
+        const top = p.y - fenceH / 2, bottom = p.y + fenceH / 2;
+        g.lineStyle(7, 0x57371f, 1);
+        g.lineBetween(left, top, right, top); g.lineBetween(left, top, left, bottom);
+        g.lineBetween(right, top, right, bottom);
+        g.lineStyle(5, 0x9a6a3b, 1);
+        g.lineBetween(left, top - 11, right, top - 11);
+        g.lineBetween(left, top + 7, right, top + 7);
+        g.lineBetween(left, top, left, bottom); g.lineBetween(right, top, right, bottom);
+        // Frente com abertura para a porteira.
+        g.lineStyle(6, 0x57371f, 1); g.lineBetween(left, bottom, p.x - 32, bottom); g.lineBetween(p.x + 32, bottom, right, bottom);
+        g.lineStyle(4, 0x9a6a3b, 1); g.lineBetween(left, bottom - 10, p.x - 32, bottom - 10); g.lineBetween(p.x + 32, bottom - 10, right, bottom - 10);
+        for (const [postX, postY] of [[left, top], [right, top], [left, bottom], [right, bottom], [p.x - 32, bottom], [p.x + 32, bottom], [left, (top + bottom) / 2], [right, (top + bottom) / 2]] as Array<[number, number]>) {
+          g.fillStyle(0x4b2f1b, 1); g.fillRoundedRect(postX - 5, postY - 15, 10, 30, 2);
+          g.fillStyle(0xc08a4e, 1); g.fillRect(postX - 3, postY - 13, 3, 25);
+          g.fillStyle(0xd0a36b, 1); g.fillCircle(postX, postY - 14, 4);
+        }
+        // Porteira de duas folhas na entrada.
+        g.lineStyle(4, 0x684326, 1);
+        g.lineBetween(p.x - 30, bottom - 4, p.x - 30, bottom - 29);
+        g.lineBetween(p.x - 30, bottom - 29, p.x, bottom - 29);
+        g.lineBetween(p.x, bottom - 29, p.x, bottom - 4);
+        g.lineBetween(p.x + 30, bottom - 4, p.x + 30, bottom - 29);
+        g.lineBetween(p.x, bottom - 29, p.x + 30, bottom - 29);
+        g.lineBetween(p.x, bottom - 29, p.x, bottom - 4);
+        // Cocho de madeira e bebedouro de água dentro do piquete.
+        g.fillStyle(0x5a3a22, 1); g.fillRoundedRect(p.x - 82, p.y + 31, 38, 16, 3);
+        g.fillStyle(0xb17a3f, 1); g.fillRect(p.x - 79, p.y + 30, 32, 4);
+        g.fillStyle(0x557f91, 1); g.fillRoundedRect(p.x + 49, p.y + 31, 34, 15, 4);
+        g.fillStyle(0x9ed6df, 1); g.fillEllipse(p.x + 66, p.y + 31, 25, 6);
+        g.fillStyle(0x4b3828, 0.45); g.fillEllipse(p.x - 61, p.y + 49, 47, 7);
+        g.fillStyle(0x4b3828, 0.35); g.fillEllipse(p.x + 66, p.y + 49, 42, 7);
         this.buildingsContainer.add(g);
 
         // Rótulo da construção
@@ -462,8 +514,8 @@ export class FarmScene extends Phaser.Scene {
         }
 
         animalsInBuilding.forEach((animal, idx) => {
-          const startX = p.x + Phaser.Math.Between(-34, 34);
-          const startY = p.y + Phaser.Math.Between(-15, 15);
+          const startX = p.x + Phaser.Math.Between(-72, 72);
+          const startY = p.y + Phaser.Math.Between(-38, 38);
           const sprite = this.createAnimalSprite(animal, startX, startY);
           sprite.setDepth(24 + startY);
           sprite.on('pointerdown', (_pointer: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
@@ -476,9 +528,9 @@ export class FarmScene extends Phaser.Scene {
             // Os animais passeiam pelo cercado e visitam o comedouro/bebedouro.
             const visitTrough = Math.random() < 0.32;
             const targetX = visitTrough
-              ? p.x + (Math.random() < 0.5 ? -45 : 45)
-              : p.x + Phaser.Math.Between(-34, 34);
-            const targetY = visitTrough ? p.y + 10 : p.y + Phaser.Math.Between(-15, 15);
+              ? p.x + (Math.random() < 0.5 ? -65 : 65)
+              : p.x + Phaser.Math.Between(-78, 78);
+            const targetY = visitTrough ? p.y + 30 : p.y + Phaser.Math.Between(-42, 42);
             this.tweens.add({
               targets: sprite, x: targetX, y: targetY, duration: Phaser.Math.Between(1800, 3600),
               ease: 'Sine.easeInOut', onUpdate: () => sprite.setDepth(24 + sprite.y),
