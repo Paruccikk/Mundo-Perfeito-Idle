@@ -196,8 +196,8 @@ export function processHarvestCrop(currentFarm: FarmState, currentGold: number, 
       seeds: { ...farm.seeds, [plot.cropId]: (farm.seeds?.[plot.cropId] ?? 0) + 2 },
       storage: { ...farm.storage, [cropKey]: (farm.storage[cropKey] ?? 0) + yieldCount }
     },
-    gold: currentGold,
-    message: `Colheita concluída! +2 sementes e +${yieldCount} ${crop.name} no armazém.`
+    gold: currentGold + 1000,
+    message: `Colheita concluída! +1.000 ouro, +2 sementes e +${yieldCount} ${crop.name} no armazém.`
   };
 }
 
