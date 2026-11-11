@@ -3240,3 +3240,29 @@ textarea {
 /* Acesso rápido à fazenda particular no HUD. */
 .hud__farm-button{border-color:rgba(112,170,100,.65)!important;background:linear-gradient(180deg,rgba(38,76,42,.92),rgba(20,43,29,.94))!important;color:#d8f0c8!important;font-weight:800}
 .hud__farm-button:hover{border-color:#b7e59a!important;color:#fff!important;box-shadow:0 0 14px rgba(140,208,112,.25)}
+
+
+/* Interface de vida rural: remove elementos herdados do RPG de combate. */
+.hud__card--player {
+  display: block !important;
+  grid-template-columns: 1fr !important;
+}
+.hud__card--player .hud__crest,
+.hud__card--player .hud__identity,
+.hud__bar--hp,
+.hud__bar--mp,
+.hud__card--stage,
+.hud__boss,
+.hud__auto,
+.hud__hotbar,
+.stage-map-overlay,
+.game-panel.inventory-panel,
+.game-panel.skill-panel {
+  display: none !important;
+}
+.hud__card--player .hud__bars {
+  display: grid !important;
+  grid-template-columns: minmax(140px, 260px) !important;
+  gap: 6px !important;
+  margin: 0 !important;
+}
