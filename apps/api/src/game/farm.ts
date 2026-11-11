@@ -333,7 +333,7 @@ export function processFarmCycles(currentFarm: FarmState): FarmState {
       }
     }
 
-    for (const hen of animals.filter((animal) => animal.species === 'chicken' && animal.gender === 'female' && (animal.ageDays ?? 0) >= 1)) {
+    for (const hen of animals.filter((animal) => animal.species === 'chicken' && animal.gender === 'female' && (animal.ageDays ?? 0) >= 1 && (animal.health ?? 100) >= 50 && (animal.happiness ?? 100) >= 40)) {
       let lastEggAt = eggs.filter((egg) => egg.motherId === hen.id).reduce((latest, egg) => Math.max(latest, Date.parse(egg.laidAt)), 0);
       for (let hour = 1; hour <= elapsedHours; hour += 1) {
         const laidAt = simulationStart + hour * 3_600_000;
