@@ -19,7 +19,9 @@ interface Palette {
   cape: number;
 }
 
-const FARMER_PALETTE: Palette = { primary: 0x8b6a3e, secondary: 0x5d7b45, trim: 0xd7b46c, sleeve: 0x9b784b, pants: 0x526342, boot: 0x493222, skin: 0xe8b68f, hair: 0x4d3323, cape: 0x6b4d32 };\n\nconst PALETTES: Record<CharacterClassId, Palette> = {
+const FARMER_PALETTE: Palette = { primary: 0x8b6a3e, secondary: 0x5d7b45, trim: 0xd7b46c, sleeve: 0x9b784b, pants: 0x526342, boot: 0x493222, skin: 0xe8b68f, hair: 0x4d3323, cape: 0x6b4d32 };
+
+const PALETTES: Record<CharacterClassId, Palette> = {
   warrior: {
     primary: 0x7089ad,
     secondary: 0x4b5f7c,
@@ -132,9 +134,16 @@ export class PlayerAvatar {
 
     const head = this.buildHead(palette, classId);
     this.head = head;
-    this.flip.add(head);\n    // Chapéu de palha largo, visível em todas as direções.\n    const strawHat = scene.add.graphics();\n    strawHat.fillStyle(0x9a7136, 1); strawHat.fillEllipse(0, -91, 47, 12);\n    strawHat.fillStyle(0xd6b45f, 1); strawHat.fillEllipse(0, -98, 27, 15);\n    strawHat.fillStyle(0x75502b, 1); strawHat.fillRect(-14, -96, 28, 3);\n    this.flip.add(strawHat);
+    this.flip.add(head);
+    // Chapéu de palha largo, visível em todas as direções.
+    const strawHat = scene.add.graphics();
+    strawHat.fillStyle(0x9a7136, 1); strawHat.fillEllipse(0, -91, 47, 12);
+    strawHat.fillStyle(0xd6b45f, 1); strawHat.fillEllipse(0, -98, 27, 15);
+    strawHat.fillStyle(0x75502b, 1); strawHat.fillRect(-14, -96, 28, 3);
+    this.flip.add(strawHat);
 
-    const weapon = scene.add.container(0, 0);\n    this.frontArm = this.buildArm(18, palette, true, weapon);
+    const weapon = scene.add.container(0, 0);
+    this.frontArm = this.buildArm(18, palette, true, weapon);
     this.flip.add(this.frontArm);
 
     this.frontArm.rotation = 0.08;
