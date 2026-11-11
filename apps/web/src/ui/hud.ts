@@ -48,8 +48,8 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
   // ---------- Cartão do jogador ----------
   const playerCard = el('div', 'hud__card hud__card--player');
 
-  const crest = el('div', `hud__crest hud__crest--${character.classId}`);
-  crest.append(el('span', 'hud__crest-glyph', CLASS_GLYPHS[character.classId]));
+  const crest = el('div', 'hud__crest hud__crest--farmer');
+  crest.append(el('span', 'hud__crest-glyph', '🌾'));
 
   const identity = el('div', 'hud__identity');
   const nameEl = el('strong', 'hud__name', character.name);
@@ -60,12 +60,14 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
   const hpBar = buildBar('HP', 'hp');
   const mpBar = buildBar('MP', 'mp');
   const xpBar = buildBar('XP', 'xp');
+  hpBar.root.hidden = true; mpBar.root.hidden = true;
   bars.append(hpBar.root, mpBar.root, xpBar.root);
 
   playerCard.append(crest, identity, bars);
 
   // ---------- Cartão da fase ----------
   const stageCard = el('div', 'hud__card hud__card--stage');
+  stageCard.hidden = true;
   const stageEyebrow = el('p', 'hud__eyebrow', 'Fase 1');
   stageCard.append(stageEyebrow);
 
@@ -90,6 +92,7 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
   // ---------- Barra do chefe ----------
   const bossBar = el('div', 'hud__boss');
   bossBar.hidden = true;
+  bossBar.hidden = true;
 
   const bossHead = el('div', 'hud__boss-head');
   const bossCrown = el('span', 'hud__boss-crown', '♛');
@@ -113,6 +116,7 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
   connection.append(el('span', 'hud__connection-dot'), el('span', 'hud__connection-text', 'Reconectando…'));
 
   const autoPill = el('div', 'hud__auto');
+  autoPill.hidden = true;
   autoPill.append(el('span', 'hud__auto-dot'), el('span', 'hud__auto-text', 'Combate automático'));
 
   const tools = el('div', 'hud__tools');
@@ -153,6 +157,7 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
   tools.append(farmButton, townButton, inventoryButton, characterButton, soundButton);
 
   const hotbar = el('div', 'hud__hotbar');
+  hotbar.hidden = true;
   const skillSlots = Array.from({ length: 4 }, (_, index) => {
     const button = el('button', 'hud__slot hud__slot--skill') as HTMLButtonElement;
     button.type = 'button';
