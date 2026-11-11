@@ -701,6 +701,10 @@ export class FarmScene extends Phaser.Scene {
     this.seedPickerContainer?.destroy();
 
     const picker = this.add.container(worldX, worldY - 50).setDepth(120);
+    // O seletor precisa ser filho do mundo: os canteiros usam coordenadas locais
+    // do container e a câmera desloca/escala esse mundo. Fora dele, o painel
+    // aparece em outra posição e os botões ficam fora da área clicável.
+    this.world.add(picker);
     const bg = this.add
       .rectangle(0, 0, 240, 126, 0x111c24, 0.96)
       .setStrokeStyle(2, 0x86efac, 0.9).setInteractive();
