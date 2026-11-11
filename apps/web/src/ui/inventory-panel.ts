@@ -120,12 +120,14 @@ export function renderInventoryPanel(
   const storage = items.filter((item) => item.category === 'crop');
   const seeds = items.filter((item) => item.category === 'seed');
   const feed = items.filter((item) => item.category === 'feed');
+  const fish = items.filter((item) => item.category === 'fish');
   const content = document.createElement('div');
   content.className = 'farm-inventory-content';
   content.append(
     createSection('Armazém', 'Produtos colhidos e guardados para uso e futuro mercado entre jogadores.', storage),
     createSection('Sementes', 'Sementes disponíveis para iniciar novas plantações.', seeds),
-    createSection('Rações', 'Alimento preparado para cuidar dos animais do rancho.', feed)
+    createSection('Rações', 'Alimento preparado para cuidar dos animais do rancho.', feed),
+    createSection('Pescaria', 'Peixes pescados no lago público de Valedouro.', fish)
   );
 
   panel.append(header, summary, content);
