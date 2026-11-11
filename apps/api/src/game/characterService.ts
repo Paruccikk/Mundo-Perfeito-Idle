@@ -372,7 +372,6 @@ export class CharacterService {
 
   async getFarm(id: string, playerId: unknown): Promise<{ farm: FarmState; gold: number }> {
     assertPlayerId(playerId);
-    await this.getCombat(id, playerId);
     const record = await this.findOwned(id, playerId);
     const expected = record.combat.lastTickAt;
     const previousFarm = record.combat.farm ?? null;
@@ -449,7 +448,6 @@ export class CharacterService {
     fallbackMessage: string
   ): Promise<{ farm: FarmState; gold: number; message: string }> {
     assertPlayerId(playerId);
-    await this.getCombat(id, playerId);
 
     const record = await this.findOwned(id, playerId);
     const expectedLastTickAt = record.combat.lastTickAt;
