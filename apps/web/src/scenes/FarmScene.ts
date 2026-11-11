@@ -9,11 +9,13 @@ import { FARM_BUILDINGS, FARM_ANIMALS, FARM_CROPS } from '@mundo-perfeito/shared
 import { api } from '../api';
 import { sfxClick } from '../audio';
 import type { GameHud } from '../ui/hud';
+import { PlayerAvatar } from './actors';
 
 const TILE_W = 96;
 const TILE_H = 48;
-const COLS = 13;
-const ROWS = 11;
+const COLS = 25;
+const ROWS = 21;
+const FARM_LIMITS = { minX: -980, maxX: 980, minY: -470, maxY: 470 };
 
 interface PlotLayout {
   index: number;
@@ -49,6 +51,14 @@ export class FarmScene extends Phaser.Scene {
   private refreshTimer: Phaser.Time.TimerEvent | null = null;
   private lastFarmSyncAt = 0;
   private farmSyncInFlight = false;
+  private avatar!: PlayerAvatar;
+  private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
+  private keys!: { W: Phaser.Input.Keyboard.Key; A: Phaser.Input.Keyboard.Key; S: Phaser.Input.Keyboard.Key; D: Phaser.Input.Keyboard.Key };
+  private moving = false;
+  private cameraZoom = 0.8;
+  private cameraFocusX = 0;
+  private cameraFocusY = 0;
+  private animalDetails: Phaser.GameObjects.Container | null = null;
 
   constructor() {
     super('FarmScene');
@@ -65,6 +75,15 @@ export class FarmScene extends Phaser.Scene {
     this.hud?.setLocation('Minha Fazenda', 'Propriedade particular', true);
     this.hud?.pushFeed(`Bem-vindo à sua fazenda, ${this.character.name}!`, 'gold');
 
+    if (this.input.keyboard) {
+      this.cursors = this.input.keyboard.createCursorKeys();
+      this.keys = {
+        W: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W),
+        A: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A),
+        S: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S),
+        D: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D)
+      };
+    }
     this.layout();
     this.scale.on(Phaser.Scale.Events.RESIZE, this.layout, this);
 
@@ -73,6 +92,7 @@ export class FarmScene extends Phaser.Scene {
       this.scale.off(Phaser.Scale.Events.RESIZE, this.layout, this);
       this.refreshTimer?.destroy();
       this.seedPickerContainer?.destroy();
+      this.animalDetails?.destroy();
     });
 
     void this.loadAndRenderFarm();
@@ -129,6 +149,34 @@ export class FarmScene extends Phaser.Scene {
     } finally {
       this.farmSyncInFlight = false;
     }
+  }
+
+  update(_time: number, delta: number): void {
+    if (!this.alive || !this.avatar || !this.keys || !this.cursors) return;
+    let dx = 0;
+    let dy = 0;
+    if (this.cursors.left.isDown || this.keys.A.isDown) { dx -= 1; dy += 0.5; }
+    if (this.cursors.right.isDown || this.keys.D.isDown) { dx += 1; dy -= 0.5; }
+    if (this.cursors.up.isDown || this.keys.W.isDown) { dx -= 1; dy -= 0.5; }
+    if (this.cursors.down.isDown || this.keys.S.isDown) { dx += 1; dy += 0.5; }
+    const magnitude = Math.hypot(dx, dy);
+    if (magnitude > 0) {
+      dx /= magnitude; dy /= magnitude;
+      const distance = 185 * Math.min(delta, 50) / 1000;
+      this.avatar.root.x = Phaser.Math.Clamp(this.avatar.root.x + dx * distance, FARM_LIMITS.minX, FARM_LIMITS.maxX);
+      this.avatar.root.y = Phaser.Math.Clamp(this.avatar.root.y + dy * distance, FARM_LIMITS.minY, FARM_LIMITS.maxY);
+      this.avatar.facePoint(this.avatar.root.x + dx, this.avatar.root.y + dy);
+      this.avatar.setWalking(true);
+      this.moving = true;
+    } else if (this.moving) {
+      this.avatar.setWalking(false);
+      this.moving = false;
+    }
+    this.avatar.root.setDepth(300 + this.avatar.root.y);
+    const smooth = 1 - Math.pow(0.0016, Math.max(0.016, delta / 1000));
+    this.cameraFocusX += (this.avatar.root.x - this.cameraFocusX) * smooth;
+    this.cameraFocusY += (this.avatar.root.y - this.cameraFocusY) * smooth;
+    this.applyFarmCamera();
   }
 
   private iso(col: number, row: number): { x: number; y: number } {
@@ -190,6 +238,7 @@ export class FarmScene extends Phaser.Scene {
     this.renderPlotsOnly();
 
     this.drawDecorations();
+    this.drawPlayer();
     this.drawFarmHUD();
   }
 
@@ -659,7 +708,14 @@ export class FarmScene extends Phaser.Scene {
     const head = this.add.circle(0, -29, 10, 0xf0c69a);
     const hat = this.add.triangle(0, -42, -12, 8, 12, 8, 0, -10, 0x6a472c);
     player.add([shadow, body, head, hat]);
-    this.world.add(player);
+    // A área de convivência agora é desenhada separadamente do personagem.
+  }
+
+  private drawPlayer(): void {
+    this.avatar = new PlayerAvatar(this, this.character.classId, -20, 110);
+    this.avatar.root.setScale(0.78);
+    this.avatar.root.setDepth(410);
+    this.world.add(this.avatar.root);
   }
 
   private drawFarmHUD(): void {
@@ -702,8 +758,27 @@ Rações: 🐔 ${chickenFeed}  •  🐄 ${cowFeed}  •  🐎 ${horseFeed}`;
 
   private layout(): void {
     if (!this.alive) return;
-    const scale = Math.min(this.scale.width / 1050, this.scale.height / 650, 1);
-    this.cameras.main.setZoom(Math.max(0.55, scale * 0.95));
-    this.cameras.main.centerOn(0, 0);
+    const mobile = this.scale.width < 760;
+    this.cameraZoom = mobile
+      ? Phaser.Math.Clamp(Math.min(this.scale.width / 900, this.scale.height / 1180), 0.48, 0.78)
+      : Phaser.Math.Clamp(Math.min(this.scale.width / 1900, this.scale.height / 1180), 0.6, 0.94);
+    if (this.avatar) {
+      this.cameraFocusX = this.avatar.root.x;
+      this.cameraFocusY = this.avatar.root.y;
+    }
+    this.applyFarmCamera();
+  }
+
+  private applyFarmCamera(): void {
+    if (!this.world) return;
+    const zoom = this.cameraZoom;
+    const halfW = this.scale.width / (2 * zoom);
+    const halfH = this.scale.height / (2 * zoom);
+    const worldHalfX = ((COLS + ROWS - 2) * TILE_W) / 4;
+    const worldHalfY = ((COLS + ROWS - 2) * TILE_H) / 4;
+    const focusX = halfW >= worldHalfX ? 0 : Phaser.Math.Clamp(this.cameraFocusX, -worldHalfX + halfW, worldHalfX - halfW);
+    const focusY = halfH >= worldHalfY ? 0 : Phaser.Math.Clamp(this.cameraFocusY, -worldHalfY + halfH, worldHalfY - halfH);
+    this.world.setScale(zoom);
+    this.world.setPosition(this.scale.width / 2 - focusX * zoom, this.scale.height / 2 - focusY * zoom);
   }
 }
