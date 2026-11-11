@@ -364,6 +364,9 @@ export class CharacterService {
 
   async getFarm(id: string, playerId: unknown): Promise<{ farm: FarmState; gold: number }> {
     assertPlayerId(playerId);
+    // Consolida recompensas de combate pendentes para que o saldo exibido
+    // na loja da fazenda seja sempre o saldo atualizado do servidor.
+    await this.getCombat(id, playerId);
     const record = await this.findOwned(id, playerId);
     const farm = sanitizeFarmState(record.combat.farm);
     return { farm, gold: record.gold };

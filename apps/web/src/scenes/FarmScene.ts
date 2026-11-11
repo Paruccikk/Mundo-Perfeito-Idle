@@ -515,6 +515,8 @@ export class FarmScene extends Phaser.Scene {
     try {
       const res = await api.harvestFarmCrop(this.character.id, plotIndex);
       this.farm = res.farm;
+      this.farmGold = res.gold;
+      this.hud?.setGold(res.gold);
       this.hud?.pushFeed(res.message ?? 'Colheita concluída com sucesso!', 'gold');
       sfxClick();
 
