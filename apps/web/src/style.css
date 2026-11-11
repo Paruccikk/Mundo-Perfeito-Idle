@@ -3272,3 +3272,16 @@ textarea {
   top: 12px;
   right: 14px;
 }
+
+
+/* Recursos da fazenda exibidos no inventário */
+.inventory-panel__farm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:9px;margin-top:10px}
+.inventory-farm-item{display:flex;align-items:center;gap:10px;min-width:0;padding:10px;border:1px solid rgba(183,154,102,.28);border-radius:9px;background:linear-gradient(155deg,rgba(43,53,57,.9),rgba(9,18,25,.95))}
+.inventory-farm-item__icon{display:grid;place-items:center;flex:0 0 42px;width:42px;height:42px;border:1px solid rgba(195,170,121,.28);border-radius:8px;background:linear-gradient(145deg,#33434a,#111c25);font-size:25px}
+.inventory-farm-item__info{display:grid;gap:4px;min-width:0;flex:1}
+.inventory-farm-item__info strong{overflow-wrap:anywhere;color:#f0e5c9;font-size:12px}
+.inventory-farm-item__info small{color:#a9b8bd;font-size:10px}
+.inventory-farm-item__sell{padding:7px 9px;border:1px solid rgba(232,200,119,.5);border-radius:6px;background:linear-gradient(180deg,#6d512b,#3c2b18);color:#ffe7ae;font-size:10px;font-weight:800;cursor:pointer}
+.inventory-farm-item__sell:hover:not(:disabled){filter:brightness(1.15)}
+.inventory-farm-item__sell:disabled{opacity:.55;cursor:wait}
+@media(max-width:720px){.inventory-panel__farm-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.inventory-farm-item{flex-wrap:wrap}.inventory-farm-item__sell{width:100%}}
