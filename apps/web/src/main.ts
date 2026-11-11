@@ -355,12 +355,6 @@ async function openInventoryPanel(characterId: string): Promise<void> {
       (itemId) => api.equipItem(characterId, itemId),
       (slot) => api.unequipItem(characterId, slot),
       (itemId) => api.useItem(characterId, itemId),
-      async (itemKey) => {
-        const updated = await api.sellFarmItem(characterId, itemKey);
-        hud?.setGold(updated.gold);
-        hud?.pushFeed('Produto vendido: +1.000 ouro.', 'gold');
-        return updated;
-      },
       closeGamePanel
     );
   } catch (error) {
