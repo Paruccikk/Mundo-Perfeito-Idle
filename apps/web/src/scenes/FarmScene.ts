@@ -425,8 +425,6 @@ export class FarmScene extends Phaser.Scene {
         }
 
         animalsInBuilding.forEach((animal, idx) => {
-          const def = FARM_ANIMALS[animal.definitionId];
-          const icon = def?.icon ?? (pad.id === 'coop' ? '🐔' : pad.id === 'corral' ? '🐄' : '🐎');
           const startX = p.x + Phaser.Math.Between(-34, 34);
           const startY = p.y + Phaser.Math.Between(-15, 15);
           const sprite = this.createAnimalSprite(animal, startX, startY);
