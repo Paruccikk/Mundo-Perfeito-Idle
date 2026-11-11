@@ -24,18 +24,18 @@ interface PlotLayout {
 }
 
 const PLOT_LAYOUTS: PlotLayout[] = [
-  { index: 0, col: 2, row: 6 },
-  { index: 1, col: 3, row: 6 },
-  { index: 2, col: 4, row: 6 },
-  { index: 3, col: 2, row: 7 },
-  { index: 4, col: 3, row: 7 },
-  { index: 5, col: 4, row: 7 }
+  { index: 0, col: 8, row: 11 },
+  { index: 1, col: 9, row: 11 },
+  { index: 2, col: 10, row: 11 },
+  { index: 3, col: 8, row: 12 },
+  { index: 4, col: 9, row: 12 },
+  { index: 5, col: 10, row: 12 }
 ];
 
 const BUILDING_PADS = [
-  { id: 'coop' as FarmBuildingId, col: 10, row: 5, name: 'Galinheiro', icon: '🐔' },
-  { id: 'corral' as FarmBuildingId, col: 10, row: 7, name: 'Curral', icon: '🐄' },
-  { id: 'stable' as FarmBuildingId, col: 7, row: 9, name: 'Estábulo', icon: '🐎' }
+  { id: 'coop' as FarmBuildingId, col: 17, row: 7, name: 'Galinheiro', icon: '🐔' },
+  { id: 'corral' as FarmBuildingId, col: 18, row: 12, name: 'Curral', icon: '🐄' },
+  { id: 'stable' as FarmBuildingId, col: 13, row: 16, name: 'Estábulo', icon: '🐎' }
 ];
 
 export class FarmScene extends Phaser.Scene {
@@ -244,13 +244,13 @@ export class FarmScene extends Phaser.Scene {
 
   private drawPath(graphics: Phaser.GameObjects.Graphics): void {
     for (let step = 0; step < 8; step += 1) {
-      const p = this.iso(8, step + 2);
+      const p = this.iso(12, step + 11);
       this.diamond(graphics, p.x, p.y, 0xb99a68, 0x876c43);
     }
   }
 
   private drawHouse(): void {
-    const p = this.iso(8, 3);
+    const p = this.iso(12, 7);
     const g = this.add.graphics().setDepth(20);
     g.fillStyle(0x795438, 1);
     g.fillRect(p.x - 65, p.y - 5, 130, 76);
@@ -279,7 +279,7 @@ export class FarmScene extends Phaser.Scene {
   }
 
   private drawTownExit(): void {
-    const p = this.iso(8, 10);
+    const p = this.iso(12, 19);
     const sign = this.add
       .text(p.x, p.y + 35, '🚪 Voltar para Cidade de Valedouro', {
         fontFamily: 'Georgia, serif',
@@ -787,12 +787,12 @@ export class FarmScene extends Phaser.Scene {
 
   private drawDecorations(): void {
     const treeSpots: Array<[number, number]> = [
-      [1, 1],
-      [11, 1],
-      [1, 9],
-      [12, 9],
-      [5, 2],
-      [11, 10]
+      [2, 2],
+      [22, 2],
+      [2, 18],
+      [23, 18],
+      [7, 4],
+      [21, 19]
     ];
     for (const [col, row] of treeSpots) {
       const p = this.iso(col, row);
