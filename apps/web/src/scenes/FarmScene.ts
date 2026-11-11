@@ -86,10 +86,12 @@ export class FarmScene extends Phaser.Scene {
     }
     this.layout();
     this.scale.on(Phaser.Scale.Events.RESIZE, this.layout, this);
+    this.input.on('pointerdown', this.handleFarmGroundClick, this);
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.alive = false;
       this.scale.off(Phaser.Scale.Events.RESIZE, this.layout, this);
+      this.input.off('pointerdown', this.handleFarmGroundClick, this);
       this.refreshTimer?.destroy();
       this.seedPickerContainer?.destroy();
       this.animalDetails?.destroy();
@@ -149,6 +151,16 @@ export class FarmScene extends Phaser.Scene {
     } finally {
       this.farmSyncInFlight = false;
     }
+  }
+
+  private handleFarmGroundClick(pointer: Phaser.Input.Pointer): void {
+    if (!this.avatar || pointer.button !== 0 || !this.world) return;
+    const targetX = Phaser.Math.Clamp((pointer.x - this.world.x) / this.world.scaleX, FARM_LIMITS.minX, FARM_LIMITS.maxX);
+    const targetY = Phaser.Math.Clamp((pointer.y - this.world.y) / this.world.scaleY, FARM_LIMITS.minY, FARM_LIMITS.maxY);
+    const distance = Phaser.Math.Distance.Between(this.avatar.root.x, this.avatar.root.y, targetX, targetY);
+    if (distance < 10) return;
+    this.moving = false;
+    this.avatar.walkTo(targetX, targetY, Phaser.Math.Clamp(distance * 3.1, 220, 4200));
   }
 
   update(_time: number, delta: number): void {
@@ -295,7 +307,8 @@ export class FarmScene extends Phaser.Scene {
       .setDepth(80)
       .setInteractive({ useHandCursor: true });
 
-    sign.on('pointerdown', () => {
+    sign.on('pointerdown', (_pointer: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
+      event.stopPropagation();
       sfxClick();
       this.scene.stop('FarmScene');
       this.scene.start('CityScene');
@@ -402,7 +415,8 @@ export class FarmScene extends Phaser.Scene {
           .setOrigin(0.5)
           .setDepth(20)
           .setInteractive({ useHandCursor: true });
-        troughText.on('pointerdown', () => {
+        troughText.on('pointerdown', (_pointer: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
+          event.stopPropagation();
           const openShop = this.registry.get('openFarmShop') as (() => void) | undefined;
           openShop?.();
         });
@@ -551,7 +565,7 @@ export class FarmScene extends Phaser.Scene {
             .setDepth(20)
             .setInteractive({ useHandCursor: true });
 
-          badge.on('pointerdown', () => void this.harvestPlot(layout.index, p.x, p.y));
+          badge.on('pointerdown', (_pointer: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => { event.stopPropagation(); void this.harvestPlot(layout.index, p.x, p.y); });
           this.plotsContainer.add(badge);
         } else if (!isWatered) {
           const waterBadge = this.add
@@ -566,7 +580,7 @@ export class FarmScene extends Phaser.Scene {
             .setOrigin(0.5)
             .setDepth(20)
             .setInteractive({ useHandCursor: true });
-          waterBadge.on('pointerdown', () => void this.waterPlot(layout.index));
+          waterBadge.on('pointerdown', (_pointer: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => { event.stopPropagation(); void this.waterPlot(layout.index); });
           this.plotsContainer.add(waterBadge);
         } else {
           const remainingSec = Math.max(1, Math.ceil((readyTime - now) / 1000));
@@ -596,7 +610,7 @@ export class FarmScene extends Phaser.Scene {
           .setDepth(18)
           .setInteractive({ useHandCursor: true });
 
-        emptyText.on('pointerdown', () => this.openSeedPicker(layout.index, p.x, p.y));
+        emptyText.on('pointerdown', (_pointer: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => { event.stopPropagation(); this.openSeedPicker(layout.index, p.x, p.y); });
         this.plotsContainer.add(emptyText);
       }
     }
@@ -637,7 +651,8 @@ export class FarmScene extends Phaser.Scene {
 
       if (seedCount > 0) {
         btn.setInteractive({ useHandCursor: true });
-        btn.on('pointerdown', () => {
+        btn.on('pointerdown', (_pointer: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
+          event.stopPropagation();
           picker.destroy();
           void this.plantPlot(plotIndex, cropId);
         });
@@ -650,7 +665,7 @@ export class FarmScene extends Phaser.Scene {
     const closeBtn = this.add
       .text(105, -52, '✕', { fontSize: '13px', color: '#f87171' })
       .setInteractive({ useHandCursor: true });
-    closeBtn.on('pointerdown', () => picker.destroy());
+    closeBtn.on('pointerdown', (_pointer: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => { event.stopPropagation(); picker.destroy(); });
 
     picker.add([bg, title, ...buttons, closeBtn]);
     this.seedPickerContainer = picker;
