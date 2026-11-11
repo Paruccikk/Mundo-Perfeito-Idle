@@ -212,6 +212,57 @@ export function createCharacterRoutes(repository: CharacterRepository) {
         return reply.send(await service.harvestFarmCrop(id, accountId(request), body.plotIndex));
       } catch (error) { return sendError(reply, error); }
     });
+
+    app.post('/api/v1/characters/:id/farm/buy-seeds', { preHandler: authenticate }, async (request, reply) => {
+      try {
+        const { id } = request.params as { id: string };
+        const body = request.body as { cropId?: unknown; quantity?: unknown } | null;
+        if (!body || !['corn', 'wheat', 'carrot'].includes(String(body.cropId)) ||
+            typeof body.quantity !== 'number' || !Number.isInteger(body.quantity) || body.quantity < 1 || body.quantity > 10) {
+          throw new CharacterError('validation_error', 400, 'Informe a semente e uma quantidade entre 1 e 10.');
+        }
+        return reply.send(await service.buyFarmSeeds(id, accountId(request), body.cropId as 'corn' | 'wheat' | 'carrot', body.quantity));
+      } catch (error) { return sendError(reply, error); }
+    });
+
+    app.post('/api/v1/characters/:id/farm/water', { preHandler: authenticate }, async (request, reply) => {
+      try {
+        const { id } = request.params as { id: string };
+        const body = request.body as { plotIndex?: unknown } | null;
+        if (!body || typeof body.plotIndex !== 'number' || !Number.isInteger(body.plotIndex)) {
+          throw new CharacterError('validation_error', 400, 'Informe o canteiro que deseja regar.');
+        }
+        return reply.send(await service.waterFarmCrop(id, accountId(request), body.plotIndex));
+      } catch (error) { return sendError(reply, error); }
+    });
+
+    app.post('/api/v1/characters/:id/farm/craft-feed', { preHandler: authenticate }, async (request, reply) => {
+      try {
+        const { id } = request.params as { id: string };
+        const body = request.body as { species?: unknown; quantity?: unknown } | null;
+        if (!body || !['chicken', 'cow', 'horse'].includes(String(body.species)) ||
+            typeof body.quantity !== 'number' || !Number.isInteger(body.quantity) || body.quantity < 1 || body.quantity > 20) {
+          throw new CharacterError('validation_error', 400, 'Informe o tipo de animal e uma quantidade entre 1 e 20.');
+        }
+        return reply.send(await service.craftFarmFeed(id, accountId(request), body.species as 'chicken' | 'cow' | 'horse', body.quantity));
+      } catch (error) { return sendError(reply, error); }
+    });
+
+    app.post('/api/v1/characters/:id/farm/fill-trough', { preHandler: authenticate }, async (request, reply) => {
+      try {
+        const { id } = request.params as { id: string };
+        const body = request.body as { buildingId?: unknown; kind?: unknown; quantity?: unknown } | null;
+        if (!body || !['coop', 'corral', 'stable'].includes(String(body.buildingId)) ||
+            !['feed', 'water'].includes(String(body.kind)) ||
+            typeof body.quantity !== 'number' || !Number.isInteger(body.quantity) || body.quantity < 1 || body.quantity > 30) {
+          throw new CharacterError('validation_error', 400, 'Informe a instalação, o tipo de abastecimento e uma quantidade entre 1 e 30.');
+        }
+        return reply.send(await service.fillFarmTrough(
+          id, accountId(request), body.buildingId as 'coop' | 'corral' | 'stable',
+          body.kind as 'feed' | 'water', body.quantity
+        ));
+      } catch (error) { return sendError(reply, error); }
+    });
   };
 }
 
