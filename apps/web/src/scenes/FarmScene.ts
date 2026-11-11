@@ -47,6 +47,8 @@ export class FarmScene extends Phaser.Scene {
   private interactiveElements: Phaser.GameObjects.GameObject[] = [];
   private seedPickerContainer: Phaser.GameObjects.Container | null = null;
   private refreshTimer: Phaser.Time.TimerEvent | null = null;
+  private lastFarmSyncAt = 0;
+  private farmSyncInFlight = false;
 
   constructor() {
     super('FarmScene');
@@ -82,6 +84,9 @@ export class FarmScene extends Phaser.Scene {
       callback: () => {
         if (!this.alive || !this.farm) return;
         this.renderPlotsOnly();
+        if (Date.now() - this.lastFarmSyncAt >= 30_000 && !this.farmSyncInFlight) {
+          void this.syncFarmState();
+        }
       }
     });
   }
@@ -92,6 +97,7 @@ export class FarmScene extends Phaser.Scene {
       if (!this.alive) return;
       this.farm = data.farm;
       this.farmGold = data.gold;
+      this.lastFarmSyncAt = Date.now();
       this.hud?.setGold(data.gold);
       this.renderFullScene();
     } catch (error) {
@@ -101,6 +107,27 @@ export class FarmScene extends Phaser.Scene {
         'danger'
       );
       this.renderFullScene();
+    }
+  }
+
+  private async syncFarmState(): Promise<void> {
+    if (this.farmSyncInFlight || !this.alive) return;
+    this.farmSyncInFlight = true;
+    try {
+      const data = await api.getFarm(this.character.id);
+      if (!this.alive) return;
+      this.farm = data.farm;
+      this.farmGold = data.gold;
+      this.lastFarmSyncAt = Date.now();
+      this.hud?.setGold(data.gold);
+      this.updateFarmHUD();
+      this.drawBuildings();
+      this.renderPlotsOnly();
+    } catch (error) {
+      this.hud?.pushFeed(error instanceof Error ? error.message : 'Falha ao sincronizar os cuidados da fazenda.', 'danger');
+      this.lastFarmSyncAt = Date.now();
+    } finally {
+      this.farmSyncInFlight = false;
     }
   }
 
