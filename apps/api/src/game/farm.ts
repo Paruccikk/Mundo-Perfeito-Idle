@@ -7,6 +7,7 @@ import {
   type FarmState,
   type FarmPlotState,
   type OwnedAnimal,
+  type FarmEgg,
   type CropTypeId,
   type AnimalSpeciesId
 } from '@mundo-perfeito/shared';
@@ -22,6 +23,7 @@ export function createDefaultFarm(): FarmState {
       plotIndex, cropId: null, plantedAt: null, readyAt: null, wateredAt: null
     })),
     animals: [],
+    eggs: [],
     storage: {},
     seeds: { corn: 3, wheat: 3, carrot: 3 },
     dailySeedPurchases: { date: now.slice(0, 10), quantities: {} },
@@ -55,8 +57,14 @@ export function sanitizeFarmState(farm?: FarmState | null): FarmState {
     animals: Array.isArray(farm.animals) ? farm.animals.map((animal) => ({
       ...animal,
       hunger: typeof animal.hunger === 'number' ? animal.hunger : 100,
-      hydration: typeof animal.hydration === 'number' ? animal.hydration : 100
+      hydration: typeof animal.hydration === 'number' ? animal.hydration : 100,
+      health: typeof animal.health === 'number' ? animal.health : 100,
+      happiness: typeof animal.happiness === 'number' ? animal.happiness : 100,
+      ageDays: typeof animal.ageDays === 'number' ? animal.ageDays : 0,
+      pregnantUntil: animal.pregnantUntil ?? null,
+      fatherTier: animal.fatherTier ?? null
     })) : [],
+    eggs: Array.isArray(farm.eggs) ? farm.eggs : [],
     storage: farm.storage && typeof farm.storage === 'object' ? farm.storage : {},
     seeds: farm.seeds ?? { corn: 3, wheat: 3, carrot: 3 },
     dailySeedPurchases: purchases,
@@ -105,7 +113,7 @@ export function processBuyAnimal(currentFarm: FarmState, currentGold: number, an
     id: `animal-${randomUUID().slice(0, 8)}`, definitionId: def.id,
     name: customName?.trim() || def.name, species: def.species, gender: def.gender,
     tier: def.tier, buildingId: def.requiredBuilding, acquiredAt: new Date().toISOString(),
-    hunger: 100, hydration: 100
+    hunger: 100, hydration: 100, health: 100, happiness: 100, ageDays: 0
   };
   return {
     ok: true, farm: { ...farm, animals: [...farm.animals, newAnimal] },
@@ -297,7 +305,100 @@ export function processFarmCycles(currentFarm: FarmState): FarmState {
     }
   }
 
-  const farmAfterNeeds: FarmState = { ...farm, animals, animalCare: care };
+  let eggs: FarmEgg[] = [...(farm.eggs ?? [])];
+  if (elapsedHours > 0 && animals.length > 0) {
+    const simulationStart = Number.isFinite(last) ? last : now - elapsedHours * 3_600_000;
+    animals = animals.map((animal) => {
+      const hunger = animal.hunger ?? 100;
+      const hydration = animal.hydration ?? 100;
+      const needsOk = hunger >= 65 && hydration >= 65;
+      const health = Math.max(0, Math.min(100, (animal.health ?? 100) + (needsOk ? 0.5 * elapsedHours : -2 * elapsedHours)));
+      const happiness = Math.max(0, Math.min(100, (animal.happiness ?? 100) + (needsOk ? 1 * elapsedHours : -3 * elapsedHours)));
+      return { ...animal, health, happiness, ageDays: (animal.ageDays ?? 0) + elapsedHours / 24 };
+    });
+
+    for (let hour = 1; hour <= elapsedHours; hour += 1) {
+      const hourAt = simulationStart + hour * 3_600_000;
+      const dayChanged = Math.floor(hourAt / 86_400_000) !== Math.floor((hourAt - 3_600_000) / 86_400_000);
+      if (!dayChanged) continue;
+      const males = animals.filter((animal) => animal.gender === 'male');
+      for (const female of animals.filter((animal) => animal.gender === 'female' && animal.species !== 'chicken')) {
+        if ((female.ageDays ?? 0) < 7 || (female.health ?? 100) < 65 || (female.happiness ?? 100) < 65 || female.pregnantUntil) continue;
+        const male = males.find((candidate) => candidate.species === female.species && candidate.buildingId === female.buildingId && (candidate.ageDays ?? 0) >= 7 && (candidate.health ?? 100) >= 65);
+        if (male && Math.random() < 0.12) {
+          const gestationHours = female.species === 'cow' ? 48 : 72;
+          female.pregnantUntil = new Date(hourAt + gestationHours * 3_600_000).toISOString();
+          female.fatherTier = male.tier;
+        }
+      }
+    }
+
+    for (const hen of animals.filter((animal) => animal.species === 'chicken' && animal.gender === 'female' && (animal.ageDays ?? 0) >= 1)) {
+      const lastEggAt = eggs.filter((egg) => egg.motherId === hen.id).reduce((latest, egg) => Math.max(latest, Date.parse(egg.laidAt)), 0);
+      for (let hour = 1; hour <= elapsedHours; hour += 1) {
+        const laidAt = simulationStart + hour * 3_600_000;
+        if (laidAt - lastEggAt < 4 * 3_600_000) continue;
+        const hasRooster = animals.some((animal) => animal.species === 'chicken' && animal.gender === 'male' && animal.buildingId === hen.buildingId && (animal.ageDays ?? 0) >= 1 && (animal.health ?? 100) >= 50);
+        const fertilized = hasRooster && Math.random() < 0.45;
+        eggs.push({
+          id: 'egg-' + randomUUID().slice(0, 10), motherId: hen.id,
+          laidAt: new Date(laidAt).toISOString(), fertilized,
+          hatchAt: fertilized ? new Date(laidAt + 24 * 3_600_000).toISOString() : null,
+          tier: hen.tier
+        });
+        break;
+      }
+    }
+  }
+
+  const rankUp: Partial<Record<OwnedAnimal['tier'], { tier: OwnedAnimal['tier']; chance: number }>> = {
+    white: { tier: 'green', chance: 0.08 }, green: { tier: 'blue', chance: 0.05 },
+    blue: { tier: 'orange', chance: 0.02 }, orange: { tier: 'red', chance: 0.005 }
+  };
+  const improveTier = (maternal: OwnedAnimal['tier'], paternal?: OwnedAnimal['tier'] | null): OwnedAnimal['tier'] => {
+    const order: OwnedAnimal['tier'][] = ['white', 'green', 'blue', 'orange', 'red'];
+    const base = order.indexOf(maternal) >= order.indexOf(paternal ?? maternal) ? maternal : (paternal ?? maternal);
+    const upgrade = rankUp[base];
+    return upgrade && Math.random() < upgrade.chance ? upgrade.tier : base;
+  };
+  const remainingEggs: FarmEgg[] = [];
+  for (const egg of eggs) {
+    if (!egg.fertilized || !egg.hatchAt || Date.parse(egg.hatchAt) > now) {
+      remainingEggs.push(egg);
+      continue;
+    }
+    if (animals.filter((animal) => animal.buildingId === 'coop').length >= FARM_BUILDINGS.coop.capacity) {
+      remainingEggs.push(egg);
+      continue;
+    }
+    const father = animals.find((animal) => animal.species === 'chicken' && animal.gender === 'male' && animal.buildingId === 'coop');
+    const tier = improveTier(egg.tier, father?.tier);
+    const gender = Math.random() < 0.5 ? 'female' : 'male';
+    animals.push({
+      id: 'animal-' + randomUUID().slice(0, 8), definitionId: gender === 'female' ? 'chicken-female' : 'chicken-male',
+      name: gender === 'female' ? 'Pintinha' : 'Pintinho', species: 'chicken', gender, tier,
+      buildingId: 'coop', acquiredAt: new Date(now).toISOString(),
+      hunger: 100, hydration: 100, health: 100, happiness: 100, ageDays: 0
+    });
+  }
+
+  for (const mother of [...animals].filter((animal) => animal.gender === 'female' && animal.species !== 'chicken' && animal.pregnantUntil && Date.parse(animal.pregnantUntil) <= now)) {
+    const capacity = FARM_BUILDINGS[mother.buildingId].capacity;
+    if (animals.filter((animal) => animal.buildingId === mother.buildingId).length >= capacity) continue;
+    const gender = Math.random() < 0.5 ? 'female' : 'male';
+    const tier = improveTier(mother.tier, mother.fatherTier);
+    animals.push({
+      id: 'animal-' + randomUUID().slice(0, 8),
+      definitionId: mother.species + '-' + (gender === 'female' ? 'female' : 'male'),
+      name: mother.species === 'cow' ? 'Bezerro' : 'Potro', species: mother.species,
+      gender, tier, buildingId: mother.buildingId, acquiredAt: new Date(now).toISOString(),
+      hunger: 100, hydration: 100, health: 100, happiness: 100, ageDays: 0
+    });
+    mother.pregnantUntil = null;
+    mother.fatherTier = null;
+  }
+
+  const farmAfterNeeds: FarmState = { ...farm, animals, eggs: remainingEggs, animalCare: care };
   // Se uma plantação madura ficar esquecida por 60 segundos, animais compatíveis
   // podem consumi-la. A colheita não gera fruto nem sementes nesse caso.
   const diets: Record<CropTypeId, AnimalSpeciesId[]> = {
