@@ -720,26 +720,37 @@ export class FarmScene extends Phaser.Scene {
       const crop = FARM_CROPS[cropId];
       const seedCount = this.farm?.seeds?.[cropId] ?? 0;
       const btnY = -20 + i * 27;
+      const label = seedCount > 0
+        ? `${crop.icon} ${crop.name} • sementes: ${seedCount} • plantar`
+        : `${crop.icon} ${crop.name} • comprar 1 e plantar`;
       const btn = this.add
-        .text(0, btnY, `${crop.icon} ${crop.name} • sementes: ${seedCount}`, {
+        .text(0, btnY, label, {
           fontFamily: 'Georgia, serif',
-          fontSize: '11px',
+          fontSize: '10px',
           color: '#f0fdf4',
           backgroundColor: '#1b432a',
           padding: { x: 8, y: 4 }
         })
-        .setOrigin(0.5);
-
-      if (seedCount > 0) {
-        btn.setInteractive({ useHandCursor: true });
-        btn.on('pointerdown', (_pointer: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
-          event.stopPropagation();
-          picker.destroy();
-          void this.plantPlot(plotIndex, cropId);
-        });
-      } else {
-        btn.setColor('#64748b');
-      }
+        .setOrigin(0.5)
+        .setInteractive({ useHandCursor: true });
+      btn.on('pointerdown', (_pointer: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
+        event.stopPropagation();
+        picker.destroy();
+        void (async () => {
+          try {
+            if (seedCount < 1) {
+              const bought = await api.buyFarmSeeds(this.character.id, cropId, 1);
+              this.farm = bought.farm;
+              this.farmGold = bought.gold;
+              this.hud?.setGold(bought.gold);
+              this.hud?.pushFeed(bought.message ?? 'Semente comprada.', 'gold');
+            }
+            await this.plantPlot(plotIndex, cropId);
+          } catch (error) {
+            this.hud?.pushFeed(error instanceof Error ? error.message : 'Não foi possível comprar a semente.', 'danger');
+          }
+        })();
+      });
       buttons.push(btn);
     });
 
