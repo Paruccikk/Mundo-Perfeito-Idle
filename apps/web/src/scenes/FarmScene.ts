@@ -300,6 +300,24 @@ export class FarmScene extends Phaser.Scene {
           .setDepth(18);
         this.buildingsContainer.add(countText);
 
+        const care = this.farm?.animalCare?.[pad.id] ?? { feed: 0, water: 0 };
+        const troughText = this.add
+          .text(p.x, p.y + 42, `🥣 ${care.feed}/30  🚰 ${care.water}/30`, {
+            fontFamily: 'Georgia, serif',
+            fontSize: '9px',
+            color: '#e0f2fe',
+            backgroundColor: 'rgba(15, 23, 42, 0.78)',
+            padding: { x: 5, y: 3 }
+          })
+          .setOrigin(0.5)
+          .setDepth(20)
+          .setInteractive({ useHandCursor: true });
+        troughText.on('pointerdown', () => {
+          const openShop = this.registry.get('openFarmShop') as (() => void) | undefined;
+          openShop?.();
+        });
+        this.buildingsContainer.add(troughText);
+
         animalsInBuilding.slice(0, 4).forEach((animal, idx) => {
           const offsetX = (idx % 2 === 0 ? -1 : 1) * (14 + idx * 4);
           const offsetY = idx < 2 ? -6 : 10;
@@ -358,10 +376,11 @@ export class FarmScene extends Phaser.Scene {
       }
       this.plotsContainer.add(g);
 
-      if (plotState?.cropId && plotState.readyAt) {
-        const readyTime = new Date(plotState.readyAt).getTime();
-        const isReady = now >= readyTime;
+      if (plotState?.cropId) {
         const crop = FARM_CROPS[plotState.cropId];
+        const isWatered = Boolean(plotState.readyAt);
+        const readyTime = plotState.readyAt ? new Date(plotState.readyAt).getTime() : Number.POSITIVE_INFINITY;
+        const isReady = isWatered && now >= readyTime;
 
         // Desenho da plantação
         if (plotState.cropId === 'corn') {
@@ -412,6 +431,21 @@ export class FarmScene extends Phaser.Scene {
 
           badge.on('pointerdown', () => void this.harvestPlot(layout.index, p.x, p.y));
           this.plotsContainer.add(badge);
+        } else if (!isWatered) {
+          const waterBadge = this.add
+            .text(p.x, p.y - 25, '💧 REGAR', {
+              fontFamily: 'Georgia, serif',
+              fontSize: '10px',
+              fontStyle: 'bold',
+              color: '#e0f2fe',
+              backgroundColor: '#075985',
+              padding: { x: 6, y: 3 }
+            })
+            .setOrigin(0.5)
+            .setDepth(20)
+            .setInteractive({ useHandCursor: true });
+          waterBadge.on('pointerdown', () => void this.waterPlot(layout.index));
+          this.plotsContainer.add(waterBadge);
         } else {
           const remainingSec = Math.max(1, Math.ceil((readyTime - now) / 1000));
           const timeBadge = this.add
@@ -452,7 +486,7 @@ export class FarmScene extends Phaser.Scene {
 
     const picker = this.add.container(worldX, worldY - 50).setDepth(120);
     const bg = this.add
-      .rectangle(0, 0, 240, 110, 0x111c24, 0.96)
+      .rectangle(0, 0, 240, 126, 0x111c24, 0.96)
       .setStrokeStyle(2, 0x86efac, 0.9);
     const title = this.add
       .text(0, -42, 'Escolha a semente para plantar:', {
@@ -467,27 +501,32 @@ export class FarmScene extends Phaser.Scene {
 
     crops.forEach((cropId, i) => {
       const crop = FARM_CROPS[cropId];
-      const btnY = -14 + i * 26;
+      const seedCount = this.farm?.seeds?.[cropId] ?? 0;
+      const btnY = -20 + i * 27;
       const btn = this.add
-        .text(0, btnY, `${crop.icon} ${crop.name} (${crop.cost} G • ${crop.growthSeconds}s)`, {
+        .text(0, btnY, `${crop.icon} ${crop.name} • sementes: ${seedCount}`, {
           fontFamily: 'Georgia, serif',
           fontSize: '11px',
           color: '#f0fdf4',
           backgroundColor: '#1b432a',
           padding: { x: 8, y: 4 }
         })
-        .setOrigin(0.5)
-        .setInteractive({ useHandCursor: true });
+        .setOrigin(0.5);
 
-      btn.on('pointerdown', () => {
-        picker.destroy();
-        void this.plantPlot(plotIndex, cropId);
-      });
+      if (seedCount > 0) {
+        btn.setInteractive({ useHandCursor: true });
+        btn.on('pointerdown', () => {
+          picker.destroy();
+          void this.plantPlot(plotIndex, cropId);
+        });
+      } else {
+        btn.setColor('#64748b');
+      }
       buttons.push(btn);
     });
 
     const closeBtn = this.add
-      .text(105, -42, '✕', { fontSize: '13px', color: '#f87171' })
+      .text(105, -52, '✕', { fontSize: '13px', color: '#f87171' })
       .setInteractive({ useHandCursor: true });
     closeBtn.on('pointerdown', () => picker.destroy());
 
@@ -495,10 +534,24 @@ export class FarmScene extends Phaser.Scene {
     this.seedPickerContainer = picker;
   }
 
+  private async waterPlot(plotIndex: number): Promise<void> {
+    try {
+      const res = await api.waterFarmCrop(this.character.id, plotIndex);
+      this.farm = res.farm;
+      this.updateFarmHUD();
+      this.hud?.pushFeed(res.message ?? 'Plantação regada!', 'gold');
+      sfxClick();
+      this.renderPlotsOnly();
+    } catch (err) {
+      this.hud?.pushFeed(err instanceof Error ? err.message : 'Não foi possível regar o canteiro.', 'danger');
+    }
+  }
+
   private async plantPlot(plotIndex: number, cropId: CropTypeId): Promise<void> {
     try {
       const res = await api.plantFarmCrop(this.character.id, plotIndex, cropId);
       this.farm = res.farm;
+      this.updateFarmHUD();
       this.farmGold = res.gold;
       this.hud?.setGold(res.gold);
       this.hud?.pushFeed(res.message ?? 'Semente plantada!', 'gold');
@@ -605,9 +658,15 @@ export class FarmScene extends Phaser.Scene {
     const corn = storage['crop-corn'] ?? 0;
     const wheat = storage['crop-wheat'] ?? 0;
     const carrot = storage['crop-carrot'] ?? 0;
+    const seeds = this.farm?.seeds ?? {};
+    const chickenFeed = storage['feed-chicken'] ?? 0;
+    const cowFeed = storage['feed-cow'] ?? 0;
+    const horseFeed = storage['feed-horse'] ?? 0;
 
     return `Fazenda de ${this.character.name} • Instalações: ${buildingsCount}/3 • Animais: ${animalsCount}
-Armazém: 🌽 Milho ${corn}  •  🌾 Trigo ${wheat}  •  🥕 Cenoura ${carrot}`;
+Armazém: 🌽 ${corn}  •  🌾 ${wheat}  •  🥕 ${carrot}
+Sementes: 🌽 ${seeds.corn ?? 0}  •  🌾 ${seeds.wheat ?? 0}  •  🥕 ${seeds.carrot ?? 0}
+Rações: 🐔 ${chickenFeed}  •  🐄 ${cowFeed}  •  🐎 ${horseFeed}`;
   }
 
   private updateFarmHUD(): void {
