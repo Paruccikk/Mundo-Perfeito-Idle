@@ -34,7 +34,9 @@ import {
   processWaterCrop,
   processCraftFeed,
   processFillTrough,
-  processFarmCycles
+  processFarmCycles,
+  processExpandFarm,
+  processFishAtCity
 } from './farm.js';
 
 export class CharacterError extends Error {
@@ -277,7 +279,7 @@ export class CharacterService {
     ]);
     if (!inventory) throw new CharacterError('character_not_found', 404, 'Personagem não encontrado.');
     const farm = sanitizeFarmState(record.combat.farm ?? createDefaultFarm());
-    const farmItems: Array<{ key: string; name: string; icon: string; quantity: number; category: 'crop' | 'seed' | 'feed' }> = [];
+    const farmItems: Array<{ key: string; name: string; icon: string; quantity: number; category: 'crop' | 'seed' | 'feed' | 'fish' }> = [];
     for (const cropId of ['corn', 'wheat', 'carrot'] as CropTypeId[]) {
       const crop = FARM_CROPS[cropId];
       farmItems.push({ key: `seed-${cropId}`, name: `Semente de ${crop.name}`, icon: crop.icon, quantity: farm.seeds?.[cropId] ?? 0, category: 'seed' });
@@ -291,6 +293,13 @@ export class CharacterService {
     for (const feed of feeds) {
       farmItems.push({ ...feed, quantity: farm.storage[feed.key] ?? 0, category: 'feed' });
     }
+    const fish = [
+      { key: 'fish-minnow', name: 'Lambari', icon: '🐟' },
+      { key: 'fish-trout', name: 'Truta', icon: '🐠' },
+      { key: 'fish-carp', name: 'Carpa', icon: '🐡' },
+      { key: 'fish-golden', name: 'Peixe Dourado', icon: '✨' }
+    ];
+    for (const item of fish) farmItems.push({ ...item, quantity: farm.storage[item.key] ?? 0, category: 'fish' });
     return {
       ...inventory,
       farmItems,
@@ -304,14 +313,19 @@ export class CharacterService {
     };
   }
 
-  async sellFarmItem(id: string, playerId: unknown, _itemKey: string) {
-    assertPlayerId(playerId);
-    await this.findOwned(id, playerId);
-    throw new CharacterError(
-      'market_unavailable',
-      409,
-      'A venda de produtos agrícolas estará disponível quando o mercado entre jogadores for implementado.'
-    );
+  async sellFarmItem(id: string, playerId: unknown, itemKey: string) {
+    const prices: Record<string, number> = {
+      'crop-corn': 1000, 'crop-wheat': 1000, 'crop-carrot': 1000,
+      'fish-minnow': 120, 'fish-trout': 240, 'fish-carp': 360, 'fish-golden': 900
+    };
+    const price = prices[itemKey];
+    if (!price) throw new CharacterError('invalid_item', 400, 'Este produto não pode ser vendido.');
+    return this.applyFarmOperation(id, playerId, (farm, gold) => {
+      const quantity = farm.storage[itemKey] ?? 0;
+      if (quantity < 1) return { ok: false, error: 'Você não possui este produto no estoque.', farm, gold };
+      return { ok: true, farm: { ...farm, storage: { ...farm.storage, [itemKey]: quantity - 1 } },
+        gold: gold + price, message: `Produto vendido por ${price.toLocaleString('pt-BR')} moedas.` };
+    }, 'Não foi possível vender o produto.');
   }
 
   async sellItem(id: string, playerId: unknown, inventoryItemId: string, quantity: number) {
@@ -425,6 +439,14 @@ export class CharacterService {
       }
     }
     return { farm, gold: record.gold };
+  }
+
+  async expandFarm(id: string, playerId: unknown) {
+    return this.applyFarmOperation(id, playerId, processExpandFarm, 'Não foi possível expandir a propriedade.');
+  }
+
+  async fishAtCity(id: string, playerId: unknown) {
+    return this.applyFarmOperation(id, playerId, processFishAtCity, 'Não foi possível pescar agora.');
   }
 
   async buyFarmBuilding(id: string, playerId: unknown, buildingId: FarmBuildingId): Promise<{ farm: FarmState; gold: number; message: string }> {
