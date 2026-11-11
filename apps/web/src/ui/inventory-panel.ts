@@ -4,12 +4,7 @@ function formatGold(value: number): string {
   return Math.max(0, Math.floor(value)).toLocaleString('pt-BR');
 }
 
-function createSection(titleText: string, subtitleText: string, items: FarmInventoryItem[], onSellFarmItem: (key: string) => Promise<InventorySnapshot>, root: HTMLElement, callbacks: {
-  onEquip: (id: string) => Promise<InventorySnapshot>;
-  onUnequip: (slot: string) => Promise<InventorySnapshot>;
-  onUse: (id: string) => Promise<InventorySnapshot>;
-  onClose: () => void;
-}): HTMLElement {
+function createSection(titleText: string, subtitleText: string, items: FarmInventoryItem[]): HTMLElement {
   const section = document.createElement('section');
   section.className = 'farm-inventory-section';
   const heading = document.createElement('div');
@@ -38,24 +33,7 @@ function createSection(titleText: string, subtitleText: string, items: FarmInven
     info.append(name, quantity);
     card.append(icon, info);
 
-    if (item.category === 'crop' && item.quantity > 0) {
-      const sell = document.createElement('button');
-      sell.type = 'button';
-      sell.className = 'farm-inventory-card__sell';
-      sell.textContent = 'Vender 1 · 1.000 ouro';
-      sell.addEventListener('click', async () => {
-        sell.disabled = true;
-        sell.textContent = 'Vendendo...';
-        try {
-          const updated = await onSellFarmItem(item.key);
-          renderInventoryPanel(root, updated, callbacks.onEquip, callbacks.onUnequip, callbacks.onUse, onSellFarmItem, callbacks.onClose);
-        } catch (error) {
-          sell.disabled = false;
-          sell.textContent = error instanceof Error ? error.message : 'Não foi possível vender';
-        }
-      });
-      card.append(sell);
-    }
+
     grid.append(card);
   }
   if (!items.length) {
@@ -74,7 +52,6 @@ export function renderInventoryPanel(
   onEquip: (inventoryItemId: string) => Promise<InventorySnapshot>,
   onUnequip: (slot: string) => Promise<InventorySnapshot>,
   onUse: (inventoryItemId: string) => Promise<InventorySnapshot>,
-  onSellFarmItem: (itemKey: string) => Promise<InventorySnapshot>,
   onClose: () => void
 ): void {
   root.querySelector('.game-panel-overlay')?.remove();
@@ -146,9 +123,9 @@ export function renderInventoryPanel(
   const content = document.createElement('div');
   content.className = 'farm-inventory-content';
   content.append(
-    createSection('Armazém', 'Produtos colhidos e prontos para uso ou venda.', storage, onSellFarmItem, root, { onEquip, onUnequip, onUse, onClose }),
-    createSection('Sementes', 'Sementes disponíveis para iniciar novas plantações.', seeds, onSellFarmItem, root, { onEquip, onUnequip, onUse, onClose }),
-    createSection('Rações', 'Alimento preparado para cuidar dos animais do rancho.', feed, onSellFarmItem, root, { onEquip, onUnequip, onUse, onClose })
+    createSection('Armazém', 'Produtos colhidos e guardados para uso e futuro mercado entre jogadores.', storage),
+    createSection('Sementes', 'Sementes disponíveis para iniciar novas plantações.', seeds),
+    createSection('Rações', 'Alimento preparado para cuidar dos animais do rancho.', feed)
   );
 
   panel.append(header, summary, content);
