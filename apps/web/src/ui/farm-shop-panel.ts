@@ -21,6 +21,7 @@ export function renderFarmShop(
   onBuySeeds: (cropId: CropTypeId, quantity: number) => Promise<FarmResponse>,
   onCraftFeed: (species: AnimalSpeciesId, quantity: number) => Promise<FarmResponse>,
   onFillTrough: (buildingId: FarmBuildingId, kind: 'feed' | 'water', quantity: number) => Promise<FarmResponse>,
+  onExpandFarm: () => Promise<FarmResponse>,
   onGoToFarm: () => void,
   onClose: () => void
 ): void {
@@ -108,6 +109,31 @@ export function renderFarmShop(
   btnTabCare.textContent = '🥣 Rações & Cuidados';
 
   tabsContainer.append(btnTabBuildings, btnTabAnimals, btnTabSeeds, btnTabCare);
+
+  const landCard = document.createElement('section');
+  landCard.style.margin = '14px 18px';
+  landCard.style.padding = '14px';
+  landCard.style.border = '1px solid rgba(134,239,172,.35)';
+  landCard.style.borderRadius = '10px';
+  const landTitle = document.createElement('strong');
+  landTitle.textContent = '🌱 Expandir minha terra';
+  const landInfo = document.createElement('p');
+  landInfo.textContent = `Canteiros liberados: ${currentFarm.plots.length}/30. Cada expansão libera até 3 novos espaços. A primeira custa 250 moedas e o preço aumenta a cada compra.`;
+  const landButton = document.createElement('button');
+  landButton.type = 'button'; landButton.className = 'primary-button'; landButton.textContent = 'Comprar mais canteiros';
+  landButton.addEventListener('click', async () => {
+    landButton.disabled = true;
+    try {
+      const updated = await onExpandFarm();
+      currentFarm = updated.farm; currentGold = updated.gold;
+      updateBalance();
+      landInfo.textContent = updated.message ?? `Agora você tem ${currentFarm.plots.length} canteiros.`;
+      landButton.textContent = currentFarm.plots.length >= 30 ? 'Limite de terra atingido' : 'Comprar próxima expansão';
+      landButton.disabled = currentFarm.plots.length >= 30;
+      showMessage(updated.message ?? 'Terra expandida!');
+    } catch (error) { showMessage(error instanceof Error ? error.message : 'Não foi possível expandir a terra.', true); landButton.disabled = false; }
+  });
+  landCard.append(landTitle, landInfo, landButton);
 
   const contentArea = document.createElement('div');
   contentArea.style.padding = '16px 18px';
@@ -624,7 +650,7 @@ export function renderFarmShop(
     renderActiveTab();
   });
 
-  panel.append(header, tabsContainer, feedbackArea, contentArea);
+  panel.append(header, landCard, tabsContainer, feedbackArea, contentArea);
   overlay.append(panel);
 
   overlay.addEventListener('click', (e) => {
