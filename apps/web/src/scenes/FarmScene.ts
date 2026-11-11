@@ -763,7 +763,7 @@ export class FarmScene extends Phaser.Scene {
   private openAnimalDetails(animal: FarmState['animals'][number]): void {
     this.animalDetails?.destroy();
     const tierNames: Record<string, string> = {
-      white: 'Comum', green: 'Incomum', blue: 'Raro', orange: 'Épico', red: 'Lendário'
+      white: 'Comum (D)', green: 'Incomum (C)', blue: 'Raro (B)', orange: 'Épico (A)', red: 'Lendário (S)'
     };
     const panel = this.add.container(this.scale.width / 2, this.scale.height - 132).setScrollFactor(0).setDepth(5000);
     const bg = this.add.rectangle(0, 0, Math.min(460, this.scale.width - 28), 190, 0x18271d, 0.97)
