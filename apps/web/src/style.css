@@ -3292,3 +3292,30 @@ textarea {
 .hud__card--player .hud__name{display:block!important;color:#f6e6bd;font-size:15px;font-weight:800}
 .hud__card--player .hud__meta{display:block!important;color:#c8b58f;font-size:10px;line-height:1.4}
 .game-panel.inventory-panel{display:block!important}
+
+
+/* Inventário rural: armazém, sementes e rações. */
+.farm-inventory-panel{width:min(900px,calc(100vw - 28px));max-height:min(88vh,820px);overflow:auto;background:linear-gradient(155deg,#263b2b 0%,#1c2d23 58%,#17251e 100%);border:1px solid rgba(201,177,116,.48);box-shadow:0 24px 70px rgba(0,0,0,.55)}
+.farm-inventory-header{align-items:flex-start}
+.farm-inventory-header h2{color:#f4e8c8}
+.farm-inventory-header__description{margin:6px 0 0;color:#c3cdb8;font-size:12px;line-height:1.45}
+.farm-inventory-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:14px 0 20px}
+.farm-inventory-summary__item{display:grid;grid-template-columns:34px 1fr;grid-template-rows:auto auto;align-items:center;column-gap:8px;padding:11px 13px;border:1px solid rgba(214,197,145,.2);border-radius:10px;background:rgba(12,25,17,.42)}
+.farm-inventory-summary__item>span{grid-row:1/3;font-size:25px}
+.farm-inventory-summary__item small{color:#b8c5ac;font-size:10px;text-transform:uppercase;letter-spacing:.08em}
+.farm-inventory-summary__item strong{color:#f6e6bd;font-size:18px}
+.farm-inventory-content{display:grid;gap:18px}
+.farm-inventory-section{padding:14px;border:1px solid rgba(210,190,135,.22);border-radius:12px;background:rgba(8,19,13,.3)}
+.farm-inventory-section__heading{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:12px}
+.farm-inventory-section__heading h3{margin:0;color:#f2dfb0;font-size:16px}
+.farm-inventory-section__heading p{margin:0;color:#b4c0a9;font-size:11px;text-align:right}
+.farm-inventory-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.farm-inventory-card{display:grid;grid-template-columns:42px minmax(0,1fr);align-items:center;gap:8px;min-width:0;padding:10px;border:1px solid rgba(201,183,135,.2);border-radius:9px;background:linear-gradient(145deg,rgba(77,99,60,.42),rgba(33,51,35,.65))}
+.farm-inventory-card__icon{display:grid;place-items:center;width:40px;height:40px;border-radius:8px;background:rgba(8,18,11,.42);font-size:25px}
+.farm-inventory-card__info{display:grid;gap:4px;min-width:0}
+.farm-inventory-card__info strong{overflow-wrap:anywhere;color:#f1e7cd;font-size:12px}
+.farm-inventory-card__info small{color:#c2cbb8;font-size:10px}
+.farm-inventory-card__sell{grid-column:1/-1;width:100%;padding:7px 8px;border:1px solid rgba(230,197,119,.42);border-radius:6px;background:#66502d;color:#ffedc2;font-size:10px;font-weight:800;cursor:pointer}
+.farm-inventory-card__sell:disabled{opacity:.55;cursor:wait}
+.farm-inventory-empty{grid-column:1/-1;margin:0;padding:12px;color:#b8c5ac;font-size:12px;text-align:center}
+@media(max-width:620px){.farm-inventory-panel{width:calc(100vw - 16px);max-height:92vh;padding:14px}.farm-inventory-summary{gap:6px}.farm-inventory-summary__item{grid-template-columns:26px 1fr;padding:8px}.farm-inventory-summary__item>span{font-size:20px}.farm-inventory-summary__item strong{font-size:15px}.farm-inventory-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.farm-inventory-section__heading{display:block}.farm-inventory-section__heading p{margin-top:4px;text-align:left}}
