@@ -316,3 +316,11 @@ A cria parte do melhor tier entre os pais e pode subir mais um nível conforme a
 - Saúde e felicidade são atualizadas pelo servidor a partir das condições de alimentação e hidratação. A falta de cuidados reduz os indicadores, sem morte punitiva nesta fase.
 
 **Observação técnica:** o ciclo animal usa o relógio do servidor e é consolidado quando a fazenda é sincronizada. As animações de caminhada e visita aos cochos são visuais na cena; consumo de ração/água, postura, fecundação, gestação, eclosão e raridade são calculados na API.
+
+
+## 15. Validação do ciclo de plantio (11/11/2026)
+
+- O plantio, a irrigação e a colheita já possuem rotas autenticadas na API. O servidor valida a propriedade do personagem, o índice do canteiro, a cultura, o estoque de sementes e o horário de conclusão.
+- O estado agrícola fica dentro de `Character.combat.farm` e é salvo pelo repositório do personagem com controle otimista baseado em `lastTickAt`. Com PostgreSQL configurado, o estado é persistido no banco; o modo de memória é apenas fallback de desenvolvimento e não sobrevive a reinicializações.
+- A colheita entrega 2 sementes da mesma cultura e os frutos ao armazém, sem conceder ouro automaticamente.
+- A venda direta de colheitas permanece bloqueada até existir o mercado entre jogadores. Os produtos ficam armazenados na fazenda enquanto esse sistema não estiver disponível.
