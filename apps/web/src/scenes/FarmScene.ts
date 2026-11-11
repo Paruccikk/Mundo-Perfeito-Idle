@@ -765,18 +765,27 @@ export class FarmScene extends Phaser.Scene {
     const tierNames: Record<string, string> = {
       white: 'Comum', green: 'Incomum', blue: 'Raro', orange: 'Épico', red: 'Lendário'
     };
-    const panel = this.add.container(this.scale.width / 2, this.scale.height - 118).setScrollFactor(0).setDepth(5000);
-    const bg = this.add.rectangle(0, 0, Math.min(410, this.scale.width - 28), 154, 0x18271d, 0.97)
+    const panel = this.add.container(this.scale.width / 2, this.scale.height - 132).setScrollFactor(0).setDepth(5000);
+    const bg = this.add.rectangle(0, 0, Math.min(460, this.scale.width - 28), 190, 0x18271d, 0.97)
       .setStrokeStyle(2, 0xc5a66b, 0.9);
     const def = FARM_ANIMALS[animal.definitionId];
-    const title = this.add.text(0, -56, `${def?.icon ?? '🐾'}  ${animal.name}`, {
+    const tierOrder = ['white', 'green', 'blue', 'orange', 'red'];
+    const nextTierChance: Record<string, string> = { white: '8%', green: '5%', blue: '2%', orange: '0,5%', red: '0%' };
+    const nextTier = tierOrder[tierOrder.indexOf(animal.tier) + 1];
+    const breedingInfo = animal.species === 'chicken'
+      ? 'Ovos: 45% de chance de fecundação com galo adulto'
+      : 'Acasalamento: 12% de chance diária com parceiro adulto';
+    const pregnancyInfo = animal.pregnantUntil
+      ? 'Gestação em andamento'
+      : animal.species === 'chicken' ? 'Postura a cada 4 horas' : 'Aguardando reprodução';
+    const title = this.add.text(0, -73, `${def?.icon ?? '🐾'}  ${animal.name}`, {
       fontFamily: 'Georgia, serif', fontSize: '16px', fontStyle: 'bold', color: '#f6e6bd'
     }).setOrigin(0.5);
-    const details = this.add.text(0, -17,
-      `${def?.speciesName ?? 'Animal'} • ${animal.gender === 'female' ? 'Fêmea' : 'Macho'} • Rank ${tierNames[animal.tier] ?? 'Comum'}\nSaúde: ${animal.health ?? 100}%   Felicidade: ${animal.happiness ?? 100}%\nFome: ${100 - (animal.hunger ?? 100)}%   Sede: ${100 - (animal.hydration ?? 100)}%`,
-      { fontFamily: 'Georgia, serif', fontSize: '12px', color: '#e4eadc', align: 'center', lineSpacing: 7 }
+    const details = this.add.text(0, -22,
+      `${def?.speciesName ?? 'Animal'} • ${animal.gender === 'female' ? 'Fêmea' : 'Macho'} • Rank ${tierNames[animal.tier] ?? 'Comum'} • ${Math.floor(animal.ageDays ?? 0)} dia(s)\nSaúde: ${animal.health ?? 100}%   Felicidade: ${animal.happiness ?? 100}%\nFome: ${100 - (animal.hunger ?? 100)}%   Sede: ${100 - (animal.hydration ?? 100)}%\n${pregnancyInfo} • ${breedingInfo}\nChance de subir para o próximo rank: ${nextTier ? nextTierChance[animal.tier] : 'rank máximo'}`,
+      { fontFamily: 'Georgia, serif', fontSize: '11px', color: '#e4eadc', align: 'center', lineSpacing: 5, wordWrap: { width: Math.min(420, this.scale.width - 60) } }
     ).setOrigin(0.5);
-    const close = this.add.text(0, 52, 'Fechar', {
+    const close = this.add.text(0, 72, 'Fechar', {
       fontFamily: 'Georgia, serif', fontSize: '12px', color: '#ffe3a6',
       backgroundColor: '#5b4529', padding: { x: 14, y: 6 }
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
