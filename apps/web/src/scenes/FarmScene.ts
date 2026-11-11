@@ -926,7 +926,7 @@ export class FarmScene extends Phaser.Scene {
       } else {
         const petals = [0xf2d36b, 0xe9a6b5, 0xf4eee0, 0xb8a0df];
         g.lineStyle(2, 0x47783d, 1); g.lineBetween(p.x, p.y, p.x - 1, p.y - 9);
-        g.fillStyle(petals[index % petals.length], 1);
+        g.fillStyle(petals[index % petals.length] ?? 0xf2d36b, 1);
         g.fillCircle(p.x - 4, p.y - 10, 3); g.fillCircle(p.x + 3, p.y - 10, 3);
         g.fillCircle(p.x, p.y - 14, 3); g.fillStyle(0xe3b94f, 1); g.fillCircle(p.x, p.y - 10, 2);
       }
