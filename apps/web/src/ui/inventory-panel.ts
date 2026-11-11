@@ -4,7 +4,7 @@ function formatGold(value: number): string {
   return Math.max(0, Math.floor(value)).toLocaleString('pt-BR');
 }
 
-function createSection(titleText: string, subtitleText: string, items: FarmInventoryItem[]): HTMLElement {
+function createSection(titleText: string, subtitleText: string, items: FarmInventoryItem[], onSell: (key: string) => Promise<InventorySnapshot>, onRefresh: (inventory: InventorySnapshot) => void): HTMLElement {
   const section = document.createElement('section');
   section.className = 'farm-inventory-section';
   const heading = document.createElement('div');
@@ -32,8 +32,16 @@ function createSection(titleText: string, subtitleText: string, items: FarmInven
     quantity.textContent = `${item.quantity} unidades`;
     info.append(name, quantity);
     card.append(icon, info);
-
-
+    if ((item.category === 'crop' || item.category === 'fish') && item.quantity > 0) {
+      const sell = document.createElement('button');
+      sell.type = 'button'; sell.className = 'ghost-button'; sell.textContent = 'Vender 1';
+      sell.addEventListener('click', async () => {
+        sell.disabled = true;
+        try { onRefresh(await onSell(item.key)); }
+        catch (error) { sell.disabled = false; const msg = document.createElement('small'); msg.textContent = error instanceof Error ? error.message : 'Falha na venda'; info.append(msg); }
+      });
+      card.append(sell);
+    }
     grid.append(card);
   }
   if (!items.length) {
@@ -52,6 +60,7 @@ export function renderInventoryPanel(
   onEquip: (inventoryItemId: string) => Promise<InventorySnapshot>,
   onUnequip: (slot: string) => Promise<InventorySnapshot>,
   onUse: (inventoryItemId: string) => Promise<InventorySnapshot>,
+  onSell: (itemKey: string) => Promise<InventorySnapshot>,
   onClose: () => void
 ): void {
   root.querySelector('.game-panel-overlay')?.remove();
@@ -124,10 +133,10 @@ export function renderInventoryPanel(
   const content = document.createElement('div');
   content.className = 'farm-inventory-content';
   content.append(
-    createSection('Armazém', 'Produtos colhidos e guardados para uso e futuro mercado entre jogadores.', storage),
-    createSection('Sementes', 'Sementes disponíveis para iniciar novas plantações.', seeds),
-    createSection('Rações', 'Alimento preparado para cuidar dos animais do rancho.', feed),
-    createSection('Pescaria', 'Peixes pescados no lago público de Valedouro.', fish)
+    createSection('Armazém', 'Produtos colhidos e guardados para venda.', storage, onSell, (next) => renderInventoryPanel(root, next, onEquip, onUnequip, onUse, onSell, onClose)),
+    createSection('Sementes', 'Sementes disponíveis para iniciar novas plantações.', seeds, onSell, (next) => renderInventoryPanel(root, next, onEquip, onUnequip, onUse, onSell, onClose)),
+    createSection('Rações', 'Alimento preparado para cuidar dos animais do rancho.', feed, onSell, (next) => renderInventoryPanel(root, next, onEquip, onUnequip, onUse, onSell, onClose)),
+    createSection('Pescaria', 'Peixes pescados no lago público de Valedouro.', fish, onSell, (next) => renderInventoryPanel(root, next, onEquip, onUnequip, onUse, onSell, onClose))
   );
 
   panel.append(header, summary, content);
