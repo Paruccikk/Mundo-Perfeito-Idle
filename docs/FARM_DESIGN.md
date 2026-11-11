@@ -246,3 +246,43 @@ O estado da fazenda persiste mesmo se o jogador sair. A produção e o crescimen
 4. A fazenda apresenta casa principal, grade de terreno, canteiros e áreas reservadas.
 5. A fazenda é associada ao personagem no servidor, não apenas ao navegador.
 6. Nenhuma mudança quebra login, seleção de personagem, cidade multiplayer, música ou combate.
+
+## 13. Regras aprovadas para o ciclo agrícola e pecuário
+
+Estas regras substituem qualquer comportamento provisório anterior de plantio e comércio:
+
+### Sementes, plantio e irrigação
+- Plantar consome exatamente 1 semente do estoque do jogador.
+- O canteiro recém-plantado não cresce enquanto não for regado.
+- Regar inicia o temporizador de crescimento controlado pelo servidor.
+- Ao colher uma plantação madura, o jogador recebe exatamente 2 sementes da mesma cultura e uma quantidade variável do fruto.
+- A colheita vai para o armazém da fazenda; nunca é convertida automaticamente em ouro.
+- Na primeira fase, Barnabé vende até 10 sementes por cultura por dia. Esse limite e a compra são validados pela API.
+- A intenção de longo prazo é retirar a venda de sementes do NPC quando o mercado entre jogadores estiver maduro; sementes passarão a circular principalmente entre jogadores.
+
+### Perda de plantações
+- Uma cultura madura que não for colhida fica exposta aos animais.
+- Após a janela inicial de 60 segundos, um animal com dieta compatível pode consumir a plantação.
+- Se for consumida, a plantação desaparece e não gera fruto nem as 2 sementes da colheita.
+- Dietas iniciais: milho para galinhas e bovinos; trigo para aves, bovinos e equinos; cenoura para equinos.
+
+### Rações, comedouros e bebedouros
+- Rações são produzidas usando exclusivamente colheitas armazenadas.
+- Receita de aves: 2 milhos + 1 trigo = 1 ração.
+- Receita de bovinos: 1 milho + 2 trigos = 1 ração.
+- Receita de equinos: 2 cenouras + 1 trigo = 1 ração.
+- Cada instalação possui comedouro e bebedouro próprios, com capacidade de 30 unidades cada.
+- O servidor consome ração e água por animal ao longo do tempo e atualiza fome/sede; os indicadores nunca são confiados ao navegador.
+- A falta de alimento ou água reduz as necessidades do animal, mas não causa morte nesta primeira fase.
+
+### Mercado e NPCs
+- NPCs não compram frutos, colheitas, sementes ou produtos animais.
+- Colheitas e produtos agrícolas/pecuários serão vendidos exclusivamente no mercado online entre jogadores.
+- O NPC agropecuário permanece, nesta fase, como vendedor limitado de sementes e catálogo de animais/construções.
+- O mercado deverá usar transações atômicas, anúncios com reserva de estoque, histórico e ledger para impedir duplicação.
+- Até o mercado ser implementado, os frutos permanecem armazenados na fazenda e não podem ser vendidos por NPC.
+
+### Estado da primeira implementação
+- Implementado na API: estoque inicial de sementes, consumo ao plantar, irrigação obrigatória, retorno de 2 sementes na colheita, limite diário de compra, receitas de ração, abastecimento dos cochos e consumo de necessidades por relógio do servidor.
+- Implementado na interface: escolha de sementes com estoque, ação de regar, loja diária de sementes, painel de receitas, abastecimento de comedouros/bebedouros e indicadores de fome/sede.
+- Próxima etapa: testar o ciclo completo, implementar produção de ovos/leite e, depois, o mercado online entre jogadores.
