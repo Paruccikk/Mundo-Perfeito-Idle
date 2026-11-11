@@ -469,6 +469,30 @@ export function renderFarmShop(
     note.textContent = 'Transforme suas colheitas em ração. Depois abasteça o comedouro da instalação. Os animais também precisam de água no bebedouro.';
     contentArea.append(note);
 
+    if (currentFarm.animals.length > 0) {
+      const animalStatus = document.createElement('div');
+      animalStatus.style.display = 'grid';
+      animalStatus.style.gridTemplateColumns = 'repeat(auto-fit, minmax(180px, 1fr))';
+      animalStatus.style.gap = '8px';
+      animalStatus.style.marginBottom = '14px';
+      currentFarm.animals.forEach((animal) => {
+        const card = document.createElement('div');
+        card.style.padding = '10px';
+        card.style.borderRadius = '7px';
+        card.style.background = 'rgba(25,36,45,.8)';
+        const title = document.createElement('strong');
+        title.style.color = '#fef08a';
+        title.textContent = animal.name;
+        const needs = document.createElement('p');
+        needs.style.fontSize = '11px';
+        needs.style.color = '#cbd5e1';
+        needs.textContent = `🍽 Fome: ${animal.hunger ?? 100}/100  •  💧 Sede: ${animal.hydration ?? 100}/100`;
+        card.append(title, needs);
+        animalStatus.append(card);
+      });
+      contentArea.append(animalStatus);
+    }
+
     const recipeGrid = document.createElement('div');
     recipeGrid.style.display = 'grid';
     recipeGrid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(210px, 1fr))';
