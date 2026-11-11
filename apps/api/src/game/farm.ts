@@ -36,7 +36,13 @@ export function sanitizeFarmState(farm?: FarmState | null): FarmState {
   const defaultPlots: FarmPlotState[] = Array.from({ length: 6 }, (_, index) => {
     const existing = farm.plots.find((p) => p.plotIndex === index);
     return existing
-      ? { ...existing, wateredAt: existing.wateredAt ?? null }
+      ? {
+          ...existing,
+          // Plantações antigas não tinham irrigação; precisam ser regadas
+          // novamente para iniciar o crescimento sob a regra nova.
+          readyAt: existing.wateredAt ? existing.readyAt : null,
+          wateredAt: existing.wateredAt ?? null
+        }
       : { plotIndex: index, cropId: null, plantedAt: null, readyAt: null, wateredAt: null };
   });
   const today = now.slice(0, 10);
