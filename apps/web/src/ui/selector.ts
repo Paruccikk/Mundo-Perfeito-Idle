@@ -75,7 +75,7 @@ function buildCharacterCard(
 ): HTMLButtonElement {
   const card = el('button', 'character-card') as HTMLButtonElement;
   card.type = 'button';
-  card.dataset.class = character.classId;
+  card.dataset.class = 'farmer';
   card.setAttribute(
     'aria-label',
     `Entrar com ${character.name}, ${character.professionName ?? 'Fazendeiro'}, nível ${character.professionLevel ?? 1}`
