@@ -9,7 +9,8 @@ import type {
   StageCatalog,
   FarmBuildingId,
   FarmResponse,
-  CropTypeId
+  CropTypeId,
+  AnimalSpeciesId
 } from '@mundo-perfeito/shared';
 import { getAuthToken } from './player';
 
@@ -163,5 +164,17 @@ export const api = {
   },
   async harvestFarmCrop(id: string, plotIndex: number): Promise<FarmResponse> {
     return request<FarmResponse>(`/api/v1/characters/${encodeURIComponent(id)}/farm/harvest`, { method: 'POST', body: { plotIndex } });
+  },
+  async buyFarmSeeds(id: string, cropId: CropTypeId, quantity: number): Promise<FarmResponse> {
+    return request<FarmResponse>(`/api/v1/characters/${encodeURIComponent(id)}/farm/buy-seeds`, { method: 'POST', body: { cropId, quantity } });
+  },
+  async waterFarmCrop(id: string, plotIndex: number): Promise<FarmResponse> {
+    return request<FarmResponse>(`/api/v1/characters/${encodeURIComponent(id)}/farm/water`, { method: 'POST', body: { plotIndex } });
+  },
+  async craftFarmFeed(id: string, species: AnimalSpeciesId, quantity: number): Promise<FarmResponse> {
+    return request<FarmResponse>(`/api/v1/characters/${encodeURIComponent(id)}/farm/craft-feed`, { method: 'POST', body: { species, quantity } });
+  },
+  async fillFarmTrough(id: string, buildingId: FarmBuildingId, kind: 'feed' | 'water', quantity: number): Promise<FarmResponse> {
+    return request<FarmResponse>(`/api/v1/characters/${encodeURIComponent(id)}/farm/fill-trough`, { method: 'POST', body: { buildingId, kind, quantity } });
   }
 };
