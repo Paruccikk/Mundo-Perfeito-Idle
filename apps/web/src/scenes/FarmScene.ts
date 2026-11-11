@@ -429,10 +429,8 @@ export class FarmScene extends Phaser.Scene {
           const icon = def?.icon ?? (pad.id === 'coop' ? '🐔' : pad.id === 'corral' ? '🐄' : '🐎');
           const startX = p.x + Phaser.Math.Between(-34, 34);
           const startY = p.y + Phaser.Math.Between(-15, 15);
-          const sprite = this.add.text(startX, startY, icon, {
-            fontSize: pad.id === 'stable' ? '27px' : pad.id === 'corral' ? '24px' : '21px',
-            stroke: '#47311f', strokeThickness: 2
-          }).setOrigin(0.5).setDepth(24 + startY).setInteractive({ useHandCursor: true });
+          const sprite = this.createAnimalSprite(animal, startX, startY);
+          sprite.setDepth(24 + startY);
           sprite.on('pointerdown', (_pointer: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
             event.stopPropagation();
             this.openAnimalDetails(animal);
@@ -729,6 +727,39 @@ export class FarmScene extends Phaser.Scene {
         'danger'
       );
     }
+  }
+
+  private createAnimalSprite(animal: FarmState['animals'][number], x: number, y: number): Phaser.GameObjects.Container {
+    const root = this.add.container(x, y);
+    const g = this.add.graphics();
+    const shadow = this.add.ellipse(0, 8, animal.species === 'chicken' ? 24 : 38, 10, 0x1c2b18, 0.28);
+    const rankColor: Record<string, number> = { white: 0xd9d4c7, green: 0x70c77a, blue: 0x63a9e8, orange: 0xf2a65a, red: 0xe86a62 };
+    const accent = rankColor[animal.tier] ?? 0xd9d4c7;
+    if (animal.species === 'chicken') {
+      g.fillStyle(0xf3e8c8, 1); g.fillEllipse(-1, -2, 22, 15);
+      g.fillStyle(accent, 1); g.fillCircle(7, -10, 6);
+      g.fillStyle(0xeaa52d, 1); g.fillTriangle(12, -10, 20, -7, 12, -5);
+      g.fillStyle(0xc84b3e, 1); g.fillCircle(5, -17, 3);
+      g.lineStyle(2, 0x9b682c, 1); g.lineBetween(-5, 4, -6, 9); g.lineBetween(3, 4, 4, 9);
+      g.lineStyle(1, 0x9b682c, 1); g.lineBetween(-8, 9, -3, 9); g.lineBetween(2, 9, 7, 9);
+    } else if (animal.species === 'cow') {
+      g.fillStyle(0xf2eee3, 1); g.fillEllipse(-1, -2, 34, 20);
+      g.fillStyle(0x7b5136, 1); g.fillEllipse(-8, -4, 10, 8); g.fillEllipse(4, 1, 8, 6);
+      g.fillStyle(0xf0e7d7, 1); g.fillEllipse(14, -9, 15, 14);
+      g.fillStyle(0x8d6041, 1); g.fillTriangle(8, -15, 12, -23, 15, -14); g.fillTriangle(17, -14, 22, -22, 23, -11);
+      g.fillStyle(0xd88e91, 1); g.fillEllipse(19, -6, 9, 6);
+      g.lineStyle(3, 0x5a4635, 1); for (const legX of [-11, 8]) g.lineBetween(legX, 5, legX, 12);
+    } else {
+      g.fillStyle(0x9b6038, 1); g.fillEllipse(-2, -2, 38, 18);
+      g.fillStyle(0x9b6038, 1); g.fillTriangle(7, -8, 17, -25, 24, -8);
+      g.fillStyle(0x78442e, 1); g.fillEllipse(23, -20, 12, 9);
+      g.fillStyle(0x4a2d22, 1); g.fillTriangle(19, -25, 20, -34, 25, -25);
+      g.lineStyle(4, 0x5a3929, 1); g.lineBetween(-13, 4, -14, 13); g.lineBetween(7, 4, 8, 13);
+      g.lineStyle(3, 0x3f2921, 1); g.lineBetween(-20, -4, -26, 4);
+    }
+    root.add([shadow, g]);
+    root.setSize(48, 44).setInteractive({ useHandCursor: true });
+    return root;
   }
 
   private openAnimalDetails(animal: FarmState['animals'][number]): void {
