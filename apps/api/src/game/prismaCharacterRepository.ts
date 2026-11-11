@@ -32,9 +32,7 @@ export class PrismaCharacterRepository implements CharacterRepository {
           lastSimulatedAt: new Date(record.combat.lastTickAt), createdAt: new Date(record.createdAt)
         }
       });
-      const weapon = record.classId === 'mage' ? 'apprentice-staff' : record.classId === 'priest' ? 'apprentice-mace' : record.classId === 'archer' ? 'training-bow' : 'training-sword';
-      const starterItems: Array<[string, number]> = [[weapon, 1], ['apprentice-hood', 1], ['apprentice-chest', 1], ['apprentice-legs', 1], ['apprentice-boots', 1], ['apprentice-ring', 1], ['small-potion', 5], ['mp-potion', 3], ['revive-potion', 1]];
-      await tx.inventoryItem.createMany({ data: starterItems.map(([itemId, quantity]) => ({ characterId: record.id, itemId, quantity })) });
+      // Novos personagens não recebem armas, armaduras ou poções.
     });
   }
 
@@ -49,7 +47,7 @@ export class PrismaCharacterRepository implements CharacterRepository {
       constitution: record.attributes.constitution, strength: record.attributes.strength,
       intelligence: record.attributes.intelligence, dexterity: record.attributes.dexterity,
       attributePoints: record.attributePoints, currentStageId: record.currentStageId,
-      combat: record.combat as unknown as Prisma.InputJsonValue,
+      combat: ({ ...record.combat, profile: { gender: record.gender, professionId: record.professionId, professionExperience: record.professionExperience, professionLevel: record.professionLevel } }) as unknown as Prisma.InputJsonValue,
       lastSimulatedAt: new Date(record.combat.lastTickAt)
     };
     return this.prisma.$transaction(async (tx) => {
@@ -320,6 +318,10 @@ function fromDb(row: DbCharacter): CharacterRecord {
     attributes: { constitution: row.constitution, strength: row.strength,
       intelligence: row.intelligence, dexterity: row.dexterity },
     attributePoints: row.attributePoints, equipmentBonuses: sumEquipmentBonuses(row.equipment ?? []), currentStageId: row.currentStageId,
+    gender: ((row.combat as { profile?: { gender?: string } }).profile?.gender === 'female' ? 'female' : 'male'),
+    professionId: ((row.combat as { profile?: { professionId?: string } }).profile?.professionId ?? 'farmer') as CharacterRecord['professionId'],
+    professionExperience: Number((row.combat as { profile?: { professionExperience?: number } }).profile?.professionExperience ?? row.experience),
+    professionLevel: Number((row.combat as { profile?: { professionLevel?: number } }).profile?.professionLevel ?? row.level),
     combat: row.combat as unknown as CharacterRecord['combat'], createdAt: row.createdAt.toISOString()
   };
 }
