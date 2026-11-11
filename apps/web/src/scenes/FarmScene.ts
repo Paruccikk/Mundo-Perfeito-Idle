@@ -43,6 +43,7 @@ export class FarmScene extends Phaser.Scene {
   private alive = true;
   private farm: FarmState | null = null;
   private farmGold = 0;
+  private farmHudText: Phaser.GameObjects.Text | null = null;
   private interactiveElements: Phaser.GameObjects.GameObject[] = [];
   private seedPickerContainer: Phaser.GameObjects.Container | null = null;
   private refreshTimer: Phaser.Time.TimerEvent | null = null;
@@ -515,6 +516,7 @@ export class FarmScene extends Phaser.Scene {
     try {
       const res = await api.harvestFarmCrop(this.character.id, plotIndex);
       this.farm = res.farm;
+      this.updateFarmHUD();
       this.farmGold = res.gold;
       this.hud?.setGold(res.gold);
       this.hud?.pushFeed(res.message ?? 'Colheita concluída com sucesso!', 'gold');
@@ -581,23 +583,35 @@ export class FarmScene extends Phaser.Scene {
   }
 
   private drawFarmHUD(): void {
+    this.farmHudText = this.add
+      .text(0, 320, this.getFarmStatusText(), {
+        fontFamily: 'Georgia, serif',
+        fontSize: '14px',
+        color: '#fff4d5',
+        stroke: '#294526',
+        strokeThickness: 4,
+        align: 'center',
+        lineSpacing: 5
+      })
+      .setOrigin(0.5)
+      .setDepth(100);
+    this.world.add(this.farmHudText);
+  }
+
+  private getFarmStatusText(): string {
     const buildingsCount = this.farm?.buildings.length ?? 0;
     const animalsCount = this.farm?.animals.length ?? 0;
-    const statusText = `Fazenda de ${this.character.name} • Instalações: ${buildingsCount}/3 • Animais Criados: ${animalsCount}`;
+    const storage = this.farm?.storage ?? {};
+    const corn = storage['crop-corn'] ?? 0;
+    const wheat = storage['crop-wheat'] ?? 0;
+    const carrot = storage['crop-carrot'] ?? 0;
 
-    this.world.add(
-      this.add
-        .text(0, 320, statusText, {
-          fontFamily: 'Georgia, serif',
-          fontSize: '15px',
-          color: '#fff4d5',
-          stroke: '#294526',
-          strokeThickness: 4,
-          align: 'center'
-        })
-        .setOrigin(0.5)
-        .setDepth(100)
-    );
+    return `Fazenda de ${this.character.name} • Instalações: ${buildingsCount}/3 • Animais: ${animalsCount}
+Armazém: 🌽 Milho ${corn}  •  🌾 Trigo ${wheat}  •  🥕 Cenoura ${carrot}`;
+  }
+
+  private updateFarmHUD(): void {
+    this.farmHudText?.setText(this.getFarmStatusText());
   }
 
   private layout(): void {
