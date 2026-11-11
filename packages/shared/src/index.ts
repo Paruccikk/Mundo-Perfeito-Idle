@@ -504,6 +504,20 @@ export interface OwnedAnimal {
   acquiredAt: string;
   hunger?: number;
   hydration?: number;
+  health?: number;
+  happiness?: number;
+  ageDays?: number;
+  pregnantUntil?: string | null;
+  fatherTier?: CollectibleRank | null;
+}
+
+export interface FarmEgg {
+  id: string;
+  motherId: string;
+  laidAt: string;
+  fertilized: boolean;
+  hatchAt: string | null;
+  tier: CollectibleRank;
 }
 
 export interface FarmAnimalCare {
@@ -517,6 +531,7 @@ export interface FarmState {
   buildings: FarmBuildingId[];
   plots: FarmPlotState[];
   animals: OwnedAnimal[];
+  eggs?: FarmEgg[];
   /** Estoque de colheitas, sementes e rações; chaves crop-*, seed-* e feed-*. */
   storage: Record<string, number>;
   /** Sementes prontas para plantar, separadas do estoque de colheitas. */
