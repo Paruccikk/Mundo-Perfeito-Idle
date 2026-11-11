@@ -349,7 +349,20 @@ async function openInventoryPanel(characterId: string): Promise<void> {
   sfxInventory();
   try {
     const inventory = await api.getInventory(characterId);
-    renderInventoryPanel(root, inventory, (itemId) => api.equipItem(characterId, itemId), (slot) => api.unequipItem(characterId, slot), (itemId) => api.useItem(characterId, itemId), closeGamePanel);
+    renderInventoryPanel(
+      root,
+      inventory,
+      (itemId) => api.equipItem(characterId, itemId),
+      (slot) => api.unequipItem(characterId, slot),
+      (itemId) => api.useItem(characterId, itemId),
+      async (itemKey) => {
+        const updated = await api.sellFarmItem(characterId, itemKey);
+        hud?.setGold(updated.gold);
+        hud?.pushFeed('Produto vendido: +1.000 ouro.', 'gold');
+        return updated;
+      },
+      closeGamePanel
+    );
   } catch (error) {
     hud?.pushFeed(error instanceof Error ? error.message : 'Não foi possível carregar o inventário.', 'danger');
   }
