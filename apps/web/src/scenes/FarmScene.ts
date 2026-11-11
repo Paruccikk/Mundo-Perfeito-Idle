@@ -623,7 +623,8 @@ export class FarmScene extends Phaser.Scene {
     const picker = this.add.container(worldX, worldY - 50).setDepth(120);
     const bg = this.add
       .rectangle(0, 0, 240, 126, 0x111c24, 0.96)
-      .setStrokeStyle(2, 0x86efac, 0.9);
+      .setStrokeStyle(2, 0x86efac, 0.9).setInteractive();
+    bg.on('pointerdown', (_pointer: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => event.stopPropagation());
     const title = this.add
       .text(0, -42, 'Escolha a semente para plantar:', {
         fontFamily: 'Georgia, serif',
@@ -782,7 +783,8 @@ export class FarmScene extends Phaser.Scene {
     };
     const panel = this.add.container(this.scale.width / 2, this.scale.height - 132).setScrollFactor(0).setDepth(5000);
     const bg = this.add.rectangle(0, 0, Math.min(460, this.scale.width - 28), 190, 0x18271d, 0.97)
-      .setStrokeStyle(2, 0xc5a66b, 0.9);
+      .setStrokeStyle(2, 0xc5a66b, 0.9).setInteractive();
+    bg.on('pointerdown', (_pointer: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => event.stopPropagation());
     const def = FARM_ANIMALS[animal.definitionId];
     const tierOrder = ['white', 'green', 'blue', 'orange', 'red'];
     const nextTierChance: Record<string, string> = { white: '8%', green: '5%', blue: '2%', orange: '0,5%', red: '0%' };
@@ -804,7 +806,7 @@ export class FarmScene extends Phaser.Scene {
       fontFamily: 'Georgia, serif', fontSize: '12px', color: '#ffe3a6',
       backgroundColor: '#5b4529', padding: { x: 14, y: 6 }
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
-    close.on('pointerdown', () => { this.animalDetails?.destroy(); this.animalDetails = null; });
+    close.on('pointerdown', (_pointer: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => { event.stopPropagation(); this.animalDetails?.destroy(); this.animalDetails = null; });
     panel.add([bg, title, details, close]);
     this.animalDetails = panel;
   }
