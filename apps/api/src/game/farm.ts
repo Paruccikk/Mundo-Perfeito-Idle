@@ -338,13 +338,13 @@ export function processFarmCycles(currentFarm: FarmState): FarmState {
       for (let hour = 1; hour <= elapsedHours; hour += 1) {
         const laidAt = simulationStart + hour * 3_600_000;
         if (laidAt - lastEggAt < 4 * 3_600_000) continue;
-        const hasRooster = animals.some((animal) => animal.species === 'chicken' && animal.gender === 'male' && animal.buildingId === hen.buildingId && (animal.ageDays ?? 0) >= 1 && (animal.health ?? 100) >= 50);
-        const fertilized = hasRooster && Math.random() < 0.45;
+        const rooster = animals.find((animal) => animal.species === 'chicken' && animal.gender === 'male' && animal.buildingId === hen.buildingId && (animal.ageDays ?? 0) >= 1 && (animal.health ?? 100) >= 50);
+        const fertilized = Boolean(rooster) && Math.random() < 0.45;
         eggs.push({
           id: 'egg-' + randomUUID().slice(0, 10), motherId: hen.id,
           laidAt: new Date(laidAt).toISOString(), fertilized,
           hatchAt: fertilized ? new Date(laidAt + 24 * 3_600_000).toISOString() : null,
-          tier: hen.tier
+          tier: hen.tier, fatherTier: fertilized ? rooster?.tier ?? null : null
         });
         lastEggAt = laidAt;
       }
@@ -371,8 +371,7 @@ export function processFarmCycles(currentFarm: FarmState): FarmState {
       remainingEggs.push(egg);
       continue;
     }
-    const father = animals.find((animal) => animal.species === 'chicken' && animal.gender === 'male' && animal.buildingId === 'coop');
-    const tier = improveTier(egg.tier, father?.tier);
+    const tier = improveTier(egg.tier, egg.fatherTier);
     const gender = Math.random() < 0.5 ? 'female' : 'male';
     animals.push({
       id: 'animal-' + randomUUID().slice(0, 8), definitionId: gender === 'female' ? 'chicken-female' : 'chicken-male',
