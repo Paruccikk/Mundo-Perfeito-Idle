@@ -295,6 +295,7 @@ export class CharacterService {
       ...inventory,
       farmItems,
       farmSummary: {
+        name: record.name,
         installations: farm.buildings.length,
         maxInstallations: Object.keys(FARM_BUILDINGS).length,
         animals: farm.animals.length,
