@@ -178,6 +178,20 @@ export function createCharacterRoutes(repository: CharacterRepository) {
       } catch (error) { return sendError(reply, error); }
     });
 
+    app.post('/api/v1/characters/:id/farm/expand', { preHandler: authenticate }, async (request, reply) => {
+      try {
+        const { id } = request.params as { id: string };
+        return reply.send(await service.expandFarm(id, accountId(request)));
+      } catch (error) { return sendError(reply, error); }
+    });
+
+    app.post('/api/v1/characters/:id/city/fish', { preHandler: authenticate }, async (request, reply) => {
+      try {
+        const { id } = request.params as { id: string };
+        return reply.send(await service.fishAtCity(id, accountId(request)));
+      } catch (error) { return sendError(reply, error); }
+    });
+
     app.post('/api/v1/characters/:id/farm/buy-building', { preHandler: authenticate }, async (request, reply) => {
       try {
         const { id } = request.params as { id: string };
