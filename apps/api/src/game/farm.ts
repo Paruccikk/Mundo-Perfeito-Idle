@@ -14,14 +14,19 @@ import {
 
 const DAILY_SEED_LIMIT = 10;
 const TROUGH_CAPACITY = 30;
+const INITIAL_PLOTS = 6;
+const MAX_PLOTS = 30;
+const PLOT_EXPANSION_SIZE = 3;
+const PLOT_EXPANSION_BASE_COST = 250;
 
 export function createDefaultFarm(): FarmState {
   const now = new Date().toISOString();
   return {
     buildings: [],
-    plots: Array.from({ length: 6 }, (_, plotIndex) => ({
+    plots: Array.from({ length: INITIAL_PLOTS }, (_, plotIndex) => ({
       plotIndex, cropId: null, plantedAt: null, readyAt: null, wateredAt: null
     })),
+    unlockedPlots: INITIAL_PLOTS,
     animals: [],
     eggs: [],
     storage: {},
@@ -35,7 +40,8 @@ export function createDefaultFarm(): FarmState {
 export function sanitizeFarmState(farm?: FarmState | null): FarmState {
   if (!farm || !Array.isArray(farm.plots)) return createDefaultFarm();
   const now = new Date().toISOString();
-  const defaultPlots: FarmPlotState[] = Array.from({ length: 6 }, (_, index) => {
+  const unlockedPlots = Math.max(INITIAL_PLOTS, Math.min(MAX_PLOTS, Math.floor(farm.unlockedPlots ?? farm.plots.length ?? INITIAL_PLOTS)));
+  const defaultPlots: FarmPlotState[] = Array.from({ length: unlockedPlots }, (_, index) => {
     const existing = farm.plots.find((p) => p.plotIndex === index);
     return existing
       ? {
@@ -54,6 +60,7 @@ export function sanitizeFarmState(farm?: FarmState | null): FarmState {
   return {
     buildings: Array.isArray(farm.buildings) ? farm.buildings : [],
     plots: defaultPlots,
+    unlockedPlots,
     animals: Array.isArray(farm.animals) ? farm.animals.map((animal) => ({
       ...animal,
       hunger: typeof animal.hunger === 'number' ? animal.hunger : 100,
@@ -412,4 +419,40 @@ export function processFarmCycles(currentFarm: FarmState): FarmState {
     ? new Date(last + elapsedHours * 3_600_000).toISOString()
     : farm.lastNeedsAt;
   return { ...farmAfterNeeds, plots, lastNeedsAt };
+}
+
+ 
+/** Expansão permanente salva no estado da fazenda. */
+export function processExpandFarm(currentFarm: FarmState, currentGold: number): FarmOperationResult {
+  const farm = sanitizeFarmState(currentFarm);
+  const current = farm.plots.length;
+  if (current >= MAX_PLOTS) return fail(farm, currentGold, 'Sua propriedade já atingiu o limite de 30 canteiros.');
+  const quantity = Math.min(PLOT_EXPANSION_SIZE, MAX_PLOTS - current);
+  const expansionNumber = Math.floor((current - INITIAL_PLOTS) / PLOT_EXPANSION_SIZE) + 1;
+  const cost = PLOT_EXPANSION_BASE_COST * expansionNumber;
+  if (currentGold < cost) return fail(farm, currentGold, `Ouro insuficiente. A próxima expansão custa ${cost} moedas.`);
+  const plots = [...farm.plots];
+  for (let i = 0; i < quantity; i += 1) {
+    const plotIndex = current + i;
+    plots.push({ plotIndex, cropId: null, plantedAt: null, readyAt: null, wateredAt: null });
+  }
+  return { ok: true, farm: { ...farm, plots, unlockedPlots: plots.length }, gold: currentGold - cost,
+    message: `${quantity} novos canteiros liberados! Total: ${plots.length}/${MAX_PLOTS}.` };
+}
+
+const FISH_CATALOG = [
+  { id: 'fish-minnow', name: 'Lambari', chance: 0.48 },
+  { id: 'fish-trout', name: 'Truta', chance: 0.30 },
+  { id: 'fish-carp', name: 'Carpa', chance: 0.16 },
+  { id: 'fish-golden', name: 'Peixe Dourado', chance: 0.06 }
+] as const;
+
+export function processFishAtCity(currentFarm: FarmState, currentGold: number): FarmOperationResult {
+  const farm = sanitizeFarmState(currentFarm);
+  const roll = Math.random();
+  let total = 0;
+  const caught = FISH_CATALOG.find((fish) => { total += fish.chance; return roll <= total; }) ?? FISH_CATALOG[0];
+  const storage = { ...farm.storage, [caught.id]: (farm.storage[caught.id] ?? 0) + 1 };
+  return { ok: true, farm: { ...farm, storage }, gold: currentGold,
+    message: `Você pescou ${caught.name}! O peixe foi guardado no inventário.` };
 }
