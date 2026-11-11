@@ -36,6 +36,7 @@ export function renderInventoryPanel(
   onEquip: (inventoryItemId: string) => Promise<InventorySnapshot>,
   onUnequip: (slot: string) => Promise<InventorySnapshot>,
   onUse: (inventoryItemId: string) => Promise<InventorySnapshot>,
+  onSellFarmItem: (itemKey: string) => Promise<InventorySnapshot>,
   onClose: () => void
 ): void {
   root.querySelector('.game-panel-overlay')?.remove();
@@ -102,7 +103,7 @@ export function renderInventoryPanel(
       remove.addEventListener('click', async () => {
         remove.disabled = true;
         try {
-          renderInventoryPanel(root, await onUnequip(slot), onEquip, onUnequip, onUse, onClose);
+          renderInventoryPanel(root, await onUnequip(slot), onEquip, onUnequip, onUse, onSellFarmItem, onClose);
         } catch (error) {
           remove.disabled = false;
           remove.textContent = error instanceof Error ? error.message : 'Erro';
@@ -276,7 +277,54 @@ export function renderInventoryPanel(
   }
 
   content.append(grid, details);
-  panel.append(header, equipmentTitle, equipment, bagTitle, filters, content);
+
+  const farmTitle = document.createElement('h3');
+  farmTitle.className = 'game-panel__section-title';
+  farmTitle.textContent = 'Produção e recursos da fazenda';
+  const farmGrid = document.createElement('div');
+  farmGrid.className = 'inventory-panel__farm-grid';
+  const farmItems = inventory.farmItems ?? [];
+  if (!farmItems.length) {
+    const emptyFarm = document.createElement('p');
+    emptyFarm.className = 'inventory-panel__empty';
+    emptyFarm.textContent = 'Ainda não há sementes, colheitas ou rações armazenadas.';
+    farmGrid.append(emptyFarm);
+  }
+  for (const farmItem of farmItems) {
+    const card = document.createElement('article');
+    card.className = 'inventory-farm-item';
+    const icon = document.createElement('span');
+    icon.className = 'inventory-farm-item__icon';
+    icon.textContent = farmItem.icon;
+    const info = document.createElement('div');
+    info.className = 'inventory-farm-item__info';
+    const name = document.createElement('strong');
+    name.textContent = farmItem.name;
+    const quantity = document.createElement('small');
+    quantity.textContent = `Quantidade: ${farmItem.quantity}`;
+    info.append(name, quantity);
+    card.append(icon, info);
+    if (farmItem.category === 'crop' && farmItem.quantity > 0) {
+      const sell = document.createElement('button');
+      sell.type = 'button';
+      sell.className = 'inventory-farm-item__sell';
+      sell.textContent = 'Vender 1 · 1.000 ouro';
+      sell.addEventListener('click', async () => {
+        sell.disabled = true;
+        try {
+          const updated = await onSellFarmItem(farmItem.key);
+          renderInventoryPanel(root, updated, onEquip, onUnequip, onUse, onSellFarmItem, onClose);
+        } catch (error) {
+          sell.disabled = false;
+          sell.textContent = error instanceof Error ? error.message : 'Erro na venda';
+        }
+      });
+      card.append(sell);
+    }
+    farmGrid.append(card);
+  }
+
+  panel.append(header, equipmentTitle, equipment, bagTitle, filters, content, farmTitle, farmGrid);
   overlay.append(panel);
   overlay.addEventListener('click', (event) => { if (event.target === overlay) onClose(); });
   root.append(overlay);
