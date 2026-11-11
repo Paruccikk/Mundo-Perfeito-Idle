@@ -329,15 +329,13 @@ export class FarmScene extends Phaser.Scene {
           g.fillStyle(0xfde047, 1);
           g.fillRect(p.x - 28, p.y - 12, 12, 12);
         } else if (pad.id === 'corral') {
-          // Curral com cercado de tábuas e cocho
-          g.lineStyle(3, 0x78350f, 1);
-          g.strokeRect(p.x - 42, p.y - 24, 84, 48);
+          // Abrigo de bovinos com cocho e bebedouro.
           g.fillStyle(0x92400e, 1);
-          g.fillRect(p.x - 20, p.y - 14, 40, 14); // Cocho de feno
+          g.fillRect(p.x - 20, p.y - 14, 40, 14);
           g.fillStyle(0xfef08a, 1);
-          g.fillCircle(p.x, p.y - 7, 5); // Feno
+          g.fillCircle(p.x, p.y - 7, 5);
         } else if (pad.id === 'stable') {
-          // Estábulo rústico de cavalos
+          // Estábulo rústico de cavalos.
           g.fillStyle(0x713f12, 1);
           g.fillRect(p.x - 46, p.y - 26, 92, 48);
           g.fillStyle(0x991b1b, 1);
@@ -346,6 +344,22 @@ export class FarmScene extends Phaser.Scene {
           g.fillRect(p.x - 14, p.y - 6, 28, 28);
         }
 
+        // Cercado individual da instalação, com postes e travessas de madeira.
+        g.lineStyle(5, 0x694326, 0.98);
+        g.strokeRect(p.x - 66, p.y - 42, 132, 84);
+        g.lineStyle(2, 0xc08a4e, 0.95);
+        g.strokeRect(p.x - 66, p.y - 28, 132, 56);
+        for (const fenceX of [-66, -22, 22, 66]) {
+          g.fillStyle(0x4b2f1b, 1);
+          g.fillRect(p.x + fenceX - 3, p.y - 46, 6, 92);
+          g.fillStyle(0xc08a4e, 1);
+          g.fillRect(p.x + fenceX - 2, p.y - 45, 4, 90);
+        }
+        // Bebedouro e comedouro visíveis dentro do cercado.
+        g.fillStyle(0x647f8b, 1);
+        g.fillRoundedRect(p.x + 34, p.y + 7, 23, 10, 3);
+        g.fillStyle(0x9a6a32, 1);
+        g.fillRoundedRect(p.x - 57, p.y + 7, 23, 10, 3);
         this.buildingsContainer.add(g);
 
         // Rótulo da construção
@@ -394,16 +408,32 @@ export class FarmScene extends Phaser.Scene {
         });
         this.buildingsContainer.add(troughText);
 
-        animalsInBuilding.slice(0, 4).forEach((animal, idx) => {
-          const offsetX = (idx % 2 === 0 ? -1 : 1) * (14 + idx * 4);
-          const offsetY = idx < 2 ? -6 : 10;
+        animalsInBuilding.forEach((animal, idx) => {
           const def = FARM_ANIMALS[animal.definitionId];
           const icon = def?.icon ?? (pad.id === 'coop' ? '🐔' : pad.id === 'corral' ? '🐄' : '🐎');
-          const sprite = this.add
-            .text(p.x + offsetX, p.y + offsetY, icon, { fontSize: '18px' })
-            .setOrigin(0.5)
-            .setDepth(22);
+          const startX = p.x + Phaser.Math.Between(-34, 34);
+          const startY = p.y + Phaser.Math.Between(-15, 15);
+          const sprite = this.add.text(startX, startY, icon, {
+            fontSize: pad.id === 'stable' ? '27px' : pad.id === 'corral' ? '24px' : '21px',
+            stroke: '#47311f', strokeThickness: 2
+          }).setOrigin(0.5).setDepth(24 + startY).setInteractive({ useHandCursor: true });
+          sprite.on('pointerdown', (_pointer: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
+            event.stopPropagation();
+            this.openAnimalDetails(animal);
+          });
           this.buildingsContainer.add(sprite);
+          const roam = () => {
+            if (!sprite.active || !this.alive) return;
+            const targetX = p.x + Phaser.Math.Between(-34, 34);
+            const targetY = p.y + Phaser.Math.Between(-15, 15);
+            this.tweens.add({
+              targets: sprite, x: targetX, y: targetY, duration: Phaser.Math.Between(1800, 3600),
+              ease: 'Sine.easeInOut', onUpdate: () => sprite.setDepth(24 + sprite.y),
+              onComplete: () => { if (sprite.active) this.time.delayedCall(Phaser.Math.Between(500, 1800), roam); }
+            });
+          };
+          this.time.delayedCall(Phaser.Math.Between(300, 1800) + idx * 180, roam);
+          this.tweens.add({ targets: sprite, angle: { from: -3, to: 3 }, duration: 900 + idx * 90, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
         });
       } else {
         // Pad vazio (não construído)
@@ -681,6 +711,31 @@ export class FarmScene extends Phaser.Scene {
     }
   }
 
+  private openAnimalDetails(animal: FarmState['animals'][number]): void {
+    this.animalDetails?.destroy();
+    const tierNames: Record<string, string> = {
+      white: 'Comum', green: 'Incomum', blue: 'Raro', orange: 'Épico', red: 'Lendário'
+    };
+    const panel = this.add.container(this.scale.width / 2, this.scale.height - 118).setScrollFactor(0).setDepth(5000);
+    const bg = this.add.rectangle(0, 0, Math.min(410, this.scale.width - 28), 154, 0x18271d, 0.97)
+      .setStrokeStyle(2, 0xc5a66b, 0.9);
+    const def = FARM_ANIMALS[animal.definitionId];
+    const title = this.add.text(0, -56, `${def?.icon ?? '🐾'}  ${animal.name}`, {
+      fontFamily: 'Georgia, serif', fontSize: '16px', fontStyle: 'bold', color: '#f6e6bd'
+    }).setOrigin(0.5);
+    const details = this.add.text(0, -17,
+      `${def?.speciesName ?? 'Animal'} • ${animal.gender === 'female' ? 'Fêmea' : 'Macho'} • Rank ${tierNames[animal.tier] ?? 'Comum'}\nSaúde: ${animal.health ?? 100}%   Felicidade: ${animal.happiness ?? 100}%\nFome: ${100 - (animal.hunger ?? 100)}%   Sede: ${100 - (animal.hydration ?? 100)}%`,
+      { fontFamily: 'Georgia, serif', fontSize: '12px', color: '#e4eadc', align: 'center', lineSpacing: 7 }
+    ).setOrigin(0.5);
+    const close = this.add.text(0, 52, 'Fechar', {
+      fontFamily: 'Georgia, serif', fontSize: '12px', color: '#ffe3a6',
+      backgroundColor: '#5b4529', padding: { x: 14, y: 6 }
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    close.on('pointerdown', () => { this.animalDetails?.destroy(); this.animalDetails = null; });
+    panel.add([bg, title, details, close]);
+    this.animalDetails = panel;
+  }
+
   private drawDecorations(): void {
     const treeSpots: Array<[number, number]> = [
       [1, 1],
@@ -702,13 +757,7 @@ export class FarmScene extends Phaser.Scene {
       this.world.add(g);
     }
 
-    const player = this.add.container(-20, 110).setDepth(60);
-    const shadow = this.add.ellipse(0, 10, 28, 12, 0x25351e, 0.35);
-    const body = this.add.ellipse(0, -8, 22, 30, 0x3e668e);
-    const head = this.add.circle(0, -29, 10, 0xf0c69a);
-    const hat = this.add.triangle(0, -42, -12, 8, 12, 8, 0, -10, 0x6a472c);
-    player.add([shadow, body, head, hat]);
-    // A área de convivência agora é desenhada separadamente do personagem.
+    // Personagem controlável desenhado por drawPlayer().
   }
 
   private drawPlayer(): void {
