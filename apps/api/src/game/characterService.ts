@@ -370,55 +370,73 @@ export class CharacterService {
   }
 
   async buyFarmBuilding(id: string, playerId: unknown, buildingId: FarmBuildingId): Promise<{ farm: FarmState; gold: number; message: string }> {
-    assertPlayerId(playerId);
-    const record = await this.findOwned(id, playerId);
-    const result = processBuyBuilding(record.combat.farm ?? createDefaultFarm(), record.gold, buildingId);
-    if (!result.ok) {
-      throw new CharacterError('farm_error', 400, result.error ?? 'Não foi possível construir.');
-    }
-    record.combat.farm = result.farm;
-    record.gold = result.gold;
-    await this.repository.save(record);
-    return { farm: result.farm, gold: result.gold, message: result.message ?? 'Construção realizada!' };
+    return this.applyFarmOperation(id, playerId,
+      (farm, gold) => processBuyBuilding(farm, gold, buildingId),
+      'Não foi possível construir.');
   }
 
   async buyFarmAnimal(id: string, playerId: unknown, animalId: string, customName?: string): Promise<{ farm: FarmState; gold: number; message: string }> {
-    assertPlayerId(playerId);
-    const record = await this.findOwned(id, playerId);
-    const result = processBuyAnimal(record.combat.farm ?? createDefaultFarm(), record.gold, animalId, customName);
-    if (!result.ok) {
-      throw new CharacterError('farm_error', 400, result.error ?? 'Não foi possível comprar o animal.');
-    }
-    record.combat.farm = result.farm;
-    record.gold = result.gold;
-    await this.repository.save(record);
-    return { farm: result.farm, gold: result.gold, message: result.message ?? 'Animal adquirido!' };
+    return this.applyFarmOperation(id, playerId,
+      (farm, gold) => processBuyAnimal(farm, gold, animalId, customName),
+      'Não foi possível comprar o animal.');
   }
 
   async plantFarmCrop(id: string, playerId: unknown, plotIndex: number, cropId: CropTypeId): Promise<{ farm: FarmState; gold: number; message: string }> {
-    assertPlayerId(playerId);
-    const record = await this.findOwned(id, playerId);
-    const result = processPlantCrop(record.combat.farm ?? createDefaultFarm(), record.gold, plotIndex, cropId);
-    if (!result.ok) {
-      throw new CharacterError('farm_error', 400, result.error ?? 'Não foi possível plantar.');
-    }
-    record.combat.farm = result.farm;
-    record.gold = result.gold;
-    await this.repository.save(record);
-    return { farm: result.farm, gold: result.gold, message: result.message ?? 'Cultura plantada!' };
+    return this.applyFarmOperation(id, playerId,
+      (farm, gold) => processPlantCrop(farm, gold, plotIndex, cropId),
+      'Não foi possível plantar.');
   }
 
   async harvestFarmCrop(id: string, playerId: unknown, plotIndex: number): Promise<{ farm: FarmState; gold: number; message: string }> {
+    return this.applyFarmOperation(id, playerId,
+      (farm, gold) => processHarvestCrop(farm, gold, plotIndex),
+      'Não foi possível colher.');
+  }
+
+  /**
+   * Consolida o combate pendente antes de alterar a fazenda e usa o último
+   * instante simulado como controle otimista de concorrência. Assim, duas
+   * compras/colheitas simultâneas não sobrescrevem ouro ou estado da fazenda.
+   */
+  private async applyFarmOperation(
+    id: string,
+    playerId: unknown,
+    operation: (farm: FarmState, gold: number) => import('./farm.js').FarmOperationResult,
+    fallbackMessage: string
+  ): Promise<{ farm: FarmState; gold: number; message: string }> {
     assertPlayerId(playerId);
+    await this.getCombat(id, playerId);
+
     const record = await this.findOwned(id, playerId);
-    const result = processHarvestCrop(record.combat.farm ?? createDefaultFarm(), record.gold, plotIndex);
+    const expectedLastTickAt = record.combat.lastTickAt;
+    const result = operation(record.combat.farm ?? createDefaultFarm(), record.gold);
     if (!result.ok) {
-      throw new CharacterError('farm_error', 400, result.error ?? 'Não foi possível colher.');
+      throw new CharacterError('farm_error', 400, result.error ?? fallbackMessage);
     }
-    record.combat.farm = result.farm;
+
+    const previousTick = Date.parse(expectedLastTickAt);
+    const nextTick = new Date(Math.max(
+      Date.now(),
+      Number.isFinite(previousTick) ? previousTick + 1 : Date.now()
+    )).toISOString();
+
+    record.combat = { ...record.combat, farm: result.farm, lastTickAt: nextTick };
     record.gold = result.gold;
-    await this.repository.save(record);
-    return { farm: result.farm, gold: result.gold, message: result.message ?? 'Colheita realizada!' };
+
+    const saved = await this.repository.save(record, expectedLastTickAt);
+    if (!saved) {
+      throw new CharacterError(
+        'farm_busy',
+        409,
+        'Sua fazenda foi atualizada em outra ação. Atualize os dados e tente novamente.'
+      );
+    }
+
+    return {
+      farm: result.farm,
+      gold: result.gold,
+      message: result.message ?? fallbackMessage
+    };
   }
 
   private async findOwned(id: string, playerId: string): Promise<CharacterRecord> {
