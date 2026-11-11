@@ -404,7 +404,7 @@ export function renderFarmShop(
     introBox.style.fontSize = '12px';
     introBox.style.color = '#bbf7d0';
     introBox.textContent =
-      'Cada plantio consome 1 semente. Ao colher, você recebe 2 sementes de volta e os frutos vão para o armazém. O NPC vende até 10 sementes de cada cultura por dia nesta fase inicial.';
+      'Cada plantio consome 1 semente. Ao colher, você recebe 2 sementes de volta e os frutos vão para o armazém. O NPC vende até 10 sementes por cultura ao dia. Frutos e produtos não são vendidos a NPCs: serão negociados somente no mercado online entre jogadores.';
     contentArea.append(introBox);
 
     const grid = document.createElement('div');
