@@ -316,6 +316,9 @@ async function openFarmShop(characterId: string): Promise<void> {
         hud?.pushFeed(updated.message ?? 'Animal adquirido!', 'gold');
         return updated;
       },
+      (cropId, quantity) => api.buyFarmSeeds(characterId, cropId, quantity),
+      (species, quantity) => api.craftFarmFeed(characterId, species, quantity),
+      (buildingId, kind, quantity) => api.fillFarmTrough(characterId, buildingId, kind, quantity),
       () => {
         if (!game) return;
         game.scene.stop('CityScene');
