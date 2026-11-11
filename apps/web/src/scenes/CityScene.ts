@@ -615,20 +615,20 @@ export class CityScene extends Phaser.Scene {
 
   private buildPublicLake(): void {
     const lake = this.add.graphics().setDepth(4);
-    lake.fillStyle(0x263e35, 0.45); lake.fillEllipse(930, 475, 430, 250);
-    lake.fillStyle(0x397f91, 1); lake.fillEllipse(930, 460, 400, 220);
-    lake.lineStyle(12, 0x806b49, 1); lake.strokeEllipse(930, 460, 414, 232);
-    lake.lineStyle(3, 0x8fc6c4, 0.55); lake.strokeEllipse(930, 460, 365, 184);
-    lake.fillStyle(0xd9c28a, 1); lake.fillEllipse(770, 520, 74, 22); lake.fillEllipse(1090, 510, 88, 24);
-    lake.fillStyle(0xf0dfad, 0.75); lake.fillEllipse(850, 420, 70, 8); lake.fillEllipse(1010, 475, 92, 8);
+    lake.fillStyle(0x263e35, 0.45); lake.fillEllipse(620, 350, 430, 250);
+    lake.fillStyle(0x397f91, 1); lake.fillEllipse(620, 335, 400, 220);
+    lake.lineStyle(12, 0x806b49, 1); lake.strokeEllipse(620, 335, 414, 232);
+    lake.lineStyle(3, 0x8fc6c4, 0.55); lake.strokeEllipse(620, 335, 365, 184);
+    lake.fillStyle(0xd9c28a, 1); lake.fillEllipse(460, 395, 74, 22); lake.fillEllipse(780, 390, 88, 24);
+    lake.fillStyle(0xf0dfad, 0.75); lake.fillEllipse(540, 295, 70, 8); lake.fillEllipse(700, 350, 92, 8);
     this.world.add(lake);
-    const sign = this.add.text(930, 330, 'LAGO DE VALEDOURO · PESCA PÚBLICA', {
+    const sign = this.add.text(620, 205, 'LAGO DE VALEDOURO · PESCA PÚBLICA', {
       fontFamily: FONT, fontSize: '18px', color: '#e7f7e8', stroke: '#173b45', strokeThickness: 5, fontStyle: 'bold'
     }).setOrigin(0.5).setDepth(20);
     this.world.add(sign);
     const dock = this.add.graphics().setDepth(8);
-    dock.fillStyle(0x765333, 1); dock.fillRoundedRect(850, 548, 160, 28, 5);
-    dock.lineStyle(3, 0x39291d, 1); dock.strokeRoundedRect(850, 548, 160, 28, 5);
+    dock.fillStyle(0x765333, 1); dock.fillRoundedRect(540, 425, 160, 28, 5);
+    dock.lineStyle(3, 0x39291d, 1); dock.strokeRoundedRect(540, 425, 160, 28, 5);
     this.world.add(dock);
   }
 
@@ -1482,7 +1482,7 @@ export class CityScene extends Phaser.Scene {
   private handleGroundClick(pointer: Phaser.Input.Pointer): void {
     if (this.dialogue || pointer.button !== 0) return;
     const point = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
-    if (Phaser.Math.Distance.Between(point.x, point.y, 930, 460) < 245) {
+    if (Phaser.Math.Distance.Between(point.x, point.y, 620, 335) < 245) {
       const mover = this.mountedHorse?.root ?? this.avatar.root;
       if (Phaser.Math.Distance.Between(mover.x, mover.y, 930, 520) <= 255) {
         this.openFishingSpot();
