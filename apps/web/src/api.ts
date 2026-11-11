@@ -38,7 +38,7 @@ export class ApiError extends Error {
   }
 }
 
-export interface FarmInventoryItem { key: string; name: string; icon: string; quantity: number; category: 'crop' | 'seed' | 'feed'; sellPrice: number; }
+export interface FarmInventoryItem { key: string; name: string; icon: string; quantity: number; category: 'crop' | 'seed' | 'feed'; }
 export interface InventorySnapshot { gold: number; farmItems: FarmInventoryItem[]; farmSummary?: { name: string; installations: number; maxInstallations: number; animals: number; plots: number }; goldReceived?: number; mount: { id: 'starter-horse'; name: string; rarity: 'white'; equipped: boolean }; items: InventoryItem[]; equipment: EquipmentItem[]; }
 
 interface RequestOptions {
@@ -140,9 +140,6 @@ export const api = {
   },
   async sellItem(id: string, inventoryItemId: string, quantity: number): Promise<InventorySnapshot> {
     return request<InventorySnapshot>(`/api/v1/characters/${encodeURIComponent(id)}/sell-item`, { method: 'POST', body: { inventoryItemId, quantity } });
-  },
-  async sellFarmItem(id: string, itemKey: string): Promise<InventorySnapshot> {
-    return request<InventorySnapshot>(`/api/v1/characters/${encodeURIComponent(id)}/farm/sell-item`, { method: 'POST', body: { itemKey } });
   },
   async useItem(id: string, inventoryItemId: string): Promise<InventorySnapshot> {
     return request<InventorySnapshot>(`/api/v1/characters/${encodeURIComponent(id)}/use-item`, { method: 'POST', body: { inventoryItemId } });
