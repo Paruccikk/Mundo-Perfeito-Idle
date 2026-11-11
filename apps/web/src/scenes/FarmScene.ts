@@ -408,6 +408,22 @@ export class FarmScene extends Phaser.Scene {
         });
         this.buildingsContainer.add(troughText);
 
+        if (pad.id === 'coop') {
+          const coopEggs = (this.farm?.eggs ?? []).filter((egg) => egg.fertilized);
+          const plainEggs = (this.farm?.eggs ?? []).filter((egg) => !egg.fertilized);
+          const eggLabel = this.add.text(p.x, p.y + 59,
+            `🥚 ${plainEggs.length} ovos  •  🐣 ${coopEggs.length} chocando`, {
+              fontFamily: 'Georgia, serif', fontSize: '9px', color: '#fff2c2',
+              backgroundColor: 'rgba(40, 28, 14, 0.82)', padding: { x: 5, y: 3 }
+            }).setOrigin(0.5).setDepth(30);
+          this.buildingsContainer.add(eggLabel);
+          (this.farm?.eggs ?? []).slice(0, 8).forEach((egg, eggIndex) => {
+            const eggIcon = this.add.text(p.x - 28 + (eggIndex % 4) * 18, p.y + 24 + Math.floor(eggIndex / 4) * 12,
+              egg.fertilized ? '🐣' : '🥚', { fontSize: '12px' }).setOrigin(0.5).setDepth(31);
+            this.buildingsContainer.add(eggIcon);
+          });
+        }
+
         animalsInBuilding.forEach((animal, idx) => {
           const def = FARM_ANIMALS[animal.definitionId];
           const icon = def?.icon ?? (pad.id === 'coop' ? '🐔' : pad.id === 'corral' ? '🐄' : '🐎');
@@ -424,8 +440,12 @@ export class FarmScene extends Phaser.Scene {
           this.buildingsContainer.add(sprite);
           const roam = () => {
             if (!sprite.active || !this.alive) return;
-            const targetX = p.x + Phaser.Math.Between(-34, 34);
-            const targetY = p.y + Phaser.Math.Between(-15, 15);
+            // Os animais passeiam pelo cercado e visitam o comedouro/bebedouro.
+            const visitTrough = Math.random() < 0.32;
+            const targetX = visitTrough
+              ? p.x + (Math.random() < 0.5 ? -45 : 45)
+              : p.x + Phaser.Math.Between(-34, 34);
+            const targetY = visitTrough ? p.y + 10 : p.y + Phaser.Math.Between(-15, 15);
             this.tweens.add({
               targets: sprite, x: targetX, y: targetY, duration: Phaser.Math.Between(1800, 3600),
               ease: 'Sine.easeInOut', onUpdate: () => sprite.setDepth(24 + sprite.y),
