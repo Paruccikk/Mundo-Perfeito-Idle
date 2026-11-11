@@ -204,7 +204,7 @@ export function processHarvestCrop(currentFarm: FarmState, currentGold: number, 
 const FEED_RECIPES: Record<AnimalSpeciesId, { inputs: Partial<Record<CropTypeId, number>>; label: string }> = {
   chicken: { inputs: { corn: 2, wheat: 1 }, label: 'Ração para aves' },
   cow: { inputs: { wheat: 2, corn: 1 }, label: 'Ração para bovinos' },
-  horse: { inputs: { carrot: 2, wheat: 1 }, label: 'Ração para equinos' }
+  horse: { inputs: { corn: 1, carrot: 2 }, label: 'Ração para equinos' }
 };
 
 export function processCraftFeed(currentFarm: FarmState, currentGold: number, species: AnimalSpeciesId, quantity: number): FarmOperationResult {

@@ -373,11 +373,16 @@ export class CharacterService {
     await this.getCombat(id, playerId);
     const record = await this.findOwned(id, playerId);
     const expected = record.combat.lastTickAt;
-    const farm = processFarmCycles(sanitizeFarmState(record.combat.farm));
-    const nextTick = new Date(Math.max(Date.now(), Date.parse(expected) + 1)).toISOString();
-    record.combat = { ...record.combat, farm, lastTickAt: nextTick };
-    if (!await this.repository.save(record, expected)) {
-      throw new CharacterError('farm_busy', 409, 'A fazenda foi atualizada em outra ação. Atualize e tente novamente.');
+    const previousFarm = record.combat.farm ?? null;
+    const farm = processFarmCycles(sanitizeFarmState(previousFarm));
+    // Consultas frequentes da cena não devem disputar o bloqueio otimista
+    // com cliques do jogador quando nenhum ciclo da fazenda mudou.
+    if (JSON.stringify(farm) !== JSON.stringify(previousFarm)) {
+      const nextTick = new Date(Math.max(Date.now(), Date.parse(expected) + 1)).toISOString();
+      record.combat = { ...record.combat, farm, lastTickAt: nextTick };
+      if (!await this.repository.save(record, expected)) {
+        throw new CharacterError('farm_busy', 409, 'A fazenda foi atualizada em outra ação. Atualize e tente novamente.');
+      }
     }
     return { farm, gold: record.gold };
   }

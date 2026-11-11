@@ -461,7 +461,7 @@ export function renderFarmShop(
     const recipes: Array<{ species: AnimalSpeciesId; title: string; icon: string; recipe: string }> = [
       { species: 'chicken', title: 'Ração para galinhas', icon: '🐔', recipe: '2 Milhos + 1 Trigo = 1 ração' },
       { species: 'cow', title: 'Ração para bovinos', icon: '🐄', recipe: '1 Milho + 2 Trigos = 1 ração' },
-      { species: 'horse', title: 'Ração para cavalos', icon: '🐎', recipe: '2 Cenouras + 1 Trigo = 1 ração' }
+      { species: 'horse', title: 'Ração para cavalos', icon: '🐎', recipe: '1 Milho + 2 Cenouras = 1 ração' }
     ];
     const note = document.createElement('p');
     note.style.color = '#cbd5e1';
