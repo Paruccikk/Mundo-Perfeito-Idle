@@ -240,7 +240,7 @@ export function processFillTrough(currentFarm: FarmState, currentGold: number, b
   if (kind === 'feed') {
     const key = `feed-${species}`;
     if ((storage[key] ?? 0) < accepted) return fail(farm, currentGold, `Você não possui ração suficiente. Prepare ${species === 'chicken' ? 'ração para aves' : species === 'cow' ? 'ração para bovinos' : 'ração para equinos'} com suas colheitas.`);
-    storage[key] -= accepted;
+    storage[key] = (storage[key] ?? 0) - accepted;
   }
   const nextCare = { ...care, [kind]: current + accepted };
   return {
