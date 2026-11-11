@@ -156,6 +156,9 @@ export const api = {
   async getFarm(id: string): Promise<FarmResponse> {
     return request<FarmResponse>(`/api/v1/characters/${encodeURIComponent(id)}/farm`);
   },
+  async sellFarmItem(id: string, itemKey: string): Promise<FarmResponse> {
+    return request<FarmResponse>(`/api/v1/characters/${encodeURIComponent(id)}/farm/sell-item`, { method: 'POST', body: { itemKey } });
+  },
   async expandFarm(id: string): Promise<FarmResponse> {
     return request<FarmResponse>(`/api/v1/characters/${encodeURIComponent(id)}/farm/expand`, { method: 'POST', body: {} });
   },
