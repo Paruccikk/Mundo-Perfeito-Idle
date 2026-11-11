@@ -67,6 +67,17 @@ export function createCharacterRoutes(repository: CharacterRepository) {
       } catch (error) { return sendError(reply, error); }
     });
 
+    app.post('/api/v1/characters/:id/farm/sell-item', { preHandler: authenticate }, async (request, reply) => {
+      try {
+        const { id } = request.params as { id: string };
+        const body = request.body as { itemKey?: unknown } | null;
+        if (!body || typeof body.itemKey !== 'string' || body.itemKey.length > 64) {
+          throw new CharacterError('validation_error', 400, 'Informe o produto da fazenda que deseja vender.');
+        }
+        return reply.send(await service.sellFarmItem(id, accountId(request), body.itemKey));
+      } catch (error) { return sendError(reply, error); }
+    });
+
     app.post('/api/v1/characters/:id/sell-item', { preHandler: authenticate }, async (request, reply) => {
       try {
         const { id } = request.params as { id: string };
