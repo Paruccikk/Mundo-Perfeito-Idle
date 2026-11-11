@@ -316,9 +316,22 @@ async function openFarmShop(characterId: string): Promise<void> {
         hud?.pushFeed(updated.message ?? 'Animal adquirido!', 'gold');
         return updated;
       },
-      (cropId, quantity) => api.buyFarmSeeds(characterId, cropId, quantity),
-      (species, quantity) => api.craftFarmFeed(characterId, species, quantity),
-      (buildingId, kind, quantity) => api.fillFarmTrough(characterId, buildingId, kind, quantity),
+      async (cropId, quantity) => {
+        const updated = await api.buyFarmSeeds(characterId, cropId, quantity);
+        hud?.setGold(updated.gold);
+        hud?.pushFeed(updated.message ?? 'Sementes compradas!', 'gold');
+        return updated;
+      },
+      async (species, quantity) => {
+        const updated = await api.craftFarmFeed(characterId, species, quantity);
+        hud?.pushFeed(updated.message ?? 'Ração preparada!', 'gold');
+        return updated;
+      },
+      async (buildingId, kind, quantity) => {
+        const updated = await api.fillFarmTrough(characterId, buildingId, kind, quantity);
+        hud?.pushFeed(updated.message ?? 'Comedouro ou bebedouro abastecido!', 'gold');
+        return updated;
+      },
       () => {
         if (!game) return;
         game.scene.stop('CityScene');
