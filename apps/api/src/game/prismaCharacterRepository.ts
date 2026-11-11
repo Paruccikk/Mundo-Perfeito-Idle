@@ -28,7 +28,7 @@ export class PrismaCharacterRepository implements CharacterRepository {
           constitution: record.attributes.constitution, strength: record.attributes.strength,
           intelligence: record.attributes.intelligence, dexterity: record.attributes.dexterity,
           attributePoints: record.attributePoints, currentStageId: record.currentStageId,
-          combat: record.combat as unknown as Prisma.InputJsonValue,
+          combat: ({ ...record.combat, profile: { gender: record.gender, professionId: record.professionId, professionExperience: record.professionExperience, professionLevel: record.professionLevel } }) as unknown as Prisma.InputJsonValue,
           lastSimulatedAt: new Date(record.combat.lastTickAt), createdAt: new Date(record.createdAt)
         }
       });

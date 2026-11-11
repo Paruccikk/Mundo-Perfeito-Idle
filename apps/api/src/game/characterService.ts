@@ -102,27 +102,29 @@ export class CharacterService {
   async createCharacter(payload: CreateCharacterPayload): Promise<CharacterSummary> {
     const owned = await this.repository.countByPlayer(payload.playerId);
     if (owned >= MAX_CHARACTERS_PER_PLAYER) throw new CharacterError('character_limit_reached', 409,
-      `Você já tem ${MAX_CHARACTERS_PER_PLAYER} personagens. O limite do protótipo é ${MAX_CHARACTERS_PER_PLAYER}.`);
+      'Esta conta já possui seu único personagem.');
     const key = nameKey(payload.name);
     if (await this.repository.findByName(payload.playerId, key)) {
       throw new CharacterError('name_taken', 409, 'Você já tem um personagem com esse nome.', { name: 'Escolha outro nome.' });
     }
 
     const now = new Date().toISOString();
-    const attributes = { ...CLASS_DEFINITIONS[payload.classId].baseAttributes };
-    const stats = statsForLevel(payload.classId, 1, attributes);
+    const classId = 'warrior' as const;
+    const attributes = { ...CLASS_DEFINITIONS[classId].baseAttributes };
+    const stats = statsForLevel(classId, 1, attributes);
     const initialMonsterId = nextNormalMonster(STAGE_ONE, 0);
     const initialMonster = getMonster(initialMonsterId);
     const record: CharacterRecord = {
       id: randomUUID(), playerId: payload.playerId, name: payload.name, nameKey: key,
-      title: null, guildName: null, classId: payload.classId, level: 1, experience: 0,
-      gold: CLASS_DEFINITIONS[payload.classId].startingGold, attributes, attributePoints: 0, equipmentBonuses: {},
+      gender: payload.gender, professionId: payload.professionId, professionExperience: 0, professionLevel: 1,
+      title: null, guildName: null, classId, level: 1, experience: 0,
+      gold: 40, attributes, attributePoints: 0, equipmentBonuses: {},
       currentStageId: STAGE_ONE.id,
       combat: {
         stageId: STAGE_ONE.id, monsterId: initialMonsterId, monsterHp: initialMonster.maxHp,
         pack: Array.from({ length: 6 }, (_, index) => { const monsterId = STAGE_ONE.monsterIds[index % STAGE_ONE.monsterIds.length]!; return { slotId: `mob-${index + 1}`, monsterId, hp: getMonster(monsterId).maxHp, respawnAt: null }; }), targetIndex: 0,
         playerHp: stats.maxHp, playerMp: stats.maxMp, killsInStage: 0, bossActive: false, bossDefeated: 0,
-        skillPoints: 0, skillLevels: { [skillsForClass(payload.classId)[0]!.id]: 1 }, skillCooldowns: {}, pendingSkillMultiplier: 1, pendingSkillId: null,
+        skillPoints: 0, skillLevels: { [skillsForClass(classId)[0]!.id]: 1 }, skillCooldowns: {}, pendingSkillMultiplier: 1, pendingSkillId: null,
         status: 'fighting', playerCooldownSeconds: 0, monsterCooldownSeconds: 0,
         recoveringUntil: null, lastTickAt: now
       },
@@ -491,7 +493,13 @@ export class CharacterService {
 
 export function toSummary(record: CharacterRecord): CharacterSummary {
   const definition = CLASS_DEFINITIONS[record.classId];
+  const professionNames = { animal_caretaker: 'Cuidador de Animais', lumberjack: 'Lenhador', fisher: 'Pescador', farmer: 'Agricultor' } as const;
+  const professionLevel = record.professionLevel ?? record.level;
+  const professionRank = professionLevel >= 50 ? 'Grão-mestre' : professionLevel >= 30 ? 'Mestre' : professionLevel >= 15 ? 'Oficial' : professionLevel >= 5 ? 'Aprendiz' : 'Novato';
   return {
+    gender: record.gender ?? 'male', professionId: record.professionId ?? 'farmer',
+    professionName: professionNames[record.professionId ?? 'farmer'],
+    professionExperience: record.professionExperience ?? record.experience, professionLevel, professionRank,
     id: record.id, name: record.name, title: record.title, guildName: record.guildName,
     classId: record.classId, className: definition.name, level: record.level,
     experience: record.experience, experienceToNextLevel: experienceToNextLevel(record.level),

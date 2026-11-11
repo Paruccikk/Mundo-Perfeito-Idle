@@ -2,6 +2,8 @@ import type {
   ApiErrorBody,
   CharacterClassDefinition,
   CharacterClassId,
+  CharacterGender,
+  ProfessionId,
   CharacterSummary,
   CombatSnapshot,
   InventoryItem,
@@ -95,7 +97,7 @@ export const api = {
     const data = await request<{ classes: CharacterClassDefinition[] }>('/api/v1/game/classes');
     return data.classes;
   },
-  async createCharacter(input: { name: string; classId: CharacterClassId }): Promise<CharacterSummary> {
+  async createCharacter(input: { name: string; gender: CharacterGender; professionId: ProfessionId }): Promise<CharacterSummary> {
     const data = await request<{ character: CharacterSummary }>('/api/v1/characters', { method: 'POST', body: input });
     return data.character;
   },

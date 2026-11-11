@@ -32,6 +32,8 @@ export interface CombatStats {
 }
 
 export type CharacterClassId = 'warrior' | 'mage' | 'priest' | 'archer';
+export type CharacterGender = 'male' | 'female';
+export type ProfessionId = 'animal_caretaker' | 'lumberjack' | 'fisher' | 'farmer';
 
 export interface CharacterClassDefinition {
   id: CharacterClassId;
@@ -44,6 +46,12 @@ export interface CharacterClassDefinition {
 }
 
 export interface CharacterSummary {
+  gender?: CharacterGender;
+  professionId?: ProfessionId;
+  professionName?: string;
+  professionExperience?: number;
+  professionLevel?: number;
+  professionRank?: string;
   id: string;
   name: string;
   title: string | null;
@@ -82,7 +90,8 @@ export interface EquipmentItem {
 
 export interface CreateCharacterInput {
   name: string;
-  classId: CharacterClassId;
+  gender: CharacterGender;
+  professionId: ProfessionId;
 }
 
 export interface AttributeAllocation {

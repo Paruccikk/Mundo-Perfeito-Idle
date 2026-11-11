@@ -50,25 +50,7 @@ export class MemoryCharacterRepository implements CharacterRepository {
   async create(record: CharacterRecord): Promise<void> {
     this.characters.set(record.id, clone({ ...record, equipmentBonuses: {} }));
     this.equipment.set(record.id, []);
-    const weapon = record.classId === 'mage' ? 'apprentice-staff' : record.classId === 'priest' ? 'apprentice-mace' : record.classId === 'archer' ? 'training-bow' : 'training-sword';
-    const weaponStats: Record<string, number> = record.classId === 'mage' ? { intelligence: 2, magicDamage: 5, maxMp: 8 }
-      : record.classId === 'priest' ? { intelligence: 1, constitution: 1, magicDamage: 3, physicalDefense: 1 }
-      : record.classId === 'archer' ? { dexterity: 2, physicalDamage: 4, critChance: 0.01 }
-      : { strength: 2, physicalDamage: 4 };
-    const gear = ([
-      { id: 'starter-weapon', itemId: weapon, name: 'Arma de Aprendiz', slot: 'weapon', stats: weaponStats },
-      { id: 'starter-head', itemId: 'apprentice-hood', name: 'Capuz do Aprendiz', slot: 'head', stats: { constitution: 1, magicDefense: 1 } },
-      { id: 'starter-chest', itemId: 'apprentice-chest', name: 'Túnica do Aprendiz', slot: 'chest', stats: { constitution: 1, physicalDefense: 1, magicDefense: 1 } },
-      { id: 'starter-legs', itemId: 'apprentice-legs', name: 'Calças do Aprendiz', slot: 'legs', stats: { constitution: 1, physicalDefense: 1 } },
-      { id: 'starter-boots', itemId: 'apprentice-boots', name: 'Botas do Aprendiz', slot: 'boots', stats: { dexterity: 1 } },
-      { id: 'starter-ring', itemId: 'apprentice-ring', name: 'Anel do Aprendiz', slot: 'accessory', stats: { intelligence: 1, maxMp: 5 } }
-    ] as Array<{ id: string; itemId: string; name: string; slot: string; stats: Record<string, number> }>).map((item) => ({ ...item, description: 'Peça do Conjunto do Aprendiz.', rarity: 'common', category: item.slot === 'weapon' ? 'weapon' : 'armor', quantity: 1, levelReq: 1 }));
-    this.inventory.set(record.id, [
-      ...gear,
-      { id: `potions-${record.id}`, itemId: 'small-potion', name: 'Poção de Vida Pequena', description: 'Recupera 80 pontos de HP.', rarity: 'common', category: 'consumable', slot: null, quantity: 5, levelReq: 1, stats: { hpRestore: 80 } },
-      { id: `mp-potions-${record.id}`, itemId: 'mp-potion', name: 'Poção de Mana Pequena', description: 'Recupera 60 pontos de MP.', rarity: 'common', category: 'consumable', slot: null, quantity: 3, levelReq: 1, stats: { mpRestore: 60 } },
-      { id: `revive-${record.id}`, itemId: 'revive-potion', name: 'Poção da Ressurreição', description: 'Ao ser derrotado, revive no mesmo local.', rarity: 'uncommon', category: 'consumable', slot: null, quantity: 1, levelReq: 1, stats: { revive: 1 } }
-    ]);
+    this.inventory.set(record.id, []);
   }
 
   async save(record: CharacterRecord, expectedLastTickAt?: string, drops: Array<{ itemId: string; quantity: number; operationId: string }> = []): Promise<boolean> {

@@ -25,6 +25,8 @@ export interface DerivedStats {
 export interface CombatStats extends DerivedStats {}
 
 export type CharacterClassId = 'warrior' | 'mage' | 'priest' | 'archer';
+export type CharacterGender = 'male' | 'female';
+export type ProfessionId = 'animal_caretaker' | 'lumberjack' | 'fisher' | 'farmer';
 
 export interface ClassGrowth {
   maxHp: number;
@@ -63,6 +65,12 @@ export interface EquipmentRecord {
 }
 
 export interface CharacterSummary {
+  gender?: CharacterGender;
+  professionId?: ProfessionId;
+  professionName?: string;
+  professionExperience?: number;
+  professionLevel?: number;
+  professionRank?: string;
   id: string;
   name: string;
   title: string | null;
@@ -265,6 +273,10 @@ export interface CombatSnapshot {
 }
 
 export interface CharacterRecord {
+  gender?: CharacterGender;
+  professionId?: ProfessionId;
+  professionExperience?: number;
+  professionLevel?: number;
   id: string;
   playerId: string;
   name: string;

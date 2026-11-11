@@ -29,7 +29,7 @@ import { closeStageMap, openStageMap } from './ui/stage-map';
 import './style.css';
 import './city-multiplayer.css';
 
-const MAX_CHARACTERS = 3;
+const MAX_CHARACTERS = 1;
 const uiRoot = document.getElementById('ui-root');
 if (!uiRoot) throw new Error('Elemento #ui-root não encontrado no index.html');
 const root = uiRoot as HTMLElement;
@@ -115,13 +115,11 @@ async function showCharacterSelector(): Promise<void> {
 }
 
 async function showCharacterCreator(canGoBack: boolean): Promise<void> {
-  renderLoading(root, 'Carregando classes…');
+  renderLoading(root, 'Preparando criação do personagem…');
   try {
-    const classes = await api.listClasses();
     renderCharacterCreator(root, {
-      classes,
-      onCreate: async ({ name, classId }) => {
-        const character = await api.createCharacter({ name, classId });
+      onCreate: async ({ name, gender, professionId }) => {
+        const character = await api.createCharacter({ name, gender, professionId });
         storeCharacterId(character.id);
         startGame(character);
       },

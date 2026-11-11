@@ -58,14 +58,7 @@ interface NpcDefinition {
 }
 
 const NPCS: NpcDefinition[] = [
-  { id: 'adventurer', name: 'Alden', title: 'Mestre das Aventuras', classId: 'warrior', x: 415, y: 75, accent: 0xe7bd70, icon: '✦', restFacing: -1, greeting: 'As estradas além dos muros guardam criaturas e tesouros. Está pronto para partir?' },
-  { id: 'blacksmith', name: 'Brom', title: 'Ferreiro', classId: 'warrior', x: -575, y: 150, accent: 0xe28a58, icon: '⚒', restFacing: 1, greeting: 'Traga seus equipamentos. Um bom aventureiro nunca descuida de sua armadura.' },
-  { id: 'farmer', name: 'Barnabé', title: 'Mestre da Fazenda', classId: 'archer', x: -280, y: 160, accent: 0x76b852, icon: '🌾', restFacing: 1, greeting: 'Procurando expandir sua propriedade? Aqui você compra casas de animais (galinheiro, curral, estábulo), reprodutores machos e fêmeas e sementes.' },
-  { id: 'merchant', name: 'Mira', title: 'Mercadora', classId: 'mage', x: 535, y: 5, accent: 0x8bd6bd, icon: '◈', restFacing: -1, greeting: 'Poções, provisões e ferramentas! As melhores mercadorias do reino passam por aqui.' },
-  { id: 'alchemist', name: 'Elowen', title: 'Alquimista', classId: 'priest', x: -455, y: -360, accent: 0x9edc91, icon: '❧', restFacing: 1, greeting: 'A natureza oferece ingredientes poderosos. Cada erva tem seu segredo.' },
-  { id: 'keeper', name: 'Tomas', title: 'Guardião do Armazém', classId: 'archer', x: 345, y: 470, accent: 0x9bbbe8, icon: '▤', restFacing: -1, greeting: 'Seus pertences estarão seguros comigo. O armazém será aberto em breve.' },
-  { id: 'guard', name: 'Sargento Varo', title: 'Guarda da Cidade', classId: 'warrior', x: 95, y: -525, accent: 0xc4564e, icon: '⛨', restFacing: 1, greeting: 'Os portões estão protegidos. Siga pelas estradas marcadas e volte com vida.' },
-  { id: 'chaplain', name: 'Irmã Celeste', title: 'Capelã', classId: 'priest', x: -120, y: -455, accent: 0xf0d596, icon: '✧', restFacing: 1, greeting: 'Que a luz do Santuário guie seus passos. Descanse antes de partir.' }
+  { id: 'farmer', name: 'Barnabé', title: 'Mestre da Fazenda', classId: 'archer', x: -280, y: 160, accent: 0x76b852, icon: '🌾', restFacing: 1, greeting: 'Bem-vindo! Posso ajudar com instalações, animais, sementes e cuidados da sua propriedade.' }
 ];
 
 interface CityPlayerPayload {
