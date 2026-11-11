@@ -531,6 +531,8 @@ export interface FarmAnimalCare {
 export interface FarmState {
   buildings: FarmBuildingId[];
   plots: FarmPlotState[];
+  /** Quantidade de canteiros liberados; compatível com fazendas antigas. */
+  unlockedPlots?: number;
   animals: OwnedAnimal[];
   eggs?: FarmEgg[];
   /** Estoque de colheitas, sementes e rações; chaves crop-*, seed-* e feed-*. */
