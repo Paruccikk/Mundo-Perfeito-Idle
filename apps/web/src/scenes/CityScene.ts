@@ -1483,7 +1483,16 @@ export class CityScene extends Phaser.Scene {
     if (this.dialogue || pointer.button !== 0) return;
     const point = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
     if (Phaser.Math.Distance.Between(point.x, point.y, 930, 460) < 245) {
-      this.openFishingSpot();
+      const mover = this.mountedHorse?.root ?? this.avatar.root;
+      if (Phaser.Math.Distance.Between(mover.x, mover.y, 930, 520) <= 255) {
+        this.openFishingSpot();
+      } else {
+        const targetX = 800;
+        const targetY = 520;
+        const distance = Phaser.Math.Distance.Between(mover.x, mover.y, targetX, targetY);
+        if (this.mountedHorse) this.mountedHorse.walkTo(targetX, targetY, Phaser.Math.Clamp(distance * 1.9, 180, 3200));
+        else this.avatar.walkTo(targetX, targetY, Phaser.Math.Clamp(distance * 3.1, 220, 4200));
+      }
       return;
     }
     let targetX = Phaser.Math.Clamp((point.x - this.world.x) / this.world.scaleX, CITY_LIMITS.minX, CITY_LIMITS.maxX);
