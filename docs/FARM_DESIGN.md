@@ -286,3 +286,33 @@ Estas regras substituem qualquer comportamento provisório anterior de plantio e
 - Implementado na API: estoque inicial de sementes, consumo ao plantar, irrigação obrigatória, retorno de 2 sementes na colheita, limite diário de compra, receitas de ração, abastecimento dos cochos e consumo de necessidades por relógio do servidor.
 - Implementado na interface: escolha de sementes com estoque, ação de regar, loja diária de sementes, painel de receitas, abastecimento de comedouros/bebedouros e indicadores de fome/sede.
 - Próxima etapa: testar o ciclo completo, implementar produção de ovos/leite e, depois, o mercado online entre jogadores.
+
+
+## 14. Atualização: fazenda viva e criação animal
+
+A cena da fazenda foi ampliada para uma propriedade isométrica maior, com câmera que acompanha o personagem. O deslocamento aceita WASD, setas e clique no terreno. Casa, canteiros, galinheiro, curral e estábulo foram redistribuídos no novo espaço; cada instalação construída recebe cercado, comedouro e bebedouro visíveis.
+
+Os animais possuem desenho individual por espécie, passeiam dentro do próprio cercado, fazem pausas junto aos cochos e podem ser selecionados para abrir sua ficha. A ficha apresenta saúde, felicidade, fome, sede, idade, sexo, raridade e informações de reprodução.
+
+### Ranks e melhoria genética
+
+| Tier interno | Nome exibido | Próximo tier | Chance de melhoria |
+|---|---|---|---:|
+| white | Comum (D) | Incomum (C) | 8% |
+| green | Incomum (C) | Raro (B) | 5% |
+| blue | Raro (B) | Épico (A) | 2% |
+| orange | Épico (A) | Lendário (S) | 0,5% |
+| red | Lendário (S) | — | — |
+
+A cria parte do melhor tier entre os pais e pode subir mais um nível conforme a chance do tier-base. A rolagem ocorre exclusivamente no servidor.
+
+### Ovos e reprodução
+
+- Galinhas adultas e em boas condições podem botar um ovo a cada quatro horas simuladas.
+- Com um galo adulto saudável no mesmo galinheiro, cada ovo tem 45% de chance de fecundação.
+- Ovos não fecundados permanecem no galinheiro; ovos fecundados chocam após 24 horas e geram pintinhos de sexo aleatório.
+- A eclosão respeita a capacidade do galinheiro. Se estiver cheio, o ovo permanece aguardando espaço.
+- Vacas e cavalos adultos podem acasalar com parceiro adulto da mesma espécie e instalação: 12% de chance diária, com gestação de 48 horas para bovinos e 72 horas para equinos.
+- Saúde e felicidade são atualizadas pelo servidor a partir das condições de alimentação e hidratação. A falta de cuidados reduz os indicadores, sem morte punitiva nesta fase.
+
+**Observação técnica:** o ciclo animal usa o relógio do servidor e é consolidado quando a fazenda é sincronizada. As animações de caminhada e visita aos cochos são visuais na cena; consumo de ração/água, postura, fecundação, gestação, eclosão e raridade são calculados na API.
