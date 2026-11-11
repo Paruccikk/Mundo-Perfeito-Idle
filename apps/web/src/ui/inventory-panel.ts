@@ -4,7 +4,7 @@ function formatGold(value: number): string {
   return Math.max(0, Math.floor(value)).toLocaleString('pt-BR');
 }
 
-function createSection(titleText: string, subtitleText: string, items: FarmInventoryItem[], onSellFarmItem: (key: string) => Promise<InventorySnapshot>, root: HTMLElement, inventory: InventorySnapshot, callbacks: {
+function createSection(titleText: string, subtitleText: string, items: FarmInventoryItem[], onSellFarmItem: (key: string) => Promise<InventorySnapshot>, root: HTMLElement, callbacks: {
   onEquip: (id: string) => Promise<InventorySnapshot>;
   onUnequip: (slot: string) => Promise<InventorySnapshot>;
   onUse: (id: string) => Promise<InventorySnapshot>;
@@ -146,9 +146,9 @@ export function renderInventoryPanel(
   const content = document.createElement('div');
   content.className = 'farm-inventory-content';
   content.append(
-    createSection('Armazém', 'Produtos colhidos e prontos para uso ou venda.', storage, onSellFarmItem, root, inventory, { onEquip, onUnequip, onUse, onClose }),
-    createSection('Sementes', 'Sementes disponíveis para iniciar novas plantações.', seeds, onSellFarmItem, root, inventory, { onEquip, onUnequip, onUse, onClose }),
-    createSection('Rações', 'Alimento preparado para cuidar dos animais do rancho.', feed, onSellFarmItem, root, inventory, { onEquip, onUnequip, onUse, onClose })
+    createSection('Armazém', 'Produtos colhidos e prontos para uso ou venda.', storage, onSellFarmItem, root, { onEquip, onUnequip, onUse, onClose }),
+    createSection('Sementes', 'Sementes disponíveis para iniciar novas plantações.', seeds, onSellFarmItem, root, { onEquip, onUnequip, onUse, onClose }),
+    createSection('Rações', 'Alimento preparado para cuidar dos animais do rancho.', feed, onSellFarmItem, root, { onEquip, onUnequip, onUse, onClose })
   );
 
   panel.append(header, summary, content);
