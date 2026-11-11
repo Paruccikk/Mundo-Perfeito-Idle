@@ -949,37 +949,8 @@ export class FarmScene extends Phaser.Scene {
       this.world.add(g);
     });
 
-    // Pequeno lago na borda do terreno com margem de pedras e vegetação.
-    const pond = this.add.graphics().setDepth(8);
-    const water = this.iso(4, 5);
-    pond.fillStyle(0x79694c, 0.45); pond.fillEllipse(water.x, water.y + 5, 118, 62);
-    pond.fillStyle(0x4d9eae, 1); pond.fillEllipse(water.x, water.y, 104, 48);
-    pond.fillStyle(0x79c4c5, 0.9); pond.fillEllipse(water.x - 10, water.y - 5, 62, 19);
-    pond.lineStyle(3, 0x9a9b72, 1); pond.strokeEllipse(water.x, water.y, 110, 53);
-    pond.fillStyle(0xd7d0ae, 1);
-    for (const [dx, dy] of [[-48, 2], [43, 7], [-25, 22], [29, -20]] as Array<[number, number]>) pond.fillCircle(water.x + dx, water.y + dy, 4);
-    this.world.add(pond);
+    // A pesca é pública e acontece no lago da cidade principal.
 
-    // Cerca perimetral do rancho: mourões e travessas em madeira.
-    const boundary = this.add.graphics().setDepth(16);
-    boundary.lineStyle(5, 0x5c3d25, 0.96);
-    boundary.strokePoints([
-      new Phaser.Math.Vector2(this.iso(0, 0).x, this.iso(0, 0).y),
-      new Phaser.Math.Vector2(this.iso(COLS - 1, 0).x, this.iso(COLS - 1, 0).y),
-      new Phaser.Math.Vector2(this.iso(COLS - 1, ROWS - 1).x, this.iso(COLS - 1, ROWS - 1).y),
-      new Phaser.Math.Vector2(this.iso(0, ROWS - 1).x, this.iso(0, ROWS - 1).y),
-      new Phaser.Math.Vector2(this.iso(0, 0).x, this.iso(0, 0).y)
-    ], false, false);
-    for (let col = 0; col < COLS; col += 3) {
-      for (const row of [0, ROWS - 1]) {
-        const p = this.iso(col, row);
-        boundary.fillStyle(0x4a3020, 1); boundary.fillRect(p.x - 3, p.y - 11, 6, 22);
-        boundary.fillStyle(0xb7854e, 1); boundary.fillRect(p.x - 2, p.y - 10, 3, 18);
-      }
-    }
-    this.world.add(boundary);
-
-    // Personagem controlável desenhado por drawPlayer().
   }
 
   private drawPlayer(): void {
