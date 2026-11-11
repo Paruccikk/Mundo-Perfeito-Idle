@@ -150,7 +150,7 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
     soundButton.setAttribute('aria-pressed', nowMuted ? 'false' : 'true');
     if (!nowMuted) sfxClick();
   });
-  tools.append(farmButton, townButton, characterButton, soundButton);
+  tools.append(farmButton, townButton, inventoryButton, characterButton, soundButton);
 
   const hotbar = el('div', 'hud__hotbar');
   const skillSlots = Array.from({ length: 4 }, (_, index) => {
