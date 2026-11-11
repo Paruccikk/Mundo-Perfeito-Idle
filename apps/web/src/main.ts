@@ -330,6 +330,12 @@ async function openFarmShop(characterId: string): Promise<void> {
         hud?.pushFeed(updated.message ?? 'Comedouro ou bebedouro abastecido!', 'gold');
         return updated;
       },
+      async () => {
+        const updated = await api.expandFarm(characterId);
+        hud?.setGold(updated.gold);
+        hud?.pushFeed(updated.message ?? 'Sua terra foi expandida!', 'gold');
+        return updated;
+      },
       () => {
         if (!game) return;
         game.scene.stop('CityScene');
@@ -355,6 +361,12 @@ async function openInventoryPanel(characterId: string): Promise<void> {
       (itemId) => api.equipItem(characterId, itemId),
       (slot) => api.unequipItem(characterId, slot),
       (itemId) => api.useItem(characterId, itemId),
+      async (itemKey) => {
+        const sold = await api.sellFarmItem(characterId, itemKey);
+        hud?.setGold(sold.gold);
+        hud?.pushFeed(sold.message ?? 'Produto vendido!', 'gold');
+        return api.getInventory(characterId);
+      },
       closeGamePanel
     );
   } catch (error) {
