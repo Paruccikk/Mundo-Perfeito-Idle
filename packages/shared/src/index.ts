@@ -479,7 +479,9 @@ export interface FarmPlotState {
   plotIndex: number;
   cropId: CropTypeId | null;
   plantedAt: string | null;
+  /** Só recebe data de conclusão depois de irrigado. */
   readyAt: string | null;
+  wateredAt?: string | null;
 }
 
 export interface OwnedAnimal {
@@ -491,13 +493,30 @@ export interface OwnedAnimal {
   tier: CollectibleRank;
   buildingId: FarmBuildingId;
   acquiredAt: string;
+  hunger?: number;
+  hydration?: number;
+}
+
+export interface FarmAnimalCare {
+  /** Unidades de ração no comedouro da instalação. */
+  feed: number;
+  /** Unidades de água no bebedouro da instalação. */
+  water: number;
 }
 
 export interface FarmState {
   buildings: FarmBuildingId[];
   plots: FarmPlotState[];
   animals: OwnedAnimal[];
+  /** Estoque de colheitas, sementes e rações; chaves crop-*, seed-* e feed-*. */
   storage: Record<string, number>;
+  /** Sementes prontas para plantar, separadas do estoque de colheitas. */
+  seeds?: Partial<Record<CropTypeId, number>>;
+  /** Compras limitadas por dia UTC, por cultura. */
+  dailySeedPurchases?: { date: string; quantities: Partial<Record<CropTypeId, number>> };
+  /** Comedouro e bebedouro de cada instalação. */
+  animalCare?: Partial<Record<FarmBuildingId, FarmAnimalCare>>;
+  lastNeedsAt?: string;
 }
 
 export interface FarmResponse {
