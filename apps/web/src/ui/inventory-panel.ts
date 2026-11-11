@@ -88,7 +88,7 @@ export function renderInventoryPanel(
   const heading = document.createElement('div');
   const eyebrow = document.createElement('p');
   eyebrow.className = 'game-panel__eyebrow';
-  eyebrow.textContent = 'Gestão da propriedade';
+  eyebrow.textContent = `Fazenda de ${inventory.farmSummary?.name ?? 'sua propriedade'}`;
   const title = document.createElement('h2');
   title.textContent = 'Inventário da Fazenda';
   const description = document.createElement('p');
