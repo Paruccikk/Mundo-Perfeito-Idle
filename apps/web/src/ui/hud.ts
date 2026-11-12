@@ -25,6 +25,7 @@ export interface GameHudOptions {
 export interface GameHud {
   update(snapshot: CombatSnapshot): void;
   setGold(value: number): void;
+  setProfessionProgress(experience: number, level: number, rank: string): void;
   setLocation(name: string, label: string, safeZone?: boolean): void;
   setConnection(state: HudConnectionState): void;
   pushFeed(text: string, tone?: HudFeedTone): void;
@@ -206,13 +207,24 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
   hpBar.value.textContent = `${formatNumber(character.stats.maxHp)} / ${formatNumber(character.stats.maxHp)}`;
   mpBar.fill.style.width = '100%';
   mpBar.value.textContent = `${formatNumber(character.stats.maxMp)} / ${formatNumber(character.stats.maxMp)}`;
-  xpBar.fill.style.width = '0%';
+  const professionLevel = character.professionLevel ?? 1;
+  const professionXp = character.professionExperience ?? 0;
+  const professionXpRequired = professionLevel * 100;
+  xpBar.fill.style.width = `${clampRatio(professionXp / professionXpRequired) * 100}%`;
+  xpBar.value.textContent = `${formatNumber(professionXp)} / ${formatNumber(professionXpRequired)}`;
   goldEl.querySelector('.hud__gold-value')!.textContent = formatNumber(character.gold);
   metaEl.textContent = `Profissão: ${character.professionName ?? 'Agricultor'} • Rank: ${character.professionRank ?? 'Novato'} • Nv. ${character.professionLevel ?? 1}`;
 
   return {
     setGold(value: number): void {
       goldEl.querySelector('.hud__gold-value')!.textContent = formatNumber(value);
+    },
+
+    setProfessionProgress(experience: number, level: number, rank: string): void {
+      const required = Math.max(100, level * 100);
+      xpBar.fill.style.width = `${clampRatio(experience / required) * 100}%`;
+      xpBar.value.textContent = `${formatNumber(experience)} / ${formatNumber(required)}`;
+      metaEl.textContent = `Profissão: ${character.professionName ?? 'Agricultor'} • Rank: ${rank} • Nv. ${level}`;
     },
 
     setLocation(name: string, label: string, safeZone = false): void {
@@ -250,9 +262,12 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
       mpBar.fill.style.width = `${mpRatio * 100}%`;
       mpBar.value.textContent = `${formatNumber(combat.playerMp)} / ${formatNumber(combat.playerMaxMp)}`;
 
-      const xpRatio = clampRatio(summary.experience / Math.max(1, summary.experienceToNextLevel));
-      xpBar.fill.style.width = `${xpRatio * 100}%`;
-      xpBar.value.textContent = `${formatNumber(summary.experience)} / ${formatNumber(summary.experienceToNextLevel)}`;
+      const professionLevel = summary.professionLevel ?? 1;
+      const professionExperience = summary.professionExperience ?? 0;
+      const professionXpRequired = professionLevel * 100;
+      const professionXpRatio = clampRatio(professionExperience / professionXpRequired);
+      xpBar.fill.style.width = `${professionXpRatio * 100}%`;
+      xpBar.value.textContent = `${formatNumber(professionExperience)} / ${formatNumber(professionXpRequired)}`;
 
       goldEl.querySelector('.hud__gold-value')!.textContent = formatNumber(summary.gold);
       bossesEl.textContent = `Chefes: ${combat.bossDefeated}`;
