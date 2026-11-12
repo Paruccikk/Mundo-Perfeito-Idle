@@ -18,7 +18,7 @@ const CONSUMABLE_DROPS: Record<string, { name: string; description: string; rari
 
 export interface InventorySnapshot {
   gold: number;
-  farmItems?: Array<{ key: string; name: string; icon: string; quantity: number; category: 'crop' | 'seed' | 'feed'; sellPrice: number }>;
+  farmItems?: Array<{ key: string; name: string; icon: string; quantity: number; category: 'crop' | 'seed' | 'feed' | 'fish' | 'egg'; sellPrice: number }>;
   mount: { id: 'starter-horse'; name: string; rarity: 'white'; equipped: boolean };
   items: Array<{ id: string; itemId: string; name: string; description: string; rarity: string; category: string; slot: string | null; quantity: number; levelReq: number; stats: Record<string, number>; sellPrice: number }>;
   equipment: Array<{ slot: string; item: { id: string; itemId: string; name: string; description: string; rarity: string; category: string; slot: string | null; quantity: number; levelReq: number; stats: Record<string, number>; sellPrice: number } }>;
