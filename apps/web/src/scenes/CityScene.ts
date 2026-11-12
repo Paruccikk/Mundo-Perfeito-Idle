@@ -1517,8 +1517,14 @@ export class CityScene extends Phaser.Scene {
     sfxClick();
     this.fishingPanel = new FishingPanel(root, {
       characterId: this.character.id,
-      onCatch: (response) => {
+      onCatch: async (response) => {
         if (response.message) this.hud?.pushFeed(response.message, 'gold');
+        try {
+          const character = await api.getCharacter(this.character.id);
+          this.hud?.setProfessionProgress(character.professionExperience ?? 0, character.professionLevel ?? 1, character.professionRank ?? 'Novato');
+        } catch {
+          // A captura já foi registrada; não interrompe a pescaria por falha visual.
+        }
       },
       onClose: () => {
         this.fishingPanel = null;
