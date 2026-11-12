@@ -483,8 +483,8 @@ export class FarmScene extends Phaser.Scene {
     const meadow = createMeadowDetails(this, (col, row) => this.iso(col, row), COLS, ROWS, roads);
     this.world.add(meadow);
 
-    this.addScenery();
     this.buildAnimalYards();
+    this.addScenery();
     this.buildPlotViews();
     this.rebuildBuildingsAndAnimals();
     this.farmSignature = this.computeFarmSignature(this.farm);
@@ -496,6 +496,23 @@ export class FarmScene extends Phaser.Scene {
 
   /** Grandes áreas de criação: cada setor tem piso, cerca, porteira e acesso por estrada. */
   private buildAnimalYards(): void {
+    // Ruas largas de terra conectam a entrada principal às porteiras dos setores.
+    const entrance = this.iso(28, 26);
+    const road = this.add.graphics();
+    road.lineStyle(62, 0x87633d, 0.9);
+    road.lineBetween(entrance.x, entrance.y - 8, this.iso(24, 22).x, this.iso(24, 22).y);
+    road.lineStyle(44, 0xb18a56, 0.82);
+    road.lineBetween(entrance.x, entrance.y - 8, this.iso(24, 22).x, this.iso(24, 22).y);
+    for (const destination of [this.iso(24, 5), this.iso(27, 14), this.iso(19, 22)]) {
+      road.lineStyle(58, 0x87633d, 0.92);
+      road.lineBetween(this.iso(24, 22).x, this.iso(24, 22).y, destination.x, destination.y + 120);
+      road.lineStyle(40, 0xb18a56, 0.86);
+      road.lineBetween(this.iso(24, 22).x, this.iso(24, 22).y, destination.x, destination.y + 120);
+      road.lineStyle(2, 0xd6bb83, 0.36);
+      road.lineBetween(this.iso(24, 22).x, this.iso(24, 22).y, destination.x, destination.y + 120);
+    }
+    road.setDepth(450);
+    this.world.add(road);
     const yards: Array<{ id: FarmBuildingId; halfW: number; halfH: number; label: string }> = [
       { id: 'coop', halfW: 270, halfH: 168, label: 'GALINHEIRO' },
       { id: 'corral', halfW: 300, halfH: 190, label: 'CURRAL' },
@@ -541,7 +558,7 @@ export class FarmScene extends Phaser.Scene {
         fence.setDepth(1500 + point.y);
         this.world.add(fence);
       }
-      const gate = createRanchGate(this, point.x, point.y + yard.halfH * 0.82, yard.label, () => this.openMarket());
+      const gate = createRanchGate(this, point.x, point.y + yard.halfH * 0.82, yard.label, () => this.hud?.pushFeed(`Área de ${yard.label.toLowerCase()} do rancho.`, 'normal'));
       gate.setScale(0.82);
       gate.setDepth(1900 + point.y + yard.halfH);
       this.world.add(gate);
