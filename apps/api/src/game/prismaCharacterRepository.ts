@@ -1,6 +1,8 @@
 import { Prisma, PrismaClient } from '@prisma/client';
+import { randomUUID } from 'node:crypto';
 import type { CharacterRepository } from './characterRepository.js';
 import type { CharacterRecord } from './types.js';
+import { itemSellPrice } from './economy.js';
 import { DEFAULT_STAGE_ID, getMonster, getStage, nextNormalMonster } from './monsters.js';
 
 type DbCharacter = {
@@ -26,14 +28,11 @@ export class PrismaCharacterRepository implements CharacterRepository {
           constitution: record.attributes.constitution, strength: record.attributes.strength,
           intelligence: record.attributes.intelligence, dexterity: record.attributes.dexterity,
           attributePoints: record.attributePoints, currentStageId: record.currentStageId,
-          combat: record.combat as unknown as Prisma.InputJsonValue,
+          combat: ({ ...record.combat, profile: { gender: record.gender, professionId: record.professionId, professionExperience: record.professionExperience, professionLevel: record.professionLevel } }) as unknown as Prisma.InputJsonValue,
           lastSimulatedAt: new Date(record.combat.lastTickAt), createdAt: new Date(record.createdAt)
         }
       });
-      const weapon = record.classId === 'mage' ? 'apprentice-staff' : record.classId === 'priest' ? 'apprentice-mace' : record.classId === 'archer' ? 'training-bow' : 'training-sword';
-      const starterItems: Array<[string, number]> = [[weapon, 1], ['apprentice-hood', 1], ['apprentice-chest', 1], ['apprentice-legs', 1], ['apprentice-boots', 1], ['apprentice-ring', 1], ['small-potion', 5], ['revive-potion', 1]];
-      if (record.classId === 'mage' || record.classId === 'priest') starterItems.push(['mp-potion', 3]);
-      await tx.inventoryItem.createMany({ data: starterItems.map(([itemId, quantity]) => ({ characterId: record.id, itemId, quantity })) });
+      // Novos personagens não recebem armas, armaduras ou poções.
     });
   }
 
@@ -48,7 +47,7 @@ export class PrismaCharacterRepository implements CharacterRepository {
       constitution: record.attributes.constitution, strength: record.attributes.strength,
       intelligence: record.attributes.intelligence, dexterity: record.attributes.dexterity,
       attributePoints: record.attributePoints, currentStageId: record.currentStageId,
-      combat: record.combat as unknown as Prisma.InputJsonValue,
+      combat: ({ ...record.combat, profile: { gender: record.gender, professionId: record.professionId, professionExperience: record.professionExperience, professionLevel: record.professionLevel } }) as unknown as Prisma.InputJsonValue,
       lastSimulatedAt: new Date(record.combat.lastTickAt)
     };
     return this.prisma.$transaction(async (tx) => {
@@ -113,21 +112,27 @@ export class PrismaCharacterRepository implements CharacterRepository {
   }
 
   async getInventory(characterId: string, accountId: string) {
-    const owner = await this.prisma.character.findFirst({ where: { id: characterId, accountId }, select: { id: true } });
+    const owner = await this.prisma.character.findFirst({ where: { id: characterId, accountId }, select: { id: true, gold: true } });
     if (!owner) return null;
     const [items, equipment] = await Promise.all([
       this.prisma.inventoryItem.findMany({ where: { characterId }, include: { item: true }, orderBy: { acquiredAt: 'desc' } }),
       this.prisma.characterEquipment.findMany({ where: { characterId }, include: { item: true } })
     ]);
+    const characterState = await this.prisma.character.findFirst({ where: { id: characterId, accountId }, select: { combat: true } });
+    const combatState = characterState?.combat as { mountId?: string | null } | undefined;
     return {
+      gold: Number(owner.gold),
+      mount: { id: 'starter-horse' as const, name: 'Cavalo Castanho', rarity: 'white' as const, equipped: combatState?.mountId === 'starter-horse' },
       items: items.map((entry) => ({ id: entry.id, itemId: entry.itemId, name: entry.item.name,
         description: entry.item.description, rarity: entry.item.rarity, category: entry.item.category,
-        slot: entry.item.slot, quantity: entry.quantity, levelReq: entry.item.levelReq,
-        stats: (entry.item.stats ?? {}) as Record<string, number> })),
+        slot: resolveEquipmentSlot(entry.item.slot, entry.item.category, entry.itemId), quantity: entry.quantity, levelReq: entry.item.levelReq,
+        stats: (entry.item.stats ?? {}) as Record<string, number>,
+        sellPrice: itemSellPrice({ category: entry.item.category, rarity: entry.item.rarity, levelReq: entry.item.levelReq, stats: (entry.item.stats ?? {}) as Record<string, number> }) })),
       equipment: equipment.map((entry) => ({ slot: entry.slot, item: {
         id: entry.id, itemId: entry.itemId, name: entry.item.name, description: entry.item.description,
-        rarity: entry.item.rarity, category: entry.item.category, slot: entry.item.slot,
-        quantity: 1, levelReq: entry.item.levelReq, stats: (entry.item.stats ?? {}) as Record<string, number>
+        rarity: entry.item.rarity, category: entry.item.category, slot: resolveEquipmentSlot(entry.item.slot, entry.item.category, entry.itemId),
+        quantity: 1, levelReq: entry.item.levelReq, stats: (entry.item.stats ?? {}) as Record<string, number>,
+        sellPrice: itemSellPrice({ category: entry.item.category, rarity: entry.item.rarity, levelReq: entry.item.levelReq, stats: (entry.item.stats ?? {}) as Record<string, number> })
       } }))
     };
   }
@@ -139,10 +144,11 @@ export class PrismaCharacterRepository implements CharacterRepository {
       const inventory = await tx.inventoryItem.findFirst({
         where: { id: inventoryItemId, characterId }, include: { item: true }
       });
-      if (!inventory || !inventory.item.slot) return { error: 'item_not_equippable' as const };
+      const slot = inventory ? resolveEquipmentSlot(inventory.item.slot, inventory.item.category, inventory.itemId) : null;
+      if (!inventory || !slot) return { error: 'item_not_equippable' as const };
       if (character.level < inventory.item.levelReq) return { error: 'level_required' as const };
       const existing = await tx.characterEquipment.findUnique({
-        where: { characterId_slot: { characterId, slot: inventory.item.slot } }
+        where: { characterId_slot: { characterId, slot } }
       });
       if (existing) {
         const returned = await tx.inventoryItem.findFirst({ where: { characterId, itemId: existing.itemId } });
@@ -153,10 +159,21 @@ export class PrismaCharacterRepository implements CharacterRepository {
         }
         await tx.characterEquipment.delete({ where: { id: existing.id } });
       }
-      await tx.characterEquipment.create({ data: { characterId, slot: inventory.item.slot, itemId: inventory.itemId } });
+      await tx.characterEquipment.create({ data: { characterId, slot, itemId: inventory.itemId } });
       if (inventory.quantity <= 1) await tx.inventoryItem.delete({ where: { id: inventory.id } });
       else await tx.inventoryItem.update({ where: { id: inventory.id }, data: { quantity: { decrement: 1 } } });
       return { error: null as null };
+    });
+  }
+
+  async setMount(characterId: string, accountId: string, equipped: boolean): Promise<{ error: string | null }> {
+    return this.prisma.$transaction(async (tx) => {
+      const row = await tx.character.findFirst({ where: { id: characterId, accountId } });
+      if (!row) return { error: 'not_found' };
+      const combat = row.combat as unknown as CharacterRecord['combat'];
+      const updated = { ...combat, mountId: equipped ? 'starter-horse' : null, lastTickAt: new Date().toISOString() };
+      await tx.character.update({ where: { id: characterId }, data: { combat: updated as unknown as Prisma.InputJsonValue, lastSimulatedAt: new Date(updated.lastTickAt) } });
+      return { error: null };
     });
   }
 
@@ -198,6 +215,41 @@ export class PrismaCharacterRepository implements CharacterRepository {
     }, { maxWait: 10_000, timeout: 20_000 });
   }
 
+  async sellItem(characterId: string, accountId: string, inventoryItemId: string, quantity: number): Promise<{ error: string | null; goldReceived?: number }> {
+    return this.prisma.$transaction(async (tx) => {
+      const character = await tx.character.findFirst({ where: { id: characterId, accountId }, select: { id: true } });
+      if (!character) return { error: 'not_found' as const };
+      const inventory = await tx.inventoryItem.findFirst({
+        where: { id: inventoryItemId, characterId }, include: { item: true }
+      });
+      if (!inventory) return { error: 'item_not_found' as const };
+      if (!Number.isInteger(quantity) || quantity < 1 || quantity > inventory.quantity) return { error: 'invalid_quantity' as const };
+      const goldReceived = itemSellPrice({
+        category: inventory.item.category,
+        rarity: inventory.item.rarity,
+        levelReq: inventory.item.levelReq,
+        stats: (inventory.item.stats ?? {}) as Record<string, number>
+      }) * quantity;
+      const changed = await tx.inventoryItem.updateMany({
+        where: { id: inventory.id, characterId, quantity: inventory.quantity },
+        data: { quantity: { decrement: quantity } }
+      });
+      if (changed.count !== 1) return { error: 'item_changed' as const };
+      if (inventory.quantity === quantity) {
+        await tx.inventoryItem.delete({ where: { id: inventory.id } });
+      }
+      await tx.character.update({ where: { id: characterId }, data: { gold: { increment: BigInt(goldReceived) } } });
+      await tx.economyLedger.create({ data: {
+        characterId,
+        operationId: randomUUID(),
+        assetType: 'gold',
+        amount: BigInt(goldReceived),
+        reason: `sell:${inventory.itemId}:${quantity}`
+      } });
+      return { error: null, goldReceived };
+    }, { maxWait: 10_000, timeout: 20_000 });
+  }
+
   async resolveDeath(characterId: string, accountId: string, maxHp: number, maxMp: number, allowRevive: boolean): Promise<{ record: CharacterRecord | null; returnToCity: boolean }> {
     const returnToCity = await this.prisma.$transaction(async (tx) => {
       const character = await tx.character.findFirst({ where: { id: characterId, accountId } });
@@ -214,7 +266,8 @@ export class PrismaCharacterRepository implements CharacterRepository {
       const fallbackStage = getStage(DEFAULT_STAGE_ID);
       const fallbackMonsterId = nextNormalMonster(fallbackStage, 0);
       const fallbackMonster = getMonster(fallbackMonsterId);
-      const updatedCombat = { ...combat, stageId, monsterId: allowRevive ? combat.monsterId : fallbackMonsterId, monsterHp: allowRevive ? combat.monsterHp : fallbackMonster.maxHp, playerHp: revive ? Math.max(1, Math.round(maxHp * 0.5)) : maxHp, playerMp: revive ? Math.max(0, Math.round(maxMp * 0.5)) : maxMp, status: 'fighting' as const, recoveringUntil: null, playerCooldownSeconds: 0, monsterCooldownSeconds: 0.5, lastTickAt: now };
+      const fallbackPack = Array.from({ length: 6 }, (_, index) => { const monsterId = fallbackStage.monsterIds[index % fallbackStage.monsterIds.length]!; const monster = getMonster(monsterId); return { slotId: `mob-${index + 1}`, monsterId, hp: monster.maxHp, respawnAt: null }; });
+      const updatedCombat = { ...combat, stageId, monsterId: allowRevive ? combat.monsterId : fallbackMonsterId, monsterHp: allowRevive ? combat.monsterHp : fallbackMonster.maxHp, pack: allowRevive ? combat.pack : fallbackPack, targetIndex: allowRevive ? combat.targetIndex ?? 0 : 0, playerHp: revive ? Math.max(1, Math.round(maxHp * 0.5)) : maxHp, playerMp: revive ? Math.max(0, Math.round(maxMp * 0.5)) : maxMp, status: 'fighting' as const, recoveringUntil: null, playerCooldownSeconds: 0, monsterCooldownSeconds: 0.5, lastTickAt: now };
       await tx.character.update({ where: { id: characterId }, data: { currentStageId: stageId, combat: updatedCombat as unknown as Prisma.InputJsonValue, lastSimulatedAt: new Date(now) } });
       return !revive;
     }, { maxWait: 10_000, timeout: 20_000 });
@@ -231,8 +284,9 @@ export class PrismaCharacterRepository implements CharacterRepository {
       const monster = getMonster(monsterId);
       const combat = character.combat as unknown as CharacterRecord['combat'];
       const now = new Date().toISOString();
+      const pack = Array.from({ length: 6 }, (_, index) => { const id = stage.monsterIds[index % stage.monsterIds.length]!; const definition = getMonster(id); return { slotId: `mob-${index + 1}`, monsterId: id, hp: definition.maxHp, respawnAt: null }; });
       const updatedCombat = {
-        ...combat, stageId: stage.id, monsterId, monsterHp: monster.maxHp,
+        ...combat, stageId: stage.id, monsterId, monsterHp: monster.maxHp, pack, targetIndex: 0,
         killsInStage: 0, bossActive: false, bossDefeated: 0, status: 'fighting' as const,
         recoveringUntil: null, playerCooldownSeconds: 0, monsterCooldownSeconds: 0.5,
         lastTickAt: now
@@ -264,6 +318,10 @@ function fromDb(row: DbCharacter): CharacterRecord {
     attributes: { constitution: row.constitution, strength: row.strength,
       intelligence: row.intelligence, dexterity: row.dexterity },
     attributePoints: row.attributePoints, equipmentBonuses: sumEquipmentBonuses(row.equipment ?? []), currentStageId: row.currentStageId,
+    gender: ((row.combat as { profile?: { gender?: string } }).profile?.gender === 'female' ? 'female' : 'male'),
+    professionId: ((row.combat as { profile?: { professionId?: string } }).profile?.professionId ?? 'farmer') as CharacterRecord['professionId'],
+    professionExperience: Number((row.combat as { profile?: { professionExperience?: number } }).profile?.professionExperience ?? 0),
+    professionLevel: Number((row.combat as { profile?: { professionLevel?: number } }).profile?.professionLevel ?? 1),
     combat: row.combat as unknown as CharacterRecord['combat'], createdAt: row.createdAt.toISOString()
   };
 }
@@ -320,4 +378,16 @@ async function addDropInTransaction(
   await tx.economyLedger.create({ data: {
     characterId, operationId, assetType: 'item', amount: BigInt(quantity), reason: `drop:${itemId}`
   } });
+}
+
+function resolveEquipmentSlot(slot: string | null, category: string, itemId: string): string | null {
+  if (slot) return slot;
+  const id = itemId.toLowerCase();
+  if (category === 'weapon' || /sword|bow|staff|mace|dagger|axe/.test(id)) return 'weapon';
+  if (/hood|helmet|hat|head/.test(id)) return 'head';
+  if (/chest|armor|armour|robe|tunic|vest/.test(id)) return 'chest';
+  if (/legs|pants|trousers/.test(id)) return 'legs';
+  if (/boots|shoes/.test(id)) return 'boots';
+  if (/ring|amulet|accessory/.test(id)) return 'accessory';
+  return null;
 }

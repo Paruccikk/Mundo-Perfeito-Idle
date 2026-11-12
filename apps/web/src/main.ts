@@ -14,6 +14,7 @@ import {
 } from './player';
 import { CityScene } from './scenes/CityScene';
 import { WorldScene } from './scenes/WorldScene';
+import { FarmScene } from './scenes/FarmScene';
 import { renderAuthScreen } from './ui/auth';
 import { renderCharacterCreator } from './ui/creator';
 import { createGameHud, type GameHud } from './ui/hud';
@@ -21,11 +22,14 @@ import { renderFatalError, renderLoading } from './ui/screens';
 import { renderCharacterSelector } from './ui/selector';
 import { renderCharacterPanel } from './ui/character-panel';
 import { renderInventoryPanel } from './ui/inventory-panel';
+import { renderBlacksmithShop } from './ui/blacksmith-panel';
+import { renderFarmShop } from './ui/farm-shop-panel';
+import { renderSkillPanel } from './ui/skill-panel';
 import { closeStageMap, openStageMap } from './ui/stage-map';
 import './style.css';
 import './city-multiplayer.css';
 
-const MAX_CHARACTERS = 3;
+const MAX_CHARACTERS = 1;
 const uiRoot = document.getElementById('ui-root');
 if (!uiRoot) throw new Error('Elemento #ui-root não encontrado no index.html');
 const root = uiRoot as HTMLElement;
@@ -111,13 +115,11 @@ async function showCharacterSelector(): Promise<void> {
 }
 
 async function showCharacterCreator(canGoBack: boolean): Promise<void> {
-  renderLoading(root, 'Carregando classes…');
+  renderLoading(root, 'Preparando criação do personagem…');
   try {
-    const classes = await api.listClasses();
     renderCharacterCreator(root, {
-      classes,
-      onCreate: async ({ name, classId }) => {
-        const character = await api.createCharacter({ name, classId });
+      onCreate: async ({ name, gender, professionId }) => {
+        const character = await api.createCharacter({ name, gender, professionId });
         storeCharacterId(character.id);
         startGame(character);
       },
@@ -141,9 +143,21 @@ function startGame(character: CharacterSummary): void {
     onTown: () => {
       if (!game) return;
       game.scene.stop('WorldScene');
+      game.scene.stop('FarmScene');
       game.scene.start('CityScene');
+      sfxClick();
     },
-    onMap: openWorldMap
+    onFarm: () => {
+      if (!game) return;
+      game.scene.stop('CityScene');
+      game.scene.stop('WorldScene');
+      game.scene.start('FarmScene');
+      sfxClick();
+    },
+    onMap: openWorldMap,
+    onSkills: () => void openSkillPanel(character.id),
+    onCastSkill: (skillId) => void castSkill(character.id, skillId),
+    onUsePotion: (itemId) => void useQuickPotion(character.id, itemId)
   });
   const logout = document.createElement('button');
   logout.className = 'account-logout';
@@ -171,13 +185,15 @@ function startGame(character: CharacterSummary): void {
       width: 960,
       height: 600
     },
-    scene: [CityScene, WorldScene],
+    scene: [CityScene, WorldScene, FarmScene],
     render: { pixelArt: false, antialias: true, roundPixels: false },
     callbacks: {
       preBoot: (instance) => {
         instance.registry.set('character', character);
         instance.registry.set('playerId', playerId);
         instance.registry.set('hud', hud);
+        instance.registry.set('openBlacksmithShop', () => void openBlacksmithShop(character.id));
+        instance.registry.set('openFarmShop', () => void openFarmShop(character.id));
       }
     }
   };
@@ -200,6 +216,7 @@ function enterWorld(snapshot: CombatSnapshot): void {
   game.registry.set('character', snapshot.character);
   game.registry.set('travelSnapshot', snapshot);
   game.scene.stop('CityScene');
+  game.scene.stop('FarmScene');
   game.scene.start('WorldScene');
   sfxClick();
 }
@@ -218,14 +235,162 @@ async function openCharacterPanel(characterId: string): Promise<void> {
   }
 }
 
+async function openSkillPanel(characterId: string): Promise<void> {
+  closeGamePanel();
+  sfxInventory();
+  try {
+    const snapshot = await api.getCombat(characterId);
+    renderSkillPanel(root, snapshot, async (skillId) => {
+      const updated = await api.upgradeSkill(characterId, skillId);
+      hud?.update(updated);
+      return updated;
+    }, closeGamePanel);
+  } catch (error) {
+    hud?.pushFeed(error instanceof Error ? error.message : 'Não foi possível carregar as habilidades.', 'danger');
+  }
+}
+
+async function castSkill(characterId: string, skillId: string): Promise<void> {
+  try {
+    const snapshot = await api.castSkill(characterId, skillId);
+    hud?.update(snapshot);
+    game?.events.emit('skill-cast', snapshot);
+  } catch (error) {
+    hud?.pushFeed(error instanceof Error ? error.message : 'Não foi possível usar a habilidade.', 'danger');
+  }
+}
+
+async function useQuickPotion(characterId: string, itemId: string): Promise<void> {
+  try {
+    const inventory = await api.getInventory(characterId);
+    const potion = inventory.items.find((item) => item.itemId === itemId && item.quantity > 0);
+    if (!potion) {
+      hud?.pushFeed(itemId === 'mp-potion' ? 'Você não possui Poção de Mana.' : 'Você não possui Poção de Vida.', 'danger');
+      return;
+    }
+    await api.useItem(characterId, potion.id);
+    const snapshot = await api.getCombat(characterId);
+    hud?.update(snapshot);
+    game?.events.emit('skill-cast', snapshot);
+    hud?.pushFeed(itemId === 'mp-potion' ? 'Poção de Mana utilizada.' : 'Poção de Vida utilizada.', 'gold');
+  } catch (error) {
+    hud?.pushFeed(error instanceof Error ? error.message : 'Não foi possível usar a poção.', 'danger');
+  }
+}
+
+async function openBlacksmithShop(characterId: string): Promise<void> {
+  closeGamePanel();
+  sfxInventory();
+  try {
+    const inventory = await api.getInventory(characterId);
+    renderBlacksmithShop(root, inventory, async (itemId, quantity) => {
+      const updated = await api.sellItem(characterId, itemId, quantity);
+      hud?.setGold(updated.gold);
+      hud?.pushFeed(`Venda concluída: +${(updated.goldReceived ?? 0).toLocaleString('pt-BR')} ouro.`, 'gold');
+      return updated;
+    }, closeGamePanel);
+  } catch (error) {
+    hud?.pushFeed(error instanceof Error ? error.message : 'Não foi possível abrir o comércio do ferreiro.', 'danger');
+  }
+}
+
+async function openFarmShop(characterId: string): Promise<void> {
+  closeGamePanel();
+  sfxClick();
+  try {
+    const farmData = await api.getFarm(characterId);
+    renderFarmShop(
+      root,
+      farmData,
+      async (buildingId) => {
+        const updated = await api.buyFarmBuilding(characterId, buildingId);
+        await refreshProfessionHud(characterId);
+        hud?.setGold(updated.gold);
+        hud?.pushFeed(updated.message ?? 'Construção concluída na fazenda!', 'gold');
+        game?.events.emit('farm-updated', updated);
+        return updated;
+      },
+      async (animalId) => {
+        const updated = await api.buyFarmAnimal(characterId, animalId);
+        await refreshProfessionHud(characterId);
+        hud?.setGold(updated.gold);
+        hud?.pushFeed(updated.message ?? 'Animal adquirido!', 'gold');
+        game?.events.emit('farm-updated', updated);
+        return updated;
+      },
+      async (cropId, quantity) => {
+        const updated = await api.buyFarmSeeds(characterId, cropId, quantity);
+        hud?.setGold(updated.gold);
+        hud?.pushFeed(updated.message ?? 'Sementes compradas!', 'gold');
+        game?.events.emit('farm-updated', updated);
+        return updated;
+      },
+      async (species, quantity) => {
+        const updated = await api.craftFarmFeed(characterId, species, quantity);
+        await refreshProfessionHud(characterId);
+        hud?.pushFeed(updated.message ?? 'Ração preparada!', 'gold');
+        game?.events.emit('farm-updated', updated);
+        return updated;
+      },
+      async (buildingId, kind, quantity) => {
+        const updated = await api.fillFarmTrough(characterId, buildingId, kind, quantity);
+        await refreshProfessionHud(characterId);
+        hud?.pushFeed(updated.message ?? 'Comedouro ou bebedouro abastecido!', 'gold');
+        game?.events.emit('farm-updated', updated);
+        return updated;
+      },
+      async () => {
+        const updated = await api.expandFarm(characterId);
+        hud?.setGold(updated.gold);
+        hud?.pushFeed(updated.message ?? 'Sua terra foi expandida!', 'gold');
+        game?.events.emit('farm-updated', updated);
+        return updated;
+      },
+      () => {
+        closeGamePanel();
+        if (!game) return;
+        game.scene.stop('CityScene');
+        game.scene.stop('WorldScene');
+        game.scene.start('FarmScene');
+        sfxClick();
+      },
+      closeGamePanel
+    );
+  } catch (error) {
+    hud?.pushFeed(error instanceof Error ? error.message : 'Não foi possível abrir o comércio agropecuário.', 'danger');
+  }
+}
+
 async function openInventoryPanel(characterId: string): Promise<void> {
   closeGamePanel();
   sfxInventory();
   try {
     const inventory = await api.getInventory(characterId);
-    renderInventoryPanel(root, inventory, (itemId) => api.equipItem(characterId, itemId), (slot) => api.unequipItem(characterId, slot), (itemId) => api.useItem(characterId, itemId), closeGamePanel);
+    renderInventoryPanel(
+      root,
+      inventory,
+      (itemId) => api.equipItem(characterId, itemId),
+      (slot) => api.unequipItem(characterId, slot),
+      (itemId) => api.useItem(characterId, itemId),
+      async (itemKey) => {
+        const sold = await api.sellFarmItem(characterId, itemKey);
+        hud?.setGold(sold.gold);
+        hud?.pushFeed(sold.message ?? 'Produto vendido!', 'gold');
+        return api.getInventory(characterId);
+      },
+      closeGamePanel
+    );
   } catch (error) {
     hud?.pushFeed(error instanceof Error ? error.message : 'Não foi possível carregar o inventário.', 'danger');
+  }
+}
+
+async function refreshProfessionHud(characterId: string): Promise<void> {
+  try {
+    const character = await api.getCharacter(characterId);
+    hud?.setProfessionProgress(character.professionExperience ?? 0, character.professionLevel ?? 1, character.professionRank ?? 'Novato');
+  } catch {
+    // A atividade já foi salva; uma falha de atualização visual não deve interrompê-la.
   }
 }
 

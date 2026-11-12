@@ -6,6 +6,7 @@ import { API_BASE_URL, api } from '../api';
 import { getAuthToken } from '../player';
 import { sfxClick } from '../audio';
 import { closeStageMap, openStageMap } from '../ui/stage-map';
+import { FishingPanel } from '../ui/fishing-panel';
 
 const FONT = '"Cinzel", "MedievalSharp", Georgia, "Times New Roman", serif';
 const TILE_W = 96;
@@ -42,7 +43,7 @@ const DISTRICTS: DistrictDefinition[] = [
   { id: 'fields', name: 'Campos de Valedouro', hint: 'Estradas do reino', x: 0, y: 0, radius: 9999 }
 ];
 
-type NpcId = 'adventurer' | 'blacksmith' | 'merchant' | 'alchemist' | 'keeper' | 'guard' | 'chaplain';
+type NpcId = 'adventurer' | 'blacksmith' | 'farmer' | 'merchant' | 'alchemist' | 'keeper' | 'guard' | 'chaplain';
 
 interface NpcDefinition {
   id: NpcId;
@@ -58,13 +59,7 @@ interface NpcDefinition {
 }
 
 const NPCS: NpcDefinition[] = [
-  { id: 'adventurer', name: 'Alden', title: 'Mestre das Aventuras', classId: 'warrior', x: 415, y: 75, accent: 0xe7bd70, icon: '✦', restFacing: -1, greeting: 'As estradas além dos muros guardam criaturas e tesouros. Está pronto para partir?' },
-  { id: 'blacksmith', name: 'Brom', title: 'Ferreiro', classId: 'warrior', x: -575, y: 150, accent: 0xe28a58, icon: '⚒', restFacing: 1, greeting: 'Traga seus equipamentos. Um bom aventureiro nunca descuida de sua armadura.' },
-  { id: 'merchant', name: 'Mira', title: 'Mercadora', classId: 'mage', x: 535, y: 5, accent: 0x8bd6bd, icon: '◈', restFacing: -1, greeting: 'Poções, provisões e ferramentas! As melhores mercadorias do reino passam por aqui.' },
-  { id: 'alchemist', name: 'Elowen', title: 'Alquimista', classId: 'priest', x: -455, y: -360, accent: 0x9edc91, icon: '❧', restFacing: 1, greeting: 'A natureza oferece ingredientes poderosos. Cada erva tem seu segredo.' },
-  { id: 'keeper', name: 'Tomas', title: 'Guardião do Armazém', classId: 'archer', x: 345, y: 470, accent: 0x9bbbe8, icon: '▤', restFacing: -1, greeting: 'Seus pertences estarão seguros comigo. O armazém será aberto em breve.' },
-  { id: 'guard', name: 'Sargento Varo', title: 'Guarda da Cidade', classId: 'warrior', x: 95, y: -525, accent: 0xc4564e, icon: '⛨', restFacing: 1, greeting: 'Os portões estão protegidos. Siga pelas estradas marcadas e volte com vida.' },
-  { id: 'chaplain', name: 'Irmã Celeste', title: 'Capelã', classId: 'priest', x: -120, y: -455, accent: 0xf0d596, icon: '✧', restFacing: 1, greeting: 'Que a luz do Santuário guie seus passos. Descanse antes de partir.' }
+  { id: 'farmer', name: 'Barnabé', title: 'Mestre da Fazenda', classId: 'archer', x: -280, y: 160, accent: 0x76b852, icon: '🌾', restFacing: 1, greeting: 'Bem-vindo! Posso ajudar com instalações, animais, sementes e cuidados da sua propriedade.' }
 ];
 
 interface CityPlayerPayload {
@@ -91,6 +86,7 @@ export class CityScene extends Phaser.Scene {
   private avatar!: PlayerAvatar;
   private nameLabel!: Phaser.GameObjects.Container;
   private dialogue: Phaser.GameObjects.Container | null = null;
+  private fishingPanel: FishingPanel | null = null;
   private npcAvatars: PlayerAvatar[] = [];
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private keys!: { W: Phaser.Input.Keyboard.Key; A: Phaser.Input.Keyboard.Key; S: Phaser.Input.Keyboard.Key; D: Phaser.Input.Keyboard.Key };
@@ -107,6 +103,8 @@ export class CityScene extends Phaser.Scene {
   private lastSentY = -9999;
   private stableHorses: HorseView[] = [];
   private mountedPatrol: HorseView | null = null;
+  private mountedHorse: HorseView | null = null;
+  private mountControl: HTMLButtonElement | null = null;
   private nameplates: Phaser.GameObjects.Container[] = [];
   private cameraZoom = 0.85;
   private cameraFocusX = 0;
@@ -156,6 +154,8 @@ export class CityScene extends Phaser.Scene {
     this.hud?.pushFeed(`${this.character.name} chegou à cidade de Valedouro.`, 'gold');
     this.createMultiplayerPanel();
     this.createMinimap();
+    this.createMountControl();
+    void this.refreshMountState();
     this.connectMultiplayer();
     void this.syncTown();
   }
@@ -182,23 +182,43 @@ export class CityScene extends Phaser.Scene {
   update(_time: number, delta: number): void {
     if (!this.alive || !this.avatar) return;
     if (this.keys && this.cursors) {
-      const speed = Math.max(0.08, delta / 16.67) * 3.4;
+      // Controles em oito direções no plano isométrico, com velocidade constante.
       let dx = 0;
       let dy = 0;
       if (this.cursors.left.isDown || this.keys.A.isDown) { dx -= 1; dy += 0.5; }
       if (this.cursors.right.isDown || this.keys.D.isDown) { dx += 1; dy -= 0.5; }
       if (this.cursors.up.isDown || this.keys.W.isDown) { dx -= 1; dy -= 0.5; }
       if (this.cursors.down.isDown || this.keys.S.isDown) { dx += 1; dy += 0.5; }
-      if (dx !== 0 || dy !== 0) {
+      const magnitude = Math.hypot(dx, dy);
+      if (magnitude > 0) {
+        if (!this.moving) {
+          if (this.mountedHorse) this.mountedHorse.setWalking(false);
+          else this.avatar.stopWalking();
+        }
         this.moving = true;
-        this.avatar.root.x = Phaser.Math.Clamp(this.avatar.root.x + dx * speed, CITY_LIMITS.minX, CITY_LIMITS.maxX);
-        this.avatar.root.y = Phaser.Math.Clamp(this.avatar.root.y + dy * speed, CITY_LIMITS.minY, CITY_LIMITS.maxY);
-        this.avatar.root.setDepth(300 + this.avatar.root.y);
-        this.avatar.setFacing(dx >= 0 ? 1 : -1);
+        dx /= magnitude;
+        dy /= magnitude;
+        const mover = this.mountedHorse?.root ?? this.avatar.root;
+        const speed = this.mountedHorse ? 310 : 190;
+        const distance = speed * Math.min(delta, 50) / 1000;
+        mover.x = Phaser.Math.Clamp(mover.x + dx * distance, CITY_LIMITS.minX, CITY_LIMITS.maxX);
+        mover.y = Phaser.Math.Clamp(mover.y + dy * distance, CITY_LIMITS.minY, CITY_LIMITS.maxY);
+        if (this.mountedHorse) {
+          this.mountedHorse.setFacing(dx >= 0 ? 1 : -1);
+          this.mountedHorse.setWalking(true);
+        } else {
+          this.avatar.facePoint(mover.x + dx, mover.y + dy);
+          this.avatar.setWalking(true);
+        }
+        mover.setDepth(300 + mover.y);
       } else if (this.moving) {
         this.moving = false;
+        if (this.mountedHorse) this.mountedHorse.setWalking(false);
+        else this.avatar.setWalking(false);
       }
     }
+    const playerRoot = this.mountedHorse?.root ?? this.avatar.root;
+    this.nameLabel.setPosition(playerRoot.x, playerRoot.y - NAME_LIFT);
     this.updateCamera(delta);
     this.updateDistrict();
     this.syncLocalPosition();
@@ -424,8 +444,9 @@ export class CityScene extends Phaser.Scene {
   private syncLocalPosition(): void {
     const socket = this.citySocket;
     if (!socket || socket.readyState !== WebSocket.OPEN) return;
-    const x = this.avatar.root.x;
-    const y = this.avatar.root.y;
+    const mover = this.mountedHorse?.root ?? this.avatar.root;
+    const x = mover.x;
+    const y = mover.y;
     const now = this.time.now;
     if (Math.abs(x - this.lastSentX) < 1.5 && Math.abs(y - this.lastSentY) < 1.5) return;
     if (now - this.lastSyncAt < 90) return;
@@ -468,14 +489,15 @@ export class CityScene extends Phaser.Scene {
       ? Phaser.Math.Clamp(Math.min(this.scale.width / 900, this.scale.height / 1180), 0.48, 0.78)
       : Phaser.Math.Clamp(Math.min(this.scale.width / 1900, this.scale.height / 1180), 0.6, 0.94);
     this.world.setScale(this.cameraZoom);
-    this.cameraFocusX = this.avatar ? this.avatar.root.x : 0;
-    this.cameraFocusY = this.avatar ? this.avatar.root.y : 120;
+    const focus = this.avatar ? (this.mountedHorse?.root ?? this.avatar.root) : null;
+    this.cameraFocusX = focus ? focus.x : 0;
+    this.cameraFocusY = focus ? focus.y : 120;
     this.applyCamera();
     this.applyNameplateScale();
   }
 
   private updateCamera(delta: number): void {
-    const player = this.avatar.root;
+    const player = this.mountedHorse?.root ?? this.avatar.root;
     const smooth = 1 - Math.pow(0.0016, Math.max(0.016, delta / 1000));
     this.cameraFocusX += (player.x - this.cameraFocusX) * smooth;
     this.cameraFocusY += (player.y - this.cameraFocusY) * smooth;
@@ -504,8 +526,9 @@ export class CityScene extends Phaser.Scene {
 
   private updateDistrict(): void {
     if (!this.avatar || !this.hud) return;
-    const x = this.avatar.root.x;
-    const y = this.avatar.root.y;
+    const mover = this.mountedHorse?.root ?? this.avatar.root;
+    const x = mover.x;
+    const y = mover.y;
     let nearest: DistrictDefinition = DISTRICTS[0]!;
     let nearestDistance = Number.POSITIVE_INFINITY;
     for (const district of DISTRICTS) {
@@ -543,6 +566,7 @@ export class CityScene extends Phaser.Scene {
     this.buildGround();
     this.buildWalls();
     this.buildPlaza();
+    this.buildPublicLake();
 
     this.addBuilding(-140, -500, 1.24, 0xa58a66, 0x6e3b34, 'SANTUÁRIO');
     this.addBuilding(400, -430, 1.1, 0x9e845f, 0x3f5e51, 'CONSELHO');
@@ -589,6 +613,31 @@ export class CityScene extends Phaser.Scene {
     this.buildLivestock();
     this.buildCitizens();
     this.buildOuterFarms();
+  }
+
+  private buildPublicLake(): void {
+    const lake = this.add.graphics().setDepth(4);
+    lake.fillStyle(0x263e35, 0.45); lake.fillEllipse(620, 350, 430, 250);
+    lake.fillStyle(0x397f91, 1); lake.fillEllipse(620, 335, 400, 220);
+    lake.lineStyle(12, 0x806b49, 1); lake.strokeEllipse(620, 335, 414, 232);
+    lake.lineStyle(3, 0x8fc6c4, 0.55); lake.strokeEllipse(620, 335, 365, 184);
+    lake.fillStyle(0xd9c28a, 1); lake.fillEllipse(460, 395, 74, 22); lake.fillEllipse(780, 390, 88, 24);
+    lake.fillStyle(0xf0dfad, 0.75); lake.fillEllipse(540, 295, 70, 8); lake.fillEllipse(700, 350, 92, 8);
+    this.world.add(lake);
+    const sign = this.add.text(620, 205, 'LAGO DE VALEDOURO · PESCA PÚBLICA', {
+      fontFamily: FONT, fontSize: '18px', color: '#e7f7e8', stroke: '#173b45', strokeThickness: 5, fontStyle: 'bold'
+    }).setOrigin(0.5).setDepth(20);
+    this.world.add(sign);
+    const dock = this.add.graphics().setDepth(8);
+    dock.fillStyle(0x765333, 1); dock.fillRoundedRect(540, 425, 160, 28, 5);
+    dock.lineStyle(3, 0x39291d, 1); dock.strokeRoundedRect(540, 425, 160, 28, 5);
+    this.world.add(dock);
+    const fishingSpot = this.add.zone(620, 425, 190, 90).setDepth(30).setInteractive({ useHandCursor: true });
+    fishingSpot.on('pointerdown', (_pointer: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
+      event.stopPropagation();
+      this.openFishingSpot();
+    });
+    this.world.add(fishingSpot);
   }
 
   private buildOuterField(): void {
@@ -1023,7 +1072,7 @@ export class CityScene extends Phaser.Scene {
       { x: 208, y: 12, color: 0x3f3a34, mane: 0x15120f, saddle: 0x3b5c8a, scale: 0.47 },
       { x: 280, y: 48, color: 0xc9b48c, mane: 0x6b5a42, saddle: 0x5c3b6e, scale: 0.45 }
     ];
-    for (const spec of horseSpecs) {
+    horseSpecs.forEach((spec, index) => {
       const horse = new HorseView(this, x + spec.x, y + spec.y, {
         color: spec.color, mane: spec.mane, saddle: spec.saddle, scale: spec.scale
       });
@@ -1031,7 +1080,15 @@ export class CityScene extends Phaser.Scene {
       horse.root.setDepth(100 + y + spec.y);
       this.world.add(horse.root);
       this.stableHorses.push(horse);
-    }
+      this.startStableHorsePatrol(
+        horse,
+        x + spec.x - 24,
+        x + spec.x + 24,
+        y + spec.y,
+        index % 2 === 0,
+        700 + index * 1300
+      );
+    });
 
     const patrol = new HorseView(this, x - 30, y + 108, {
       color: 0x4a3a2c,
@@ -1046,6 +1103,24 @@ export class CityScene extends Phaser.Scene {
     this.world.add(patrol.root);
     this.mountedPatrol = patrol;
     this.startMountedPatrol(patrol, x - 210, x + 300, y + 108);
+  }
+
+  private startStableHorsePatrol(
+    horse: HorseView,
+    leftX: number,
+    rightX: number,
+    y: number,
+    moveRightFirst: boolean,
+    delay: number
+  ): void {
+    const walk = (toRight: boolean): void => {
+      if (!this.alive) return;
+      const destination = toRight ? rightX : leftX;
+      const distance = Math.abs(destination - horse.root.x);
+      horse.walkTo(destination, y, Phaser.Math.Clamp(distance * 115, 3200, 5600));
+      this.time.delayedCall(6200, () => walk(!toRight));
+    };
+    this.time.delayedCall(delay, () => walk(moveRightFirst));
   }
 
   private startMountedPatrol(horse: HorseView, fromX: number, toX: number, y: number): void {
@@ -1242,6 +1317,68 @@ export class CityScene extends Phaser.Scene {
     this.world.add(farm);
   }
 
+  private createMountControl(): void {
+    const root = document.getElementById('ui-root');
+    if (!root) return;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'city-mount-control ghost-button';
+    button.textContent = 'Montar cavalo · Branco';
+    button.addEventListener('click', async () => {
+      if (button.disabled) return;
+      button.disabled = true;
+      try {
+        const updated = await api.setMount(this.character.id, !Boolean(this.mountedHorse));
+        this.applyMountedState(updated.mount.equipped);
+        this.hud?.pushFeed(updated.mount.equipped ? 'Você montou seu Cavalo Castanho. Velocidade aumentada na cidade!' : 'Você desmontou do cavalo.', 'gold');
+      } catch (error) {
+        this.hud?.pushFeed(error instanceof Error ? error.message : 'Não foi possível alterar a montaria.', 'danger');
+      } finally {
+        button.disabled = false;
+      }
+    });
+    root.append(button);
+    this.mountControl = button;
+  }
+
+  private async refreshMountState(): Promise<void> {
+    try {
+      const inventory = await api.getInventory(this.character.id);
+      if (!this.alive) return;
+      this.applyMountedState(inventory.mount.equipped);
+    } catch {
+      // A cidade permanece acessível mesmo se o inventário estiver indisponível.
+    }
+  }
+
+  private applyMountedState(equipped: boolean): void {
+    if (equipped && !this.mountedHorse) {
+      this.avatar.stopWalking();
+      this.avatar.root.setVisible(false);
+      const horse = new HorseView(this, this.avatar.root.x, this.avatar.root.y, {
+        scale: 0.9,
+        rider: true,
+        riderColor: this.character.classId === 'mage' ? 0x6f4fc2 : this.character.classId === 'priest' ? 0xd8e0e8 : this.character.classId === 'archer' ? 0x3f7d5f : 0x7089ad,
+        riderAccent: this.character.classId === 'warrior' ? 0xc94f52 : 0xe7bd70
+      });
+      horse.root.setDepth(300 + horse.root.y);
+      this.world.add(horse.root);
+      this.mountedHorse = horse;
+    } else if (!equipped && this.mountedHorse) {
+      const x = this.mountedHorse.root.x;
+      const y = this.mountedHorse.root.y;
+      this.mountedHorse.destroy();
+      this.mountedHorse = null;
+      this.avatar.root.setPosition(x, y);
+      this.avatar.root.setVisible(true);
+      this.avatar.root.setDepth(300 + y);
+    }
+    if (this.mountControl) {
+      this.mountControl.textContent = equipped ? 'Desmontar cavalo' : 'Montar cavalo · Branco';
+      this.mountControl.classList.toggle('is-mounted', equipped);
+    }
+  }
+
   private buildPlayer(): void {
     this.avatar = new PlayerAvatar(this, this.character.classId, -40, 130);
     this.avatar.root.setScale(PLAYER_SCALE);
@@ -1351,21 +1488,53 @@ export class CityScene extends Phaser.Scene {
   }
 
   private handleGroundClick(pointer: Phaser.Input.Pointer): void {
-    if (this.dialogue || pointer.button !== 0) return;
+    if (this.dialogue || this.fishingPanel || pointer.button !== 0) return;
     const point = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
-    const targetX = Phaser.Math.Clamp((point.x - this.world.x) / this.world.scaleX, CITY_LIMITS.minX, CITY_LIMITS.maxX);
-    const targetY = Phaser.Math.Clamp((point.y - this.world.y) / this.world.scaleY, CITY_LIMITS.minY, CITY_LIMITS.maxY);
-    const distance = Phaser.Math.Distance.Between(this.avatar.root.x, this.avatar.root.y, targetX, targetY);
-    this.avatar.setFacing(targetX >= this.avatar.root.x ? 1 : -1);
-    this.tweens.add({
-      targets: this.avatar.root,
-      x: targetX, y: targetY, duration: Phaser.Math.Clamp(distance * 3.2, 220, 1800),
-      ease: 'Sine.easeInOut',
-      onUpdate: () => {
-        this.avatar.root.setDepth(300 + this.avatar.root.y);
-        this.updatePlayerNameplate();
+    if (((point.x - 620) ** 2) / (200 ** 2) + ((point.y - 335) ** 2) / (110 ** 2) <= 1) {
+      this.openFishingSpot();
+      return;
+    }
+    let targetX = Phaser.Math.Clamp((point.x - this.world.x) / this.world.scaleX, CITY_LIMITS.minX, CITY_LIMITS.maxX);
+    let targetY = Phaser.Math.Clamp((point.y - this.world.y) / this.world.scaleY, CITY_LIMITS.minY, CITY_LIMITS.maxY);
+
+    // A cidade usa tiles isométricos de 96x48 (centros separados por 48x24).
+    // Encaixar o destino no centro do tile dá a precisão visual do estilo Tibia.
+    targetX = Phaser.Math.Clamp(Math.round(targetX / 48) * 48, CITY_LIMITS.minX, CITY_LIMITS.maxX);
+    targetY = Phaser.Math.Clamp(Math.round(targetY / 24) * 24, CITY_LIMITS.minY, CITY_LIMITS.maxY);
+    const mover = this.mountedHorse?.root ?? this.avatar.root;
+    const distance = Phaser.Math.Distance.Between(mover.x, mover.y, targetX, targetY);
+    if (distance < 8) return;
+    this.moving = false;
+    if (this.mountedHorse) this.mountedHorse.walkTo(targetX, targetY, Phaser.Math.Clamp(distance * 1.9, 180, 3200));
+    else this.avatar.walkTo(targetX, targetY, Phaser.Math.Clamp(distance * 3.1, 220, 4200));
+  }
+
+  private openFishingSpot(): void {
+    this.closeDialogue();
+    if (this.fishingPanel) return;
+    const root = document.getElementById('ui-root');
+    if (!root) return;
+    sfxClick();
+    this.fishingPanel = new FishingPanel(root, {
+      characterId: this.character.id,
+      onCatch: async (response) => {
+        if (response.message) this.hud?.pushFeed(response.message, 'gold');
+        try {
+          const character = await api.getCharacter(this.character.id);
+          this.hud?.setProfessionProgress(character.professionExperience ?? 0, character.professionLevel ?? 1, character.professionRank ?? 'Novato');
+        } catch {
+          // A captura já foi registrada; não interrompe a pescaria por falha visual.
+        }
+      },
+      onClose: () => {
+        this.fishingPanel = null;
       }
     });
+  }
+
+  private closeFishingPanel(): void {
+    this.fishingPanel?.close();
+    this.fishingPanel = null;
   }
 
   private openNpc(npc: NpcDefinition): void {
@@ -1381,7 +1550,33 @@ export class CityScene extends Phaser.Scene {
     });
     panel.add([bg, heading, message]);
 
-    if (npc.id === 'adventurer') {
+    if (npc.id === 'blacksmith') {
+      const action = this.add.text(-bg.width / 2 + 18, 43, '⚒  Abrir comércio e vender itens', {
+        fontFamily: FONT, fontSize: '13px', fontStyle: 'bold', color: '#ffe0a1',
+        backgroundColor: '#563b25', padding: { x: 12, y: 8 }
+      }).setInteractive({ useHandCursor: true });
+      action.on('pointerdown', (_pointer: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
+        event.stopPropagation();
+        this.closeDialogue();
+        sfxClick();
+        const openShop = this.registry.get('openBlacksmithShop');
+        if (typeof openShop === 'function') (openShop as () => void)();
+      });
+      panel.add(action);
+    } else if (npc.id === 'farmer') {
+      const action = this.add.text(-bg.width / 2 + 18, 43, '🌾  Comércio de Fazenda & Animais', {
+        fontFamily: FONT, fontSize: '13px', fontStyle: 'bold', color: '#c3f0b8',
+        backgroundColor: '#204b28', padding: { x: 12, y: 8 }
+      }).setInteractive({ useHandCursor: true });
+      action.on('pointerdown', (_pointer: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
+        event.stopPropagation();
+        this.closeDialogue();
+        sfxClick();
+        const openShop = this.registry.get('openFarmShop');
+        if (typeof openShop === 'function') (openShop as () => void)();
+      });
+      panel.add(action);
+    } else if (npc.id === 'adventurer') {
       const action = this.add.text(-bg.width / 2 + 18, 43, '▶  Abrir o mapa do reino', {
         fontFamily: FONT, fontSize: '13px', fontStyle: 'bold', color: '#9fe0a8',
         backgroundColor: '#244b39', padding: { x: 12, y: 8 }
@@ -1522,8 +1717,9 @@ export class CityScene extends Phaser.Scene {
     }
 
     // Jogador.
-    const px = toX(this.avatar.root.x);
-    const py = toY(this.avatar.root.y);
+    const mover = this.mountedHorse?.root ?? this.avatar.root;
+    const px = toX(mover.x);
+    const py = toY(mover.y);
     ctx.beginPath();
     ctx.arc(px, py, 5, 0, Math.PI * 2);
     ctx.fillStyle = 'rgba(255, 242, 196, 0.28)';
@@ -1540,6 +1736,7 @@ export class CityScene extends Phaser.Scene {
   private handleResize = (size: Phaser.Structs.Size): void => {
     this.layout(size.width, size.height);
     this.closeDialogue();
+    this.closeFishingPanel();
   };
 
   private handleShutdown(): void {
@@ -1547,6 +1744,7 @@ export class CityScene extends Phaser.Scene {
     this.scale.off(Phaser.Scale.Events.RESIZE, this.handleResize, this);
     this.input.off('pointerdown', this.handleGroundClick, this);
     this.closeDialogue();
+    this.closeFishingPanel();
     closeStageMap();
     this.npcAvatars = [];
     this.stableHorses = [];
@@ -1560,6 +1758,10 @@ export class CityScene extends Phaser.Scene {
     this.minimapCanvas?.parentElement?.remove();
     this.minimapCanvas = null;
     this.minimapDistrict = null;
+    this.mountControl?.remove();
+    this.mountControl = null;
+    this.mountedHorse?.destroy();
+    this.mountedHorse = null;
     this.chatToggle = null;
   }
 }

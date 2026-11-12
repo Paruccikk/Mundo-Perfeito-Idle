@@ -1,4 +1,5 @@
-import type { CharacterRecord } from './types.js';
+import type { CharacterRecord, InventoryItemRecord } from './types.js';
+import { itemSellPrice } from './economy.js';
 import {
   DEFAULT_STAGE_ID, MATERIAL_ITEMS, TROPHY_ITEMS, getMonster, getStage, nextNormalMonster
 } from './monsters.js';
@@ -16,8 +17,11 @@ const CONSUMABLE_DROPS: Record<string, { name: string; description: string; rari
 };
 
 export interface InventorySnapshot {
-  items: Array<{ id: string; itemId: string; name: string; description: string; rarity: string; category: string; slot: string | null; quantity: number; levelReq: number; stats: Record<string, number> }>;
-  equipment: Array<{ slot: string; item: { id: string; itemId: string; name: string; description: string; rarity: string; category: string; slot: string | null; quantity: number; levelReq: number; stats: Record<string, number> } }>;
+  gold: number;
+  farmItems?: Array<{ key: string; name: string; icon: string; quantity: number; category: 'crop' | 'seed' | 'feed' | 'fish' | 'egg'; sellPrice: number }>;
+  mount: { id: 'starter-horse'; name: string; rarity: 'white'; equipped: boolean };
+  items: Array<{ id: string; itemId: string; name: string; description: string; rarity: string; category: string; slot: string | null; quantity: number; levelReq: number; stats: Record<string, number>; sellPrice: number }>;
+  equipment: Array<{ slot: string; item: { id: string; itemId: string; name: string; description: string; rarity: string; category: string; slot: string | null; quantity: number; levelReq: number; stats: Record<string, number>; sellPrice: number } }>;
 }
 
 export interface CharacterRepository {
@@ -30,40 +34,24 @@ export interface CharacterRepository {
   allocateAttributes(characterId: string, accountId: string, allocation: Record<string, number>): Promise<CharacterRecord | null>;
   getInventory(characterId: string, accountId: string): Promise<InventorySnapshot | null>;
   equipItem(characterId: string, accountId: string, inventoryItemId: string): Promise<{ error: string | null }>;
+  setMount(characterId: string, accountId: string, equipped: boolean): Promise<{ error: string | null }>;
   unequipItem(characterId: string, accountId: string, slot: string): Promise<{ error: string | null }>;
   addDrop(characterId: string, itemId: string, quantity: number, operationId: string): Promise<void>;
   useItem(characterId: string, accountId: string, inventoryItemId: string, maxHp: number, maxMp: number): Promise<{ error: string | null }>;
+  sellItem(characterId: string, accountId: string, inventoryItemId: string, quantity: number): Promise<{ error: string | null; goldReceived?: number }>;
   resolveDeath(characterId: string, accountId: string, maxHp: number, maxMp: number, allowRevive: boolean): Promise<{ record: CharacterRecord | null; returnToCity: boolean }>;
   travel(characterId: string, accountId: string, stageId: string): Promise<CharacterRecord | null>;
 }
 
 export class MemoryCharacterRepository implements CharacterRepository {
   private readonly characters = new Map<string, CharacterRecord>();
-  private readonly inventory = new Map<string, InventorySnapshot['items']>();
-  private readonly equipment = new Map<string, InventorySnapshot['equipment']>();
+  private readonly inventory = new Map<string, InventoryItemRecord[]>();
+  private readonly equipment = new Map<string, Array<{ slot: string; item: InventoryItemRecord }>>();
 
   async create(record: CharacterRecord): Promise<void> {
     this.characters.set(record.id, clone({ ...record, equipmentBonuses: {} }));
     this.equipment.set(record.id, []);
-    const weapon = record.classId === 'mage' ? 'apprentice-staff' : record.classId === 'priest' ? 'apprentice-mace' : record.classId === 'archer' ? 'training-bow' : 'training-sword';
-    const weaponStats: Record<string, number> = record.classId === 'mage' ? { intelligence: 2, magicDamage: 5, maxMp: 8 }
-      : record.classId === 'priest' ? { intelligence: 1, constitution: 1, magicDamage: 3, physicalDefense: 1 }
-      : record.classId === 'archer' ? { dexterity: 2, physicalDamage: 4, critChance: 0.01 }
-      : { strength: 2, physicalDamage: 4 };
-    const gear = ([
-      { id: 'starter-weapon', itemId: weapon, name: 'Arma de Aprendiz', slot: 'weapon', stats: weaponStats },
-      { id: 'starter-head', itemId: 'apprentice-hood', name: 'Capuz do Aprendiz', slot: 'head', stats: { constitution: 1, magicDefense: 1 } },
-      { id: 'starter-chest', itemId: 'apprentice-chest', name: 'Túnica do Aprendiz', slot: 'chest', stats: { constitution: 1, physicalDefense: 1, magicDefense: 1 } },
-      { id: 'starter-legs', itemId: 'apprentice-legs', name: 'Calças do Aprendiz', slot: 'legs', stats: { constitution: 1, physicalDefense: 1 } },
-      { id: 'starter-boots', itemId: 'apprentice-boots', name: 'Botas do Aprendiz', slot: 'boots', stats: { dexterity: 1 } },
-      { id: 'starter-ring', itemId: 'apprentice-ring', name: 'Anel do Aprendiz', slot: 'accessory', stats: { intelligence: 1, maxMp: 5 } }
-    ] as Array<{ id: string; itemId: string; name: string; slot: string; stats: Record<string, number> }>).map((item) => ({ ...item, description: 'Peça do Conjunto do Aprendiz.', rarity: 'common', category: item.slot === 'weapon' ? 'weapon' : 'armor', quantity: 1, levelReq: 1 }));
-    this.inventory.set(record.id, [
-      ...gear,
-      { id: `potions-${record.id}`, itemId: 'small-potion', name: 'Poção de Vida Pequena', description: 'Recupera 80 pontos de HP.', rarity: 'common', category: 'consumable', slot: null, quantity: 5, levelReq: 1, stats: { hpRestore: 80 } },
-      ...(record.classId === 'mage' || record.classId === 'priest' ? [{ id: `mp-potions-${record.id}`, itemId: 'mp-potion', name: 'Poção de Mana Pequena', description: 'Recupera 60 pontos de MP.', rarity: 'common', category: 'consumable', slot: null, quantity: 3, levelReq: 1, stats: { mpRestore: 60 } }] : []),
-      { id: `revive-${record.id}`, itemId: 'revive-potion', name: 'Poção da Ressurreição', description: 'Ao ser derrotado, revive no mesmo local.', rarity: 'uncommon', category: 'consumable', slot: null, quantity: 1, levelReq: 1, stats: { revive: 1 } }
-    ]);
+    this.inventory.set(record.id, []);
   }
 
   async save(record: CharacterRecord, expectedLastTickAt?: string, drops: Array<{ itemId: string; quantity: number; operationId: string }> = []): Promise<boolean> {
@@ -111,19 +99,20 @@ export class MemoryCharacterRepository implements CharacterRepository {
   async getInventory(characterId: string, accountId: string): Promise<InventorySnapshot | null> {
     const record = this.characters.get(characterId);
     if (!record || record.playerId !== accountId) return null;
-    return { items: (this.inventory.get(characterId) ?? []).map((item) => ({ ...item, stats: { ...item.stats } })), equipment: (this.equipment.get(characterId) ?? []).map((entry) => ({ ...entry, item: { ...entry.item, stats: { ...entry.item.stats } } })) };
+    return { gold: record.gold, mount: { id: 'starter-horse', name: 'Cavalo Castanho', rarity: 'white', equipped: record.combat.mountId === 'starter-horse' }, items: (this.inventory.get(characterId) ?? []).map((item) => ({ ...item, slot: equipmentSlot(item), stats: { ...item.stats }, sellPrice: itemSellPrice(item) })), equipment: (this.equipment.get(characterId) ?? []).map((entry) => ({ ...entry, item: { ...entry.item, slot: equipmentSlot(entry.item), stats: { ...entry.item.stats }, sellPrice: itemSellPrice(entry.item) } })) };
   }
 
   async equipItem(characterId: string, accountId: string, inventoryItemId: string): Promise<{ error: string | null }> {
     const record = this.characters.get(characterId);
     if (!record || record.playerId !== accountId) return { error: 'not_found' };
     const items = this.inventory.get(characterId) ?? [];
-    const index = items.findIndex((item) => item.id === inventoryItemId && item.slot);
+    const index = items.findIndex((item) => item.id === inventoryItemId && equipmentSlot(item));
     if (index < 0) return { error: 'item_not_equippable' };
     const item = items[index]!;
+    const slot = equipmentSlot(item)!;
     if (record.level < item.levelReq) return { error: 'level_required' };
     const equipped = this.equipment.get(characterId) ?? [];
-    const previous = equipped.findIndex((entry) => entry.slot === item.slot);
+    const previous = equipped.findIndex((entry) => entry.slot === slot);
     if (previous >= 0) {
       const oldItem = equipped[previous]!.item;
       const returned = items.find((entry) => entry.itemId === oldItem.itemId);
@@ -133,9 +122,17 @@ export class MemoryCharacterRepository implements CharacterRepository {
     }
     if (item.quantity <= 1) items.splice(index, 1);
     else item.quantity -= 1;
-    equipped.push({ slot: item.slot!, item: { ...item, quantity: 1 } });
+    equipped.push({ slot, item: { ...item, quantity: 1 } });
     this.inventory.set(characterId, items);
     this.equipment.set(characterId, equipped);
+    return { error: null };
+  }
+
+  async setMount(characterId: string, accountId: string, equipped: boolean): Promise<{ error: string | null }> {
+    const record = this.characters.get(characterId);
+    if (!record || record.playerId !== accountId) return { error: 'not_found' };
+    record.combat = { ...record.combat, mountId: equipped ? 'starter-horse' : null };
+    this.characters.set(characterId, record);
     return { error: null };
   }
 
@@ -175,6 +172,22 @@ export class MemoryCharacterRepository implements CharacterRepository {
     return { error: null };
   }
 
+  async sellItem(characterId: string, accountId: string, inventoryItemId: string, quantity: number): Promise<{ error: string | null; goldReceived?: number }> {
+    const record = this.characters.get(characterId);
+    if (!record || record.playerId !== accountId) return { error: 'not_found' };
+    const items = this.inventory.get(characterId) ?? [];
+    const item = items.find((entry) => entry.id === inventoryItemId);
+    if (!item) return { error: 'item_not_found' };
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > item.quantity) return { error: 'invalid_quantity' };
+    const goldReceived = itemSellPrice(item) * quantity;
+    item.quantity -= quantity;
+    if (item.quantity <= 0) items.splice(items.indexOf(item), 1);
+    record.gold += goldReceived;
+    this.inventory.set(characterId, items);
+    this.characters.set(characterId, record);
+    return { error: null, goldReceived };
+  }
+
   async resolveDeath(characterId: string, accountId: string, maxHp: number, maxMp: number, allowRevive: boolean): Promise<{ record: CharacterRecord | null; returnToCity: boolean }> {
     const record = this.characters.get(characterId);
     if (!record || record.playerId !== accountId) return { record: null, returnToCity: false };
@@ -192,7 +205,8 @@ export class MemoryCharacterRepository implements CharacterRepository {
     const fallbackMonsterId = nextNormalMonster(fallbackStage, 0);
     const fallbackMonster = getMonster(fallbackMonsterId);
     record.currentStageId = stageId;
-    record.combat = { ...record.combat, stageId, monsterId: allowRevive ? record.combat.monsterId : fallbackMonsterId, monsterHp: allowRevive ? record.combat.monsterHp : fallbackMonster.maxHp, playerHp: revive ? Math.max(1, Math.round(maxHp * 0.5)) : maxHp, playerMp: revive ? Math.max(0, Math.round(maxMp * 0.5)) : maxMp, status: 'fighting', recoveringUntil: null, playerCooldownSeconds: 0, monsterCooldownSeconds: 0.5, lastTickAt: now };
+    const fallbackPack = Array.from({ length: 6 }, (_, index) => { const monsterId = fallbackStage.monsterIds[index % fallbackStage.monsterIds.length]!; const monster = getMonster(monsterId); return { slotId: `mob-${index + 1}`, monsterId, hp: monster.maxHp, respawnAt: null }; });
+    record.combat = { ...record.combat, stageId, monsterId: allowRevive ? record.combat.monsterId : fallbackMonsterId, monsterHp: allowRevive ? record.combat.monsterHp : fallbackMonster.maxHp, pack: allowRevive ? record.combat.pack : fallbackPack, targetIndex: allowRevive ? record.combat.targetIndex ?? 0 : 0, playerHp: revive ? Math.max(1, Math.round(maxHp * 0.5)) : maxHp, playerMp: revive ? Math.max(0, Math.round(maxMp * 0.5)) : maxMp, status: 'fighting', recoveringUntil: null, playerCooldownSeconds: 0, monsterCooldownSeconds: 0.5, lastTickAt: now };
     this.characters.set(characterId, record);
     return { record: withEquipmentBonuses(clone(record), this.equipment.get(characterId) ?? []), returnToCity: !revive };
   }
@@ -204,8 +218,9 @@ export class MemoryCharacterRepository implements CharacterRepository {
     const monsterId = nextNormalMonster(stage, 0);
     const monster = getMonster(monsterId);
     record.currentStageId = stage.id;
+    const pack = Array.from({ length: 6 }, (_, index) => { const id = stage.monsterIds[index % stage.monsterIds.length]!; const definition = getMonster(id); return { slotId: `mob-${index + 1}`, monsterId: id, hp: definition.maxHp, respawnAt: null }; });
     record.combat = {
-      ...record.combat, stageId: stage.id, monsterId, monsterHp: monster.maxHp,
+      ...record.combat, stageId: stage.id, monsterId, monsterHp: monster.maxHp, pack, targetIndex: 0,
       killsInStage: 0, bossActive: false, bossDefeated: 0, status: 'fighting',
       recoveringUntil: null, playerCooldownSeconds: 0, monsterCooldownSeconds: 0.5,
       lastTickAt: new Date().toISOString()
@@ -243,10 +258,10 @@ export class MemoryCharacterRepository implements CharacterRepository {
 }
 
 function clone(record: CharacterRecord): CharacterRecord {
-  return { ...record, attributes: { ...record.attributes }, equipmentBonuses: { ...record.equipmentBonuses }, combat: { ...record.combat } };
+  return { ...record, attributes: { ...record.attributes }, equipmentBonuses: { ...record.equipmentBonuses }, combat: { ...record.combat, ...(record.combat.pack ? { pack: record.combat.pack.map((entry) => ({ ...entry })) } : {}) } };
 }
 
-function withEquipmentBonuses(record: CharacterRecord, equipment: InventorySnapshot['equipment']): CharacterRecord {
+function withEquipmentBonuses(record: CharacterRecord, equipment: Array<{ slot: string; item: InventoryItemRecord }>): CharacterRecord {
   const bonuses: Record<string, number> = {};
   for (const entry of equipment) {
     for (const [key, value] of Object.entries(entry.item.stats)) {
@@ -262,4 +277,16 @@ function withEquipmentBonuses(record: CharacterRecord, equipment: InventorySnaps
     bonuses.magicDefense = (bonuses.magicDefense ?? 0) + 2;
   }
   return { ...record, equipmentBonuses: bonuses };
+}
+
+function equipmentSlot(item: InventoryItemRecord): string | null {
+  if (item.slot) return item.slot;
+  const id = item.itemId.toLowerCase();
+  if (item.category === 'weapon' || /sword|bow|staff|mace|dagger|axe/.test(id)) return 'weapon';
+  if (/hood|helmet|hat|head/.test(id)) return 'head';
+  if (/chest|armor|armour|robe|tunic|vest/.test(id)) return 'chest';
+  if (/legs|pants|trousers/.test(id)) return 'legs';
+  if (/boots|shoes/.test(id)) return 'boots';
+  if (/ring|amulet|accessory/.test(id)) return 'accessory';
+  return null;
 }

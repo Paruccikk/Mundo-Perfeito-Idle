@@ -19,31 +19,31 @@ const FONT = '"Cinzel", "MedievalSharp", Georgia, "Times New Roman", serif';
 
 const TILE_W = 104;
 const TILE_H = 52;
-const GRID_COLS = 9;
-const GRID_ROWS = 7;
+const GRID_COLS = 17;
+const GRID_ROWS = 13;
 
-const PLAYER_HOME = { x: -126, y: 34 };
+const PLAYER_HOME = { x: -270, y: 80 };
 
 // Pontos espalhados pela arena para os monstros de ambiente.
 const AMBIENT_SPOTS = [
-  { x: -318, y: -92 },
-  { x: -212, y: -142 },
-  { x: 24, y: -146 },
-  { x: 252, y: -118 },
-  { x: 356, y: 32 },
-  { x: 236, y: 128 },
-  { x: -18, y: 150 },
-  { x: -236, y: 120 },
-  { x: -388, y: 18 }
+  { x: -650, y: -220 },
+  { x: -470, y: -320 },
+  { x: -180, y: -340 },
+  { x: 190, y: -310 },
+  { x: 520, y: -180 },
+  { x: 650, y: 110 },
+  { x: 280, y: 310 },
+  { x: -180, y: 340 },
+  { x: -560, y: 170 }
 ];
 
 // O alvo autoritativo do servidor alterna entre estes pontos centrais.
 const TARGET_SPOTS = [
-  { x: 132, y: 10 },
-  { x: 20, y: -46 },
-  { x: 206, y: -56 },
-  { x: -36, y: 92 },
-  { x: 104, y: 112 }
+  { x: 430, y: 20 },
+  { x: 220, y: -150 },
+  { x: 570, y: -110 },
+  { x: -30, y: 250 },
+  { x: 340, y: 300 }
 ];
 
 interface Mob {
@@ -58,6 +58,7 @@ interface Mob {
   wanderEvent: Phaser.Time.TimerEvent | null;
   plate: Phaser.GameObjects.Container | null;
   plateFill: Phaser.GameObjects.Rectangle | null;
+  packSlotId?: string;
 }
 
 interface CombatAnchor {
@@ -236,6 +237,9 @@ export class WorldScene extends Phaser.Scene {
   private polling = false;
   private alive = true;
   private recovering = false;
+  private worldZoom = 0.78;
+  private viewportWidth = 0;
+  private viewportHeight = 0;
 
   constructor() {
     super('WorldScene');
@@ -270,6 +274,7 @@ export class WorldScene extends Phaser.Scene {
     document.addEventListener('visibilitychange', this.handleVisibility);
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
+    this.game.events.on('skill-cast', this.handleSkillCast, this);
 
     this.hud?.setConnection('connecting');
     this.updateLocation();
@@ -332,6 +337,10 @@ export class WorldScene extends Phaser.Scene {
     // O Container do mundo não ordena os filhos sozinho: reordena por
     // profundidade para o herói passar corretamente na frente/atrás dos mobs.
     this.world.sort('depth');
+    this.world.setPosition(
+      this.viewportWidth / 2 - this.player.root.x * this.worldZoom,
+      this.viewportHeight / 2 - this.player.root.y * this.worldZoom
+    );
   }
 
   private async loadStageCatalog(): Promise<void> {
@@ -379,9 +388,12 @@ export class WorldScene extends Phaser.Scene {
 
   private layout(width: number, height: number): void {
     this.drawBackdrop(width, height);
-    const zoom = Phaser.Math.Clamp(Math.min(width / 1040, height / 660), 0.58, 1.12);
+    this.viewportWidth = width;
+    this.viewportHeight = height;
+    const zoom = Phaser.Math.Clamp(Math.min(width / 1450, height / 920), 0.62, 0.9);
+    this.worldZoom = zoom;
     this.world.setScale(zoom);
-    this.world.setPosition(width / 2, height / 2 + Math.max(12, height * 0.035));
+    this.world.setPosition(width / 2 - this.player.root.x * zoom, height / 2 - this.player.root.y * zoom);
   }
 
   private drawBackdrop(width: number, height: number): void {
@@ -418,26 +430,26 @@ export class WorldScene extends Phaser.Scene {
 
   private buildIsland(): void {
     const theme = this.theme;
-    const base = this.add.graphics().setDepth(0);
+    const base = this.add.graphics().setDepth(-10000);
     this.world.add(base);
 
     base.fillStyle(0x040b10, 0.5);
-    base.fillEllipse(0, 96, 1010, 500);
+    base.fillEllipse(0, 96, 1740, 900);
 
-    this.fillDiamond(base, 468, 242, 30, 0x0b1a1e);
-    this.fillDiamond(base, 462, 238, 18, 0x143136);
-    this.fillDiamond(base, 452, 232, 8, 0x1c4645);
+    this.fillDiamond(base, 820, 430, 30, 0x0b1a1e);
+    this.fillDiamond(base, 814, 426, 18, 0x143136);
+    this.fillDiamond(base, 804, 420, 8, 0x1c4645);
 
     base.fillStyle(theme.ground[0], 0.5);
-    base.fillEllipse(0, -18, 780, 350);
+    base.fillEllipse(0, -18, 1480, 720);
 
-    const tiles = this.add.graphics().setDepth(10);
+    const tiles = this.add.graphics().setDepth(-9999);
     this.world.add(tiles);
 
     for (let row = 0; row < GRID_ROWS; row += 1) {
       for (let col = 0; col < GRID_COLS; col += 1) {
-        const x = (col - row - 1) * (TILE_W / 2);
-        const y = (col + row - 7) * (TILE_H / 2);
+        const x = (col - row - 2) * (TILE_W / 2);
+        const y = (col + row - 14) * (TILE_H / 2);
         const lane = col - row;
         const variant = (col * 7 + row * 13) % 4;
         const isPath = lane >= -1 && lane <= 1;
@@ -511,14 +523,10 @@ export class WorldScene extends Phaser.Scene {
   private buildDecor(): void {
     const theme = this.theme;
     const trees: Array<[number, number, number]> = [
-      [-352, -88, 1.08],
-      [-304, 108, 0.94],
-      [-126, -198, 1],
-      [64, -206, 0.9],
-      [302, -132, 1.04],
-      [368, 56, 0.92],
-      [222, 176, 1.08],
-      [-360, 42, 0.82]
+      [-720, -210, 1.18], [-610, 240, 1.05], [-470, -360, 1.12],
+      [-260, -500, 0.95], [40, -470, 1.08], [320, -420, 1.12],
+      [590, -300, 1.16], [730, -30, 1.05], [620, 330, 1.18],
+      [300, 480, 1.02], [-80, 490, 1.1], [-450, 420, 0.98], [-760, 40, 0.9]
     ];
 
     if (theme.treeStyle !== 'none') {
@@ -528,14 +536,8 @@ export class WorldScene extends Phaser.Scene {
     }
 
     const propSpots: Array<[number, number, number]> = [
-      [-238, 154, 1],
-      [330, -30, 0.85],
-      [-64, 190, 0.95],
-      [70, -150, 0.7],
-      [-392, 118, 1],
-      [356, -178, 0.85],
-      [-430, -20, 0.9],
-      [250, 140, 0.9]
+      [-690, 320, 1.1], [-520, -180, 0.95], [-300, 420, 1.15], [-80, -430, 0.9],
+      [180, 410, 1.1], [390, -360, 1], [650, 220, 1.05], [740, -260, 0.9]
     ];
     theme.props.forEach((prop, index) => {
       const spot = propSpots[index % propSpots.length]!;
@@ -543,10 +545,10 @@ export class WorldScene extends Phaser.Scene {
     });
 
     // Tufos de grama, flores e detritos.
-    for (let i = 0; i < 34; i += 1) {
-      const x = Phaser.Math.Between(-390, 390);
-      const y = Phaser.Math.Between(-185, 190);
-      if (Math.abs(x) < 190 && y > -70 && y < 90) {
+    for (let i = 0; i < 76; i += 1) {
+      const x = Phaser.Math.Between(-760, 760);
+      const y = Phaser.Math.Between(-430, 430);
+      if (Math.abs(x) < 250 && y > -120 && y < 140) {
         continue;
       }
       this.addGrass(x, y, Phaser.Math.FloatBetween(0.7, 1.2), i % 4 === 0);
@@ -1060,8 +1062,6 @@ export class WorldScene extends Phaser.Scene {
     this.world.add(this.playerLabel);
 
     this.buildMount();
-    this.buildAmbientMobs();
-    this.spawnTarget(this.initialMonster ?? FALLBACK_MONSTER);
   }
 
   private buildMount(): void {
@@ -1159,31 +1159,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private refreshAmbientMobs(): void {
-    if (!this.alive || !this.catalog || !this.stage) {
-      return;
-    }
-
-    const entry = this.catalog.stages.find((candidate) => candidate.id === this.stage!.id);
-    if (!entry || entry.monsters.length <= 1) {
-      return;
-    }
-
-    const ambient = this.mobs.filter((mob) => !mob.isTarget && !mob.dying);
-    const expected = new Set(entry.monsters.map((monster) => monster.id));
-    const current = new Set(ambient.map((mob) => mob.serverId));
-    const alreadyVaried =
-      ambient.length === AMBIENT_SPOTS.length &&
-      expected.size === current.size &&
-      [...expected].every((id) => current.has(id));
-
-    if (alreadyVaried) {
-      return;
-    }
-
-    for (const mob of ambient) {
-      this.disposeMob(mob, false);
-    }
-    this.buildAmbientMobs();
+    // Os monstros de combate são sincronizados exclusivamente pelo pacote autoritativo da API.
   }
 
   private startWander(mob: Mob): void {
@@ -1317,17 +1293,24 @@ export class WorldScene extends Phaser.Scene {
       return;
     }
 
-    const point = this.engagementPoint(mob);
-    const distance = Phaser.Math.Distance.Between(
-      this.player.root.x,
-      this.player.root.y,
-      point.x,
-      point.y
-    );
-    if (distance < 8) {
-      return;
+    let point: { x: number; y: number };
+    if (this.character.classId === 'warrior') {
+      point = this.engagementPoint(mob);
+    } else {
+      const dx = this.player.root.x - mob.view.root.x;
+      const dy = this.player.root.y - mob.view.root.y;
+      const distanceToMob = Math.max(1, Math.hypot(dx, dy));
+      if (distanceToMob <= 190) return;
+      const stopDistance = 175;
+      point = {
+        x: mob.view.root.x + (dx / distanceToMob) * stopDistance,
+        y: mob.view.root.y + (dy / distanceToMob) * stopDistance
+      };
     }
-
+    const distance = Phaser.Math.Distance.Between(
+      this.player.root.x, this.player.root.y, point.x, point.y
+    );
+    if (distance < 8) return;
     this.player.walkTo(point.x, point.y, Phaser.Math.Clamp(distance * 3.6, 260, 1200));
   }
 
@@ -1408,8 +1391,10 @@ export class WorldScene extends Phaser.Scene {
     mob.plate = plate;
     mob.plateFill = fill;
 
-    this.targetPlate = plate;
-    this.targetPlateFill = fill;
+    if (mob.isTarget) {
+      this.targetPlate = plate;
+      this.targetPlateFill = fill;
+    }
 
     const ring = this.add.ellipse(
       0,
@@ -1439,6 +1424,64 @@ export class WorldScene extends Phaser.Scene {
     const ratio = Phaser.Math.Clamp(hp / Math.max(1, maxHp), 0, 1);
     this.targetPlateFill.setScale(ratio, 1);
     this.targetPlateFill.setFillStyle(isBoss ? 0xff9d5c : ratio <= 0.3 ? 0xff7b6b : 0x7ee07a);
+  }
+
+  private syncPack(monsters: Array<MonsterDefinition & { hp: number; slotId: string; respawnInSeconds: number; isTarget: boolean }>): void {
+    const previousTarget = this.targetMob;
+    const liveSlots = new Set(monsters.filter((entry) => entry.hp > 0).map((entry) => entry.slotId));
+    for (const mob of [...this.mobs]) {
+      if (mob.packSlotId && !liveSlots.has(mob.packSlotId)) this.disposeMob(mob, true);
+    }
+
+    for (const entry of monsters) {
+      if (entry.hp <= 0) continue;
+      let mob = this.mobs.find((candidate) => candidate.packSlotId === entry.slotId);
+      if (!mob) {
+        const slot = Math.max(0, Number(entry.slotId.match(/(\d+)$/)?.[1] ?? 1) - 1);
+        const spot = AMBIENT_SPOTS[slot % AMBIENT_SPOTS.length]!;
+        const view = new MonsterView(this, entry.sprite, spot.x, spot.y, {
+          variant: entry.variant, tint: entry.tint, accent: entry.accent,
+          scale: (entry.visualScale ?? 1) * (entry.isBoss ? 0.94 : 0.8),
+          isBoss: entry.isBoss
+        });
+        view.root.setDepth(100 + spot.y);
+        this.world.add(view.root);
+        mob = {
+          key: entry.slotId, packSlotId: entry.slotId, serverId: entry.id, view,
+          homeX: spot.x, homeY: spot.y, isTarget: false, dying: false,
+          wanderTween: null, wanderEvent: null, plate: null, plateFill: null
+        };
+        this.mobs.push(mob);
+        this.buildTargetPlate(mob, { ...entry, hp: entry.hp });
+        this.spawnDust(spot.x, spot.y, entry.isBoss ? 1.7 : 1);
+      }
+      mob.isTarget = entry.isTarget;
+      mob.serverId = entry.id;
+      this.updateMobPlate(mob, entry.hp, entry.maxHp, entry.isBoss);
+      if (entry.isTarget) this.targetMob = mob;
+    }
+
+    if (!monsters.some((entry) => entry.isTarget && entry.hp > 0)) {
+      this.targetMob = null;
+      this.targetPlate = null;
+      this.targetPlateFill = null;
+    } else if (this.targetMob) {
+      this.targetPlate = this.targetMob.plate;
+      this.targetPlateFill = this.targetMob.plateFill;
+      if (previousTarget !== this.targetMob) {
+        const target = this.targetMob;
+        this.time.delayedCall(180, () => {
+          if (this.alive && this.targetMob === target && !target.dying) this.approachTarget(target);
+        });
+      }
+    }
+  }
+
+  private updateMobPlate(mob: Mob, hp: number, maxHp: number, isBoss: boolean): void {
+    if (!mob.plateFill) return;
+    const ratio = Phaser.Math.Clamp(hp / Math.max(1, maxHp), 0, 1);
+    mob.plateFill.setScale(ratio, 1);
+    mob.plateFill.setFillStyle(isBoss ? 0xff9d5c : ratio <= 0.3 ? 0xff7b6b : 0x7ee07a);
   }
 
   private syncTarget(monster: MonsterDefinition & { hp: number }): void {
@@ -1522,8 +1565,8 @@ export class WorldScene extends Phaser.Scene {
 
     this.hud?.update(snapshot);
 
+    this.syncPack(snapshot.combat.monsters ?? [{ ...snapshot.combat.monster, slotId: 'mob-1', respawnInSeconds: 0, isTarget: true }]);
     const anchor = this.targetAnchor();
-    this.syncTarget(snapshot.combat.monster);
 
     const recovering = snapshot.combat.status === 'recovering';
     this.recovering = recovering;
@@ -1663,6 +1706,22 @@ export class WorldScene extends Phaser.Scene {
         break;
       }
 
+      case 'skill_cast': {
+        const skillId = event.message ?? '';
+        if (skillId === 'priest-heal' || skillId === 'priest-group-heal') {
+          this.spawnBurst(this.player.root.x, this.player.root.y - 70, 0xffe7a3, 14);
+          this.popText(this.player.root.x, this.player.root.y - 128, `+${event.amount ?? 0} HP`, '#9cf0b2', 17);
+        } else {
+          this.player.facePoint(anchor.x, anchor.y);
+          const color = this.character.classId === 'mage' ? 0x9d7cff
+            : this.character.classId === 'priest' ? 0xffe7a3
+            : this.character.classId === 'archer' ? 0x8be0b0 : 0xffb86b;
+          this.spawnBurst(this.player.root.x, this.player.root.y - 70, color, 8);
+          this.popText(this.player.root.x, this.player.root.y - 132, skillId.replace(/-/g, ' ') || 'Habilidade', '#ffe28a', 14);
+        }
+        break;
+      }
+
       case 'monster_hit': {
         const attacker =
           this.targetMob && !this.targetMob.dying ? this.targetMob : anchor.mob;
@@ -1742,9 +1801,9 @@ export class WorldScene extends Phaser.Scene {
 
   private fireProjectile(critical: boolean, anchor: CombatAnchor): void {
     const classId = this.character.classId;
-    const startX = this.player.root.x + 30;
-    const startY = this.player.root.y - 74;
     const targetX = anchor.x;
+    const startX = this.player.root.x + (targetX >= this.player.root.x ? 30 : -30);
+    const startY = this.player.root.y - 74;
     const targetY = anchor.y - anchor.height * 0.5;
     const travel = Phaser.Math.Clamp(
       Phaser.Math.Distance.Between(startX, startY, targetX, targetY) * 0.35,
@@ -1983,9 +2042,9 @@ export class WorldScene extends Phaser.Scene {
   // ---------------------------------------------------------------------------
 
   private buildMotes(): void {
-    for (let i = 0; i < 16; i += 1) {
-      const x = Phaser.Math.Between(-420, 420);
-      const y = Phaser.Math.Between(-190, 200);
+    for (let i = 0; i < 34; i += 1) {
+      const x = Phaser.Math.Between(-780, 780);
+      const y = Phaser.Math.Between(-440, 440);
       const mote = this.add.circle(
         x,
         y,
@@ -2058,8 +2117,13 @@ export class WorldScene extends Phaser.Scene {
     }
   };
 
+  private handleSkillCast(snapshot: CombatSnapshot): void {
+    if (this.alive) this.applySnapshot(snapshot);
+  }
+
   private handleShutdown(): void {
     this.alive = false;
+    this.game.events.off('skill-cast', this.handleSkillCast, this);
     this.targetToken += 1;
     document.body.classList.remove('in-world');
     this.scale.off(Phaser.Scale.Events.RESIZE, this.handleResize, this);

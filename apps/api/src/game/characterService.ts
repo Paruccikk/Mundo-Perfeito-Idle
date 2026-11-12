@@ -5,6 +5,7 @@ import {
 } from './classes.js';
 import type { CharacterRepository } from './characterRepository.js';
 import { simulateCombat } from './combat.js';
+import { findSkill, skillsForClass, skillLevelFor } from './skills.js';
 import {
   STAGE_ONE, STAGES, getMonster, getStage, isStageUnlocked, nextNormalMonster, stageCatalog,
   type StageCatalog
@@ -15,6 +16,30 @@ import type {
 import {
   MAX_CHARACTERS_PER_PLAYER, isValidPlayerId, nameKey, type CreateCharacterPayload
 } from './validation.js';
+import { FARM_CROPS, FARM_BUILDINGS } from '@mundo-perfeito/shared';
+import {
+  type FarmBuildingId,
+  type FarmState,
+  type CropTypeId,
+  type AnimalSpeciesId,
+  type FishCatchResult
+} from '@mundo-perfeito/shared';
+import {
+  createDefaultFarm,
+  sanitizeFarmState,
+  processBuyBuilding,
+  processBuyAnimal,
+  processPlantCrop,
+  processHarvestCrop,
+  processBuySeeds,
+  processWaterCrop,
+  processCraftFeed,
+  processFillTrough,
+  processFarmCycles,
+  processExpandFarm,
+  processFishAtCity,
+  processCollectEgg
+} from './farm.js';
 
 export class CharacterError extends Error {
   readonly code: string;
@@ -82,25 +107,29 @@ export class CharacterService {
   async createCharacter(payload: CreateCharacterPayload): Promise<CharacterSummary> {
     const owned = await this.repository.countByPlayer(payload.playerId);
     if (owned >= MAX_CHARACTERS_PER_PLAYER) throw new CharacterError('character_limit_reached', 409,
-      `Você já tem ${MAX_CHARACTERS_PER_PLAYER} personagens. O limite do protótipo é ${MAX_CHARACTERS_PER_PLAYER}.`);
+      'Esta conta já possui seu único personagem.');
     const key = nameKey(payload.name);
     if (await this.repository.findByName(payload.playerId, key)) {
       throw new CharacterError('name_taken', 409, 'Você já tem um personagem com esse nome.', { name: 'Escolha outro nome.' });
     }
 
     const now = new Date().toISOString();
-    const attributes = { ...CLASS_DEFINITIONS[payload.classId].baseAttributes };
-    const stats = statsForLevel(payload.classId, 1, attributes);
+    const classId = 'warrior' as const;
+    const attributes = { ...CLASS_DEFINITIONS[classId].baseAttributes };
+    const stats = statsForLevel(classId, 1, attributes);
     const initialMonsterId = nextNormalMonster(STAGE_ONE, 0);
     const initialMonster = getMonster(initialMonsterId);
     const record: CharacterRecord = {
       id: randomUUID(), playerId: payload.playerId, name: payload.name, nameKey: key,
-      title: null, guildName: null, classId: payload.classId, level: 1, experience: 0,
-      gold: CLASS_DEFINITIONS[payload.classId].startingGold, attributes, attributePoints: 0, equipmentBonuses: {},
+      gender: payload.gender, professionId: payload.professionId, professionExperience: 0, professionLevel: 1,
+      title: null, guildName: null, classId, level: 1, experience: 0,
+      gold: 40, attributes, attributePoints: 0, equipmentBonuses: {},
       currentStageId: STAGE_ONE.id,
       combat: {
         stageId: STAGE_ONE.id, monsterId: initialMonsterId, monsterHp: initialMonster.maxHp,
+        pack: Array.from({ length: 6 }, (_, index) => { const monsterId = STAGE_ONE.monsterIds[index % STAGE_ONE.monsterIds.length]!; return { slotId: `mob-${index + 1}`, monsterId, hp: getMonster(monsterId).maxHp, respawnAt: null }; }), targetIndex: 0,
         playerHp: stats.maxHp, playerMp: stats.maxMp, killsInStage: 0, bossActive: false, bossDefeated: 0,
+        skillPoints: 0, skillLevels: { [skillsForClass(classId)[0]!.id]: 1 }, skillCooldowns: {}, pendingSkillMultiplier: 1, pendingSkillId: null,
         status: 'fighting', playerCooldownSeconds: 0, monsterCooldownSeconds: 0,
         recoveringUntil: null, lastTickAt: now
       },
@@ -108,6 +137,119 @@ export class CharacterService {
     };
     await this.repository.create(record);
     return toSummary(record);
+  }
+
+  async upgradeSkill(id: string, playerId: unknown, skillId: string): Promise<CombatSnapshot> {
+    assertPlayerId(playerId);
+    const record = await this.findOwned(id, playerId);
+    const definition = findSkill(record.classId, skillId);
+    if (!definition) throw new CharacterError('skill_not_found', 404, 'Essa habilidade não pertence à sua classe.');
+    const firstSkillId = skillsForClass(record.classId)[0]!.id;
+    const levels = { ...(record.combat.skillLevels ?? { [firstSkillId]: 1 }) };
+    const currentLevel = skillLevelFor(levels, skillId);
+    if (currentLevel >= definition.maxLevel) throw new CharacterError('skill_max_level', 400, 'Essa habilidade já está no nível máximo.');
+    const requiredLevel = currentLevel === 0 ? definition.requiredLevel : Math.max(definition.requiredLevel, (currentLevel + 1) * 5);
+    if (record.level < requiredLevel) throw new CharacterError('skill_level_required', 400, `Você precisa alcançar o nível ${requiredLevel} para evoluir essa habilidade.`);
+    if ((record.combat.skillPoints ?? Math.floor(record.level / 5)) < 1) throw new CharacterError('no_skill_points', 400, 'Você não possui pontos de habilidade disponíveis.');
+    const expected = record.combat.lastTickAt;
+    const now = new Date().toISOString();
+    record.combat = {
+      ...record.combat,
+      skillPoints: (record.combat.skillPoints ?? Math.floor(record.level / 5)) - 1,
+      skillLevels: { ...levels, [skillId]: currentLevel + 1 },
+      lastTickAt: now
+    };
+    if (!await this.repository.save(record, expected)) {
+      throw new CharacterError('combat_busy', 409, 'O personagem está sendo atualizado. Tente novamente.');
+    }
+    return toCombatSnapshot(record, [], 0);
+  }
+
+  async castSkill(id: string, playerId: unknown, skillId: string): Promise<CombatSnapshot> {
+    assertPlayerId(playerId);
+    let record = await this.findOwned(id, playerId);
+    if (record.combat.status !== 'fighting') throw new CharacterError('character_unavailable', 400, 'Só é possível usar habilidades durante o combate.');
+    const simulation = simulateCombat(record, Date.now());
+    if (simulation.simulatedSeconds > 0) {
+      const drops = simulation.drops.map((drop, index) => ({
+        ...drop, operationId: `drop:${id}:${record.combat.lastTickAt}:${index}`
+      }));
+      if (!await this.repository.save(simulation.record, record.combat.lastTickAt, drops)) {
+        throw new CharacterError('combat_busy', 409, 'O personagem está sendo atualizado. Tente novamente.');
+      }
+      record = simulation.record;
+    }
+    if (record.combat.status !== 'fighting') throw new CharacterError('character_unavailable', 400, 'Seu personagem não pode usar habilidades neste momento.');
+    const definition = findSkill(record.classId, skillId);
+    if (!definition) throw new CharacterError('skill_not_found', 404, 'Essa habilidade não pertence à sua classe.');
+    const firstSkillId = skillsForClass(record.classId)[0]!.id;
+    const skillLevel = skillLevelFor(record.combat.skillLevels ?? { [firstSkillId]: 1 }, skillId);
+    if (skillLevel < 1) throw new CharacterError('skill_locked', 400, 'Essa habilidade ainda está bloqueada. Evolua seu personagem e a árvore de habilidades.');
+    const nowMs = Date.now();
+    const cooldownUntil = record.combat.skillCooldowns?.[skillId] ?? 0;
+    if (cooldownUntil > nowMs) {
+      const seconds = Math.ceil((cooldownUntil - nowMs) / 1000);
+      throw new CharacterError('skill_cooldown', 400, `A habilidade estará pronta em ${seconds}s.`);
+    }
+    const stats = statsForLevel(record.classId, record.level, record.attributes, record.equipmentBonuses);
+    if ((record.combat.playerMp ?? stats.maxMp) < definition.manaCost) {
+      throw new CharacterError('not_enough_mana', 400, 'Mana insuficiente para usar essa habilidade.');
+    }
+    const rankMultiplier = 1 + (skillLevel - 1) * 0.22;
+    let playerHp = record.combat.playerHp;
+    let pendingSkillMultiplier = record.combat.pendingSkillMultiplier ?? 1;
+    if (definition.effect === 'damage') {
+      pendingSkillMultiplier = Math.max(pendingSkillMultiplier, definition.multiplier * rankMultiplier);
+    } else {
+      const healing = Math.round(stats.maxHp * definition.multiplier * rankMultiplier);
+      playerHp = Math.min(stats.maxHp, playerHp + healing);
+    }
+    const expectedSaveAt = record.combat.lastTickAt;
+    const now = new Date(nowMs).toISOString();
+    record.combat = {
+      ...record.combat,
+      playerHp,
+      playerMp: Math.max(0, (record.combat.playerMp ?? stats.maxMp) - definition.manaCost),
+      pendingSkillMultiplier,
+      pendingSkillId: definition.effect === 'damage' ? skillId : record.combat.pendingSkillId ?? null,
+      skillCooldowns: { ...(record.combat.skillCooldowns ?? {}), [skillId]: nowMs + definition.cooldownSeconds * 1000 },
+      lastTickAt: now
+    };
+
+    let combatEvents: CombatEvent[] = [];
+    let drops: Array<{ itemId: string; quantity: number; operationId: string }> = [];
+    if (definition.effect === 'damage') {
+      // Resolve um tick autoritativo imediatamente para a magia causar dano
+      // agora, sem depender do próximo ciclo automático de ataque.
+      const attackRecord: CharacterRecord = {
+        ...record,
+        combat: {
+          ...record.combat,
+          playerCooldownSeconds: 0,
+          monsterCooldownSeconds: Math.max(0.5, record.combat.monsterCooldownSeconds),
+          lastTickAt: new Date(nowMs - 200).toISOString()
+        }
+      };
+      const skillSimulation = simulateCombat(attackRecord, nowMs, 1);
+      record = skillSimulation.record;
+      combatEvents = skillSimulation.events;
+      drops = skillSimulation.drops.map((drop, index) => ({
+        ...drop,
+        operationId: `skill-drop:${id}:${expectedSaveAt}:${index}`
+      }));
+    }
+
+    if (!await this.repository.save(record, expectedSaveAt, drops)) {
+      throw new CharacterError('combat_busy', 409, 'O personagem está sendo atualizado. Tente novamente.');
+    }
+    const skillEvent: CombatEvent = {
+      type: 'skill_cast',
+      amount: definition.effect === 'damage'
+        ? Math.round((record.classId === 'mage' || record.classId === 'priest' ? stats.magicDamage : stats.physicalDamage) * definition.multiplier * rankMultiplier)
+        : Math.round(stats.maxHp * definition.multiplier * rankMultiplier),
+      message: skillId
+    };
+    return toCombatSnapshot(record, [skillEvent, ...combatEvents], 0);
   }
 
   async getCharacter(id: string, playerId: unknown): Promise<CharacterSummary> {
@@ -133,9 +275,73 @@ export class CharacterService {
 
   async getInventory(id: string, playerId: unknown) {
     assertPlayerId(playerId);
-    const inventory = await this.repository.getInventory(id, playerId);
+    const [inventory, record] = await Promise.all([
+      this.repository.getInventory(id, playerId),
+      this.findOwned(id, playerId)
+    ]);
     if (!inventory) throw new CharacterError('character_not_found', 404, 'Personagem não encontrado.');
-    return inventory;
+    const farm = sanitizeFarmState(record.combat.farm ?? createDefaultFarm());
+    const farmItems: Array<{ key: string; name: string; icon: string; quantity: number; category: 'crop' | 'seed' | 'feed' | 'fish' | 'egg' }> = [];
+    for (const cropId of ['corn', 'wheat', 'carrot'] as CropTypeId[]) {
+      const crop = FARM_CROPS[cropId];
+      farmItems.push({ key: `seed-${cropId}`, name: `Semente de ${crop.name}`, icon: crop.icon, quantity: farm.seeds?.[cropId] ?? 0, category: 'seed' });
+      farmItems.push({ key: `crop-${cropId}`, name: crop.name, icon: crop.icon, quantity: farm.storage[`crop-${cropId}`] ?? 0, category: 'crop' });
+    }
+    const feeds = [
+      { key: 'feed-chicken', name: 'Ração para aves', icon: '🐔' },
+      { key: 'feed-cow', name: 'Ração para bovinos', icon: '🐄' },
+      { key: 'feed-horse', name: 'Ração para equinos', icon: '🐎' }
+    ];
+    for (const feed of feeds) {
+      farmItems.push({ ...feed, quantity: farm.storage[feed.key] ?? 0, category: 'feed' });
+    }
+    const fish = [
+      { key: 'fish-minnow', name: 'Lambari', icon: '🐟' },
+      { key: 'fish-trout', name: 'Truta', icon: '🐠' },
+      { key: 'fish-carp', name: 'Carpa', icon: '🐡' },
+      { key: 'fish-golden', name: 'Peixe Dourado', icon: '✨' }
+    ];
+    for (const item of fish) farmItems.push({ ...item, quantity: farm.storage[item.key] ?? 0, category: 'fish' });
+    farmItems.push({ key: 'egg-unfertilized', name: 'Ovo comum', icon: '🥚', quantity: farm.storage['egg-unfertilized'] ?? 0, category: 'egg' });
+    return {
+      ...inventory,
+      farmItems,
+      farmSummary: {
+        name: record.name,
+        installations: farm.buildings.length,
+        maxInstallations: Object.keys(FARM_BUILDINGS).length,
+        animals: farm.animals.length,
+        plots: farm.plots.length
+      }
+    };
+  }
+
+  async sellFarmItem(id: string, playerId: unknown, itemKey: string) {
+    const prices: Record<string, number> = {
+      'crop-corn': 1000, 'crop-wheat': 1000, 'crop-carrot': 1000,
+      'fish-minnow': 120, 'fish-trout': 240, 'fish-carp': 360, 'fish-golden': 900, 'egg-unfertilized': 35
+    };
+    const price = prices[itemKey];
+    if (!price) throw new CharacterError('invalid_item', 400, 'Este produto não pode ser vendido.');
+    return this.applyFarmOperation(id, playerId, (farm, gold) => {
+      const quantity = farm.storage[itemKey] ?? 0;
+      if (quantity < 1) return { ok: false, error: 'Você não possui este produto no estoque.', farm, gold };
+      return { ok: true, farm: { ...farm, storage: { ...farm.storage, [itemKey]: quantity - 1 } },
+        gold: gold + price, message: `Produto vendido por ${price.toLocaleString('pt-BR')} moedas.` };
+    }, 'Não foi possível vender o produto.');
+  }
+
+  async sellItem(id: string, playerId: unknown, inventoryItemId: string, quantity: number) {
+    assertPlayerId(playerId);
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 9999) {
+      throw new CharacterError('invalid_quantity', 400, 'Quantidade inválida para venda.');
+    }
+    const result = await this.repository.sellItem(id, playerId, inventoryItemId, quantity);
+    if (result.error === 'not_found') throw new CharacterError('character_not_found', 404, 'Personagem não encontrado.');
+    if (result.error === 'item_not_found') throw new CharacterError('item_not_found', 404, 'Este item não está mais na mochila.');
+    if (result.error === 'invalid_quantity') throw new CharacterError('invalid_quantity', 400, 'A quantidade mudou. Atualize o inventário e tente novamente.');
+    if (result.error) throw new CharacterError(result.error, 409, 'Não foi possível concluir a venda. Atualize o inventário e tente novamente.');
+    return { ...(await this.getInventory(id, playerId)), goldReceived: result.goldReceived ?? 0 };
   }
 
   async equipItem(id: string, playerId: unknown, inventoryItemId: string) {
@@ -144,6 +350,14 @@ export class CharacterService {
     if (result.error === 'not_found') throw new CharacterError('character_not_found', 404, 'Personagem não encontrado.');
     if (result.error === 'level_required') throw new CharacterError('level_required', 400, 'Seu nível ainda não permite equipar este item.');
     if (result.error) throw new CharacterError(result.error, 400, 'Este item não pode ser equipado.');
+    return this.getInventory(id, playerId);
+  }
+
+  async setMount(id: string, playerId: unknown, equipped: boolean) {
+    assertPlayerId(playerId);
+    const result = await this.repository.setMount(id, playerId, equipped);
+    if (result.error === 'not_found') throw new CharacterError('character_not_found', 404, 'Personagem não encontrado.');
+    if (result.error) throw new CharacterError('mount_update_failed', 400, 'Não foi possível alterar a montaria.');
     return this.getInventory(id, playerId);
   }
 
@@ -212,6 +426,152 @@ export class CharacterService {
     return toCombatSnapshot(record, [], 0);
   }
 
+  async getFarm(id: string, playerId: unknown): Promise<{ farm: FarmState; gold: number }> {
+    assertPlayerId(playerId);
+    const record = await this.findOwned(id, playerId);
+    const expected = record.combat.lastTickAt;
+    const previousFarm = record.combat.farm ?? null;
+    const farm = processFarmCycles(sanitizeFarmState(previousFarm));
+    // Consultas frequentes da cena não devem disputar o bloqueio otimista
+    // com cliques do jogador quando nenhum ciclo da fazenda mudou.
+    if (JSON.stringify(farm) !== JSON.stringify(previousFarm)) {
+      const nextTick = new Date(Math.max(Date.now(), Date.parse(expected) + 1)).toISOString();
+      record.combat = { ...record.combat, farm, lastTickAt: nextTick };
+      if (!await this.repository.save(record, expected)) {
+        throw new CharacterError('farm_busy', 409, 'A fazenda foi atualizada em outra ação. Atualize e tente novamente.');
+      }
+    }
+    return { farm, gold: record.gold };
+  }
+
+
+  async collectFarmEgg(id: string, playerId: unknown, eggId: string) {
+    return this.applyFarmOperation(id, playerId,
+      (farm, gold) => processCollectEgg(farm, gold, eggId),
+      'Não foi possível recolher o ovo.');
+  }
+
+  async expandFarm(id: string, playerId: unknown) {
+    return this.applyFarmOperation(id, playerId, processExpandFarm, 'Não foi possível expandir a propriedade.');
+  }
+
+  async fishAtCity(id: string, playerId: unknown) {
+    return this.applyFarmOperation(id, playerId, processFishAtCity, 'Não foi possível pescar agora.', 'fisher', 10);
+  }
+
+  async buyFarmBuilding(id: string, playerId: unknown, buildingId: FarmBuildingId): Promise<{ farm: FarmState; gold: number; message: string }> {
+    return this.applyFarmOperation(id, playerId,
+      (farm, gold) => processBuyBuilding(farm, gold, buildingId),
+      'Não foi possível construir.', 'animal_caretaker', 5);
+  }
+
+  async buyFarmAnimal(id: string, playerId: unknown, animalId: string, customName?: string): Promise<{ farm: FarmState; gold: number; message: string }> {
+    return this.applyFarmOperation(id, playerId,
+      (farm, gold) => processBuyAnimal(farm, gold, animalId, customName),
+      'Não foi possível comprar o animal.', 'animal_caretaker', 5);
+  }
+
+  async plantFarmCrop(id: string, playerId: unknown, plotIndex: number, cropId: CropTypeId): Promise<{ farm: FarmState; gold: number; message: string }> {
+    return this.applyFarmOperation(id, playerId,
+      (farm, gold) => processPlantCrop(farm, gold, plotIndex, cropId),
+      'Não foi possível plantar.', 'farmer', 3);
+  }
+
+  async harvestFarmCrop(id: string, playerId: unknown, plotIndex: number): Promise<{ farm: FarmState; gold: number; message: string }> {
+    return this.applyFarmOperation(id, playerId,
+      (farm, gold) => processHarvestCrop(farm, gold, plotIndex),
+      'Não foi possível colher.', 'farmer', 12);
+  }
+
+  async buyFarmSeeds(id: string, playerId: unknown, cropId: CropTypeId, quantity: number) {
+    return this.applyFarmOperation(id, playerId,
+      (farm, gold) => processBuySeeds(farm, gold, cropId, quantity),
+      'Não foi possível comprar sementes.');
+  }
+
+  async waterFarmCrop(id: string, playerId: unknown, plotIndex: number) {
+    return this.applyFarmOperation(id, playerId,
+      (farm, gold) => processWaterCrop(farm, gold, plotIndex),
+      'Não foi possível regar o canteiro.', 'farmer', 3);
+  }
+
+  async craftFarmFeed(id: string, playerId: unknown, species: AnimalSpeciesId, quantity: number) {
+    return this.applyFarmOperation(id, playerId,
+      (farm, gold) => processCraftFeed(farm, gold, species, quantity),
+      'Não foi possível preparar a ração.', 'animal_caretaker', 4);
+  }
+
+  async fillFarmTrough(id: string, playerId: unknown, buildingId: FarmBuildingId, kind: 'feed' | 'water', quantity: number) {
+    return this.applyFarmOperation(id, playerId,
+      (farm, gold) => processFillTrough(farm, gold, buildingId, kind, quantity),
+      'Não foi possível abastecer o cocho.', 'animal_caretaker', 3);
+  }
+
+  /**
+   * Consolida o combate pendente antes de alterar a fazenda e usa o último
+   * instante simulado como controle otimista de concorrência. Assim, duas
+   * compras/colheitas simultâneas não sobrescrevem ouro ou estado da fazenda.
+   */
+  private async applyFarmOperation(
+    id: string,
+    playerId: unknown,
+    operation: (farm: FarmState, gold: number) => import('./farm.js').FarmOperationResult,
+    fallbackMessage: string,
+    professionReward?: 'animal_caretaker' | 'lumberjack' | 'fisher' | 'farmer',
+    professionXp = 0
+  ): Promise<{ farm: FarmState; gold: number; message: string; catch?: FishCatchResult }> {
+    assertPlayerId(playerId);
+
+    const record = await this.findOwned(id, playerId);
+    const expectedLastTickAt = record.combat.lastTickAt;
+    const currentFarm = processFarmCycles(sanitizeFarmState(record.combat.farm ?? createDefaultFarm()));
+    const result = operation(currentFarm, record.gold);
+    if (!result.ok) {
+      throw new CharacterError('farm_error', 400, result.error ?? fallbackMessage);
+    }
+
+    const previousTick = Date.parse(expectedLastTickAt);
+    const nextTick = new Date(Math.max(
+      Date.now(),
+      Number.isFinite(previousTick) ? previousTick + 1 : Date.now()
+    )).toISOString();
+
+    record.combat = { ...record.combat, farm: result.farm, lastTickAt: nextTick };
+    record.gold = result.gold;
+
+    let professionMessage = '';
+    if (professionReward && professionXp > 0 && (record.professionId ?? 'farmer') === professionReward) {
+      const previousLevel = record.professionLevel ?? 1;
+      let experience = (record.professionExperience ?? 0) + professionXp;
+      let level = previousLevel;
+      // Progressão gradual: cada nível exige 100 XP multiplicados pelo nível atual.
+      while (level < 100 && experience >= level * 100) {
+        experience -= level * 100;
+        level += 1;
+      }
+      record.professionExperience = experience;
+      record.professionLevel = level;
+      const gained = level > previousLevel ? ' Subiu para o nível ' + level + '!' : '';
+      professionMessage = ` +${professionXp} XP de profissão.${gained}`;
+    }
+
+    const saved = await this.repository.save(record, expectedLastTickAt);
+    if (!saved) {
+      throw new CharacterError(
+        'farm_busy',
+        409,
+        'Sua fazenda foi atualizada em outra ação. Atualize os dados e tente novamente.'
+      );
+    }
+
+    return {
+      farm: result.farm,
+      gold: result.gold,
+      message: (result.message ?? fallbackMessage) + professionMessage,
+      ...(result.catch ? { catch: result.catch } : {})
+    };
+  }
+
   private async findOwned(id: string, playerId: string): Promise<CharacterRecord> {
     const record = await this.repository.findById(id);
     if (!record || record.playerId !== playerId) throw new CharacterError('character_not_found', 404, 'Personagem não encontrado.');
@@ -221,7 +581,13 @@ export class CharacterService {
 
 export function toSummary(record: CharacterRecord): CharacterSummary {
   const definition = CLASS_DEFINITIONS[record.classId];
+  const professionNames = { animal_caretaker: 'Cuidador de Animais', lumberjack: 'Lenhador', fisher: 'Pescador', farmer: 'Agricultor' } as const;
+  const professionLevel = record.professionLevel ?? 1;
+  const professionRank = professionLevel >= 50 ? 'Grão-mestre' : professionLevel >= 30 ? 'Mestre' : professionLevel >= 15 ? 'Oficial' : professionLevel >= 5 ? 'Aprendiz' : 'Novato';
   return {
+    gender: record.gender ?? 'male', professionId: record.professionId ?? 'farmer',
+    professionName: professionNames[record.professionId ?? 'farmer'],
+    professionExperience: record.professionExperience ?? 0, professionLevel, professionRank,
     id: record.id, name: record.name, title: record.title, guildName: record.guildName,
     classId: record.classId, className: definition.name, level: record.level,
     experience: record.experience, experienceToNextLevel: experienceToNextLevel(record.level),
@@ -234,19 +600,56 @@ export function toSummary(record: CharacterRecord): CharacterSummary {
 export function toCombatSnapshot(record: CharacterRecord, events: CombatEvent[], simulatedSeconds: number): CombatSnapshot {
   const summary = toSummary(record);
   const stage = getStage(record.combat.stageId);
-  const monster = getMonster(record.combat.monsterId);
+  const legacyMonster = getMonster(record.combat.monsterId);
+  const pack = record.combat.pack?.length ? record.combat.pack : Array.from({ length: 6 }, (_, index) => {
+    const monsterId = index === 0
+      ? record.combat.monsterId
+      : stage.monsterIds[(index - 1) % stage.monsterIds.length]!;
     return {
-      character: summary,
-      combat: {
-        stageId: stage.id, stageName: stage.name, stage,
-        monster: { ...monster, hp: Math.max(0, record.combat.monsterHp) },
-        playerHp: Math.max(0, record.combat.playerHp), playerMaxHp: summary.stats.maxHp,
-        playerMp: Math.max(0, record.combat.playerMp ?? summary.stats.maxMp), playerMaxMp: summary.stats.maxMp,
-        killsInStage: record.combat.killsInStage, killsRequiredForBoss: stage.killsRequiredForBoss,
-        bossActive: record.combat.bossActive, bossDefeated: record.combat.bossDefeated, status: record.combat.status
-      },
-      events, simulatedSeconds
+      slotId: `mob-${index + 1}`,
+      monsterId,
+      hp: index === 0 ? record.combat.monsterHp : getMonster(monsterId).maxHp,
+      respawnAt: null
     };
+  });
+  const targetIndex = Math.max(0, Math.min(pack.length - 1, record.combat.targetIndex ?? 0));
+  const selectedIndex = (pack[targetIndex]?.hp ?? 0) > 0
+    ? targetIndex
+    : (() => { for (let offset = 1; offset <= pack.length; offset += 1) { const index = (targetIndex + offset) % pack.length; if (pack[index]!.hp > 0) return index; } return targetIndex; })();
+  const selected = pack[selectedIndex]!;
+  const monster = getMonster(selected.monsterId ?? legacyMonster.id);
+  const now = Date.now();
+  const monsters = pack.map((entry, index) => {
+    const definition = getMonster(entry.monsterId);
+    return {
+      ...definition,
+      hp: Math.max(0, entry.hp),
+      slotId: entry.slotId,
+      respawnInSeconds: entry.respawnAt ? Math.max(0, (Date.parse(entry.respawnAt) - now) / 1000) : 0,
+      isTarget: index === selectedIndex && entry.hp > 0
+    };
+  });
+  return {
+    character: summary,
+    combat: {
+      stageId: stage.id, stageName: stage.name, stage,
+      monster: { ...monster, hp: Math.max(0, selected.hp) },
+      monsters,
+      playerHp: Math.max(0, record.combat.playerHp), playerMaxHp: summary.stats.maxHp,
+      playerMp: Math.max(0, record.combat.playerMp ?? summary.stats.maxMp), playerMaxMp: summary.stats.maxMp,
+      killsInStage: record.combat.killsInStage, killsRequiredForBoss: stage.killsRequiredForBoss,
+      bossActive: record.combat.bossActive, bossDefeated: record.combat.bossDefeated, status: record.combat.status,
+      skillPoints: record.combat.skillPoints ?? Math.floor(record.level / 5),
+      skills: skillsForClass(record.classId).map((definition) => {
+        const firstSkillId = skillsForClass(record.classId)[0]!.id;
+        const levels = record.combat.skillLevels ?? { [firstSkillId]: 1 };
+        const currentLevel = skillLevelFor(levels, definition.id);
+        const requiredLevel = currentLevel === 0 ? definition.requiredLevel : Math.max(definition.requiredLevel, (currentLevel + 1) * 5);
+        return { ...definition, level: currentLevel, requiredLevel, unlocked: currentLevel > 0, cooldownRemainingSeconds: Math.max(0, ((record.combat.skillCooldowns?.[definition.id] ?? 0) - now) / 1000), special: Boolean(definition.special) };
+      })
+    },
+    events, simulatedSeconds
+  };
 }
 
 function assertPlayerId(playerId: unknown): asserts playerId is string {

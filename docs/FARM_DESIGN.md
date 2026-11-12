@@ -1,0 +1,488 @@
+# Mundo Perfeito — Direção de Design: Fazenda Online
+
+**Versão:** 1.0 — mudança de direção aprovada em 10/11/2026  
+**Status:** especificação-base para implementação  
+**Projeto:** Mundo Perfeito
+
+> Este documento atualiza a prioridade do jogo: a experiência principal passa a ser uma fazenda online no estilo dos jogos sociais clássicos de fazenda, mantendo a cidade multiplayer e as fases de aventura já existentes. Não remover sistemas de combate, personagens, inventário, equipamentos, montarias ou fases nesta transição.
+
+## 1. Visão atualizada
+
+Mundo Perfeito será um jogo de fazenda online 2D isométrico, acessível pelo navegador em desktop e celular. Cada jogador possui uma propriedade particular que desenvolve ao longo do tempo. Na fazenda, prepara terrenos, planta alimentos, constrói instalações, compra e cria animais, coleta produtos e organiza sua produção.
+
+A cidade continua sendo um espaço compartilhado: jogadores se encontram, caminham, conversam e visitam NPCs. Ela também concentra os serviços de construção, pecuária, sementes e comércio. As fases de aventura permanecem acessíveis como conteúdo paralelo de exploração e progressão.
+
+O coração da economia será a troca entre jogadores: animais, sementes, colheitas, rações, produtos animais e materiais poderão ser negociados por meio de um mercado controlado pelo servidor.
+
+## 2. Pilares
+
+1. **Fazenda própria:** cada personagem possui uma fazenda persistente e identificada pelo servidor.
+2. **Cidade viva:** a cidade permanece multiplayer, com presença, movimento e chat.
+3. **Criação com profundidade:** animais possuem espécie, sexo, idade, saúde, fome, tier, atributos e linhagem.
+4. **Produção interdependente:** plantações fornecem alimentos para animais; animais produzem recursos usados em receitas e comércio.
+5. **Economia entre jogadores:** mercado seguro para compra e venda de bens permitidos.
+6. **Expansão modular:** novas espécies, instalações, sementes, receitas, tiers e eventos devem ser adicionáveis por catálogo de dados.
+7. **Servidor autoritativo:** custos, inventários, reprodução, colheitas, produção e negociações são validados e persistidos na API.
+
+## 3. Navegação e mundos
+
+O jogo terá três destinos principais:
+
+- **Cidade:** praça multiplayer, NPCs e serviços.
+- **Minha Fazenda:** propriedade particular do jogador, aberta por um novo botão/ícone de casa no HUD.
+- **Fases:** mapa de aventura e combate já existente, mantido sem remoção.
+
+A transição entre cidade, fazenda e fases deve preservar personagem, inventário, ouro, conexão e estado de sessão. O botão da fazenda deve estar acessível na cidade e nas fases. O jogador retorna à cidade pela interface da fazenda.
+
+A primeira versão pode carregar a fazenda em uma cena própria chamada FarmScene e usar o mesmo personagem e HUD. A visita a fazendas de outros jogadores poderá ser adicionada depois, com permissões de visita.
+
+## 4. Estrutura da fazenda
+
+Cada propriedade começa com:
+- Casa principal;
+- Terreno aberto para expansão;
+- Pequena área de plantio;
+- Espaços reservados para construções;
+- Armazém/depósito para produtos.
+
+O terreno será uma grade isométrica com células posicionáveis. Construções ocupam uma ou mais células e não podem se sobrepor. Cada construção possui nível, custo, tempo de construção (se aplicável), capacidade e requisitos.
+
+### Instalações iniciais
+
+| Instalação | Uso |
+|---|---|
+| Casa principal | Identidade e ponto central da fazenda |
+| Galinheiro | Abriga galinhas e galos |
+| Curral | Abriga bovinos, como vacas e touros |
+| Estábulo | Abriga cavalos, éguas e potros |
+| Chiqueiro | Abriga porcos e matrizes/reprodutores |
+| Aprisco | Abriga ovelhas e carneiros |
+| Capril | Abriga cabras e bodes |
+| Coelheira | Abriga coelhos |
+| Viveiro | Abriga patos e gansos |
+| Celeiro/depósito | Armazena colheitas, rações e produtos |
+
+A lista é um catálogo expansível. Não é necessário implementar todas as espécies na primeira entrega.
+
+## 5. NPCs e compras na cidade
+
+Adicionar um NPC de **Construção e Propriedades**, responsável por vender projetos/instalações. O jogador compra o projeto, paga os materiais/custos e constrói na própria fazenda.
+
+Adicionar um NPC de **Criador de Animais**, responsável por vender animais disponíveis no catálogo. A loja deve filtrar por espécie, sexo, tier e preço. A compra entrega uma instância individual do animal à fazenda, respeitando espaço e capacidade da instalação.
+
+Os NPCs são a fonte inicial de instalações e animais. No futuro, jogadores poderão vender animais entre si; o mercado não deve depender do NPC como única fonte.
+
+## 6. Plantio e alimentos
+
+Cada canteiro/terreno cultivável possui estado próprio:
+- Vazio;
+- Preparado;
+- Plantado;
+- Em crescimento;
+- Pronto para colher.
+
+Uma plantação registra espécie de semente, instante de plantio, duração de crescimento, estágio visual, quantidade e qualidade potencial da colheita. A API calcula o tempo com relógio do servidor e valida a colheita.
+
+Primeiros cultivos sugeridos:
+- Milho;
+- Trigo;
+- Cenoura;
+- Capim/feno;
+- Soja ou outro grão para rações.
+
+As culturas devem ter usos diferentes. Milho, trigo e cenoura podem alimentar espécies específicas; capim/feno sustenta herbívoros. Futuramente, receitas transformarão colheitas em rações balanceadas e produtos processados.
+
+A primeira versão deve ter sementes, plantio, irrigação simples obrigatória, crescimento, colheita e armazenamento. Fertilizantes e clima complexo ficam para depois do loop básico funcionar.
+
+## 7. Animais
+
+Cada animal será uma instância individual com, no mínimo:
+- Espécie e raça/variante;
+- Sexo (male ou female);
+- Nome opcional;
+- Tier/raridade;
+- Idade e maturidade;
+- Fome e saúde;
+- Instalação atual;
+- Estado (saudável, faminto, doente, gestante, em reprodução, etc.);
+- Atributos de produção;
+- Dados genéticos/linhagem para cruzamentos futuros;
+- Proprietário atual e histórico de transferências.
+
+Machos e fêmeas serão entidades distintas. A reprodução requer espécie compatível, macho e fêmea adultos, saudáveis e alojados em instalações adequadas. A reprodução terá tempo de gestação/incubação conforme a espécie, intervalo de descanso e chance de sucesso configurável. A cria recebe atributos herdáveis dos pais, com variação controlada.
+
+### Catálogo planejado de espécies
+
+| Grupo | Espécies/sexos |
+|---|---|
+| Aves | Galinha e galo; pata e pato; gansa e ganso |
+| Bovinos | Vaca e touro |
+| Equinos | Égua, cavalo e potro/potra |
+| Suínos | Porca e porco |
+| Ovinos | Ovelha e carneiro |
+| Caprinos | Cabra e bode |
+| Pequenos animais | Coelha e coelho |
+| Futuras expansões | Abelhas, peixes de viveiro e espécies especiais |
+
+O MVP deve começar com galinha/galo e vaca/touro, e adicionar cavalo/égua após o ciclo de instalação e alojamento estar estável. As demais espécies ficam previstas no catálogo, sem exigir implementação simultânea.
+
+### Necessidades e produção
+
+Animais consomem alimentos e precisam de condições adequadas. O servidor calcula fome, saúde e produção em intervalos controlados. Se o jogador negligenciar o animal, a produção diminui ou para; não deve haver morte punitiva na primeira versão.
+
+Produtos iniciais:
+- Galinhas: ovos;
+- Vacas: leite;
+- Ovelhas: lã;
+- Porcos: recursos para receitas futuras;
+- Cavalos: reprodução e, futuramente, montaria/serviços.
+
+Não permitir produção ilimitada. Capacidade, alimentação, intervalos e estoque devem limitar a economia.
+
+## 8. Tiers, raridade e genética
+
+Tiers iniciais:
+- Comum;
+- Incomum;
+- Raro;
+- Épico;
+- Lendário.
+
+A raridade pode afetar aparência, atributos, eficiência, qualidade e potencial de produção, mas não deve simplesmente multiplicar todos os valores de forma descontrolada.
+
+A raridade da cria será calculada no servidor a partir de herança dos pais, compatibilidade, atributos e uma chance pequena e configurável de mutação. Cruzar animais bons deve ser uma estratégia viável; comprar ovos/animais aleatórios não será a única forma de obter tiers superiores.
+
+O sistema deve evitar pay-to-win e não prometer retorno financeiro. Raridade é um atributo de jogo, não valor monetário garantido.
+
+## 9. Mercado entre jogadores
+
+Mercado futuro com:
+- Listagens de animais individuais;
+- Venda de sementes, alimentos e rações;
+- Venda de colheitas e produtos animais;
+- Preço definido pelo vendedor;
+- Taxa de listagem ou comissão como sumidouro de moeda;
+- Prazo de anúncio;
+- Cancelamento e devolução;
+- Histórico de transações e reputação.
+
+A transferência deve ocorrer em transação atômica: retirar o bem do vendedor, cobrar o comprador, transferir a propriedade e registrar o ledger. Um animal anunciado não pode ser alimentado, reproduzir, produzir ou ser anunciado novamente. Proteger contra duplicação, compra simultânea, auto-compra abusiva, preços negativos e replay de requisições.
+
+O mercado entre jogadores será implementado depois que inventário, animais, armazenamento e ledger estiverem confiáveis. Não implementar dinheiro real, saque ou cash-out nesta fase.
+
+## 10. Persistência e segurança
+
+Entidades de domínio previstas:
+- Farm: propriedade vinculada ao personagem;
+- FarmTile: terreno e estado de cada célula;
+- FarmBuilding: construção e posição;
+- CropPlot/CropInstance: plantio e ciclo de crescimento;
+- Animal: instância individual do animal;
+- AnimalSpecies: catálogo de espécies;
+- AnimalLineage: pais e linhagem;
+- AnimalProduction: produção coletada/pendente;
+- FarmStorage: estoque de produtos;
+- FarmTransaction: histórico de compras e vendas;
+- MarketListing: anúncios do mercado.
+
+A API deve validar propriedade, capacidade, requisitos, custo e tempo. Nunca aceitar do navegador quantidade de produção, tier, resultado de reprodução, preço pago ou horário de conclusão como autoridade.
+
+O estado da fazenda persiste mesmo se o jogador sair. A produção e o crescimento podem evoluir por relógio do servidor enquanto o jogador estiver ausente, diferente do combate idle antigo, que permanece sujeito às regras próprias já existentes. O servidor deve calcular períodos offline com limites e sem executar loops ilimitados.
+
+## 11. Fases de implementação
+
+### Fase A — Fazenda visual e navegação
+- Criar FarmScene isométrica;
+- Adicionar botão/ícone de casa ao HUD;
+- Navegar cidade ↔ fazenda ↔ fases;
+- Mostrar casa principal, terrenos, canteiros e espaços de construção;
+- Preservar cenas e sistemas atuais.
+
+### Fase B — Construções e NPCs
+- Persistir fazenda por personagem;
+- NPC de construção na cidade;
+- Catálogo e compra de galinheiro, curral e estábulo;
+- Posicionar e validar construções na grade;
+- Capacidade por instalação.
+
+### Fase C — Plantio
+- Sementes e inventário de recursos;
+- Preparar, plantar, crescer e colher;
+- Relógio do servidor;
+- Armazém da fazenda.
+
+### Fase D — Animais
+- NPC de compra de animais;
+- Galinhas/galos e vacas/touros;
+- Sexo, idade, fome, saúde, capacidade e alimentação;
+- Ovos e leite;
+- Cavalos/éguas em seguida.
+
+### Fase E — Reprodução e tiers
+- Maturidade e compatibilidade;
+- Reprodução e nascimento;
+- Herança de atributos;
+- Tiers e mutações raras;
+- Linhagem.
+
+### Fase F — Mercado entre jogadores
+- Anunciar e comprar animais;
+- Anunciar e comprar alimentos e produtos;
+- Ledger, taxas e auditoria;
+- Proteções contra duplicação e fraude.
+
+### Fase G — Expansões
+- Novas espécies e construções;
+- Processamento de alimentos;
+- Visitas às fazendas;
+- Decoração e expansão de terreno;
+- Eventos sazonais e missões.
+
+## 12. Critérios de aceite do primeiro marco
+
+1. O botão de casa aparece no HUD sem remover os botões atuais.
+2. O jogador consegue sair da cidade e entrar na fazenda, e voltar à cidade.
+3. A cena de fases continua acessível e funcional.
+4. A fazenda apresenta casa principal, grade de terreno, canteiros e áreas reservadas.
+5. A fazenda é associada ao personagem no servidor, não apenas ao navegador.
+6. Nenhuma mudança quebra login, seleção de personagem, cidade multiplayer, música ou combate.
+
+## 13. Regras aprovadas para o ciclo agrícola e pecuário
+
+Estas regras substituem qualquer comportamento provisório anterior de plantio e comércio:
+
+### Sementes, plantio e irrigação
+- Plantar consome exatamente 1 semente do estoque do jogador.
+- O canteiro recém-plantado não cresce enquanto não for regado.
+- Regar inicia o temporizador de crescimento controlado pelo servidor.
+- Ao colher uma plantação madura, o jogador recebe exatamente 2 sementes da mesma cultura e uma quantidade variável do fruto.
+- A colheita vai para o armazém da fazenda; nunca é convertida automaticamente em ouro.
+- Na primeira fase, Barnabé vende até 10 sementes por cultura por dia. Esse limite e a compra são validados pela API.
+- A intenção de longo prazo é retirar a venda de sementes do NPC quando o mercado entre jogadores estiver maduro; sementes passarão a circular principalmente entre jogadores.
+
+### Perda de plantações
+- Uma cultura madura que não for colhida fica exposta aos animais.
+- Após a janela inicial de 60 segundos, um animal com dieta compatível pode consumir a plantação.
+- Se for consumida, a plantação desaparece e não gera fruto nem as 2 sementes da colheita.
+- Dietas iniciais: milho para galinhas e bovinos; trigo para aves, bovinos e equinos; cenoura para equinos.
+
+### Rações, comedouros e bebedouros
+- Rações são produzidas usando exclusivamente colheitas armazenadas.
+- Receita de aves: 2 milhos + 1 trigo = 1 ração.
+- Receita de bovinos: 1 milho + 2 trigos = 1 ração.
+- Receita de equinos: 2 cenouras + 1 trigo = 1 ração.
+- Cada instalação possui comedouro e bebedouro próprios, com capacidade de 30 unidades cada.
+- O servidor consome ração e água por animal ao longo do tempo e atualiza fome/sede; os indicadores nunca são confiados ao navegador.
+- A falta de alimento ou água reduz as necessidades do animal, mas não causa morte nesta primeira fase.
+
+### Mercado e NPCs
+- NPCs não compram frutos, colheitas, sementes ou produtos animais.
+- Colheitas e produtos agrícolas/pecuários serão vendidos exclusivamente no mercado online entre jogadores.
+- O NPC agropecuário permanece, nesta fase, como vendedor limitado de sementes e catálogo de animais/construções.
+- O mercado deverá usar transações atômicas, anúncios com reserva de estoque, histórico e ledger para impedir duplicação.
+- Até o mercado ser implementado, os frutos permanecem armazenados na fazenda e não podem ser vendidos por NPC.
+
+### Estado da primeira implementação
+- Implementado na API: estoque inicial de sementes, consumo ao plantar, irrigação obrigatória, retorno de 2 sementes na colheita, limite diário de compra, receitas de ração, abastecimento dos cochos e consumo de necessidades por relógio do servidor.
+- Implementado na interface: escolha de sementes com estoque, ação de regar, loja diária de sementes, painel de receitas, abastecimento de comedouros/bebedouros e indicadores de fome/sede.
+- Próxima etapa: testar o ciclo completo, implementar produção de ovos/leite e, depois, o mercado online entre jogadores.
+
+
+## 14. Atualização: fazenda viva e criação animal
+
+A cena da fazenda foi ampliada para uma propriedade isométrica maior, com câmera que acompanha o personagem. O deslocamento aceita WASD, setas e clique no terreno. Casa, canteiros, galinheiro, curral e estábulo foram redistribuídos no novo espaço; cada instalação construída recebe cercado, comedouro e bebedouro visíveis.
+
+Os animais possuem desenho individual por espécie, passeiam dentro do próprio cercado, fazem pausas junto aos cochos e podem ser selecionados para abrir sua ficha. A ficha apresenta saúde, felicidade, fome, sede, idade, sexo, raridade e informações de reprodução.
+
+### Ranks e melhoria genética
+
+| Tier interno | Nome exibido | Próximo tier | Chance de melhoria |
+|---|---|---|---:|
+| white | Comum (D) | Incomum (C) | 8% |
+| green | Incomum (C) | Raro (B) | 5% |
+| blue | Raro (B) | Épico (A) | 2% |
+| orange | Épico (A) | Lendário (S) | 0,5% |
+| red | Lendário (S) | — | — |
+
+A cria parte do melhor tier entre os pais e pode subir mais um nível conforme a chance do tier-base. A rolagem ocorre exclusivamente no servidor.
+
+### Ovos e reprodução
+
+- Galinhas adultas e em boas condições podem botar um ovo a cada quatro horas simuladas.
+- Com um galo adulto saudável no mesmo galinheiro, cada ovo tem 45% de chance de fecundação.
+- Ovos não fecundados permanecem no galinheiro; ovos fecundados chocam após 24 horas e geram pintinhos de sexo aleatório.
+- A eclosão respeita a capacidade do galinheiro. Se estiver cheio, o ovo permanece aguardando espaço.
+- Vacas e cavalos adultos podem acasalar com parceiro adulto da mesma espécie e instalação: 12% de chance diária, com gestação de 48 horas para bovinos e 72 horas para equinos.
+- Saúde e felicidade são atualizadas pelo servidor a partir das condições de alimentação e hidratação. A falta de cuidados reduz os indicadores, sem morte punitiva nesta fase.
+
+**Observação técnica:** o ciclo animal usa o relógio do servidor e é consolidado quando a fazenda é sincronizada. As animações de caminhada e visita aos cochos são visuais na cena; consumo de ração/água, postura, fecundação, gestação, eclosão e raridade são calculados na API.
+
+
+## 15. Validação do ciclo de plantio (11/11/2026)
+
+- O plantio, a irrigação e a colheita já possuem rotas autenticadas na API. O servidor valida a propriedade do personagem, o índice do canteiro, a cultura, o estoque de sementes e o horário de conclusão.
+- O estado agrícola fica dentro de `Character.combat.farm` e é salvo pelo repositório do personagem com controle otimista baseado em `lastTickAt`. Com PostgreSQL configurado, o estado é persistido no banco; o modo de memória é apenas fallback de desenvolvimento e não sobrevive a reinicializações.
+- A colheita entrega 2 sementes da mesma cultura e os frutos ao armazém, sem conceder ouro automaticamente.
+- A venda direta de colheitas permanece bloqueada até existir o mercado entre jogadores. Os produtos ficam armazenados na fazenda enquanto esse sistema não estiver disponível.
+
+
+## 16. Sistema visual do rancho (implementado em 11/11/2026)
+
+A fazenda passou a usar arte vetorial procedural desenhada no Phaser, sem imagens externas. O objetivo é manter o rancho quente, limpo e nostálgico, com leitura clara em qualquer resolução e sem alterar os sistemas de jogo existentes.
+
+### 16.1 Paleta e tipografia
+
+A paleta central fica em `ranch-theme.ts` (`RANCH`) e evita saturação excessiva:
+
+| Uso | Cor |
+|---|---|
+| Grama (variações) | `#7fae5c`, `#87b462`, `#8fbc69`, `#78a856` |
+| Grama clara / escura | `#a7cd7c` / `#5d8845` |
+| Terra batida | `#c49a63` / `#d4ad78` / `#9c7647` |
+| Madeira | `#8c5a32` / `#c08a52` / `#5b3720` |
+| Celeiro | `#a94a36` / `#c35d46` / `#7b3025` |
+| Telhado | `#b15b3d` / `#d17a56` / `#7d3c2b` |
+| Creme / pergaminho | `#f2e3c4` / `#d8c49d` |
+| Ouro / destaque | `#f0c56d` / `#ffe6a4` |
+| Água | `#6fb9c4` / `#b3e4e8` |
+| Painéis escuros | `#24180f` / `#3a2818` / borda `#d3ac66` |
+
+Tipografia: `Cinzel` (títulos, placas e HUD) e `Trebuchet MS` (textos e números), com fallback para fontes do sistema.
+
+### 16.2 Composição da cena
+
+O layout isométrico aprovado foi mantido:
+
+- Casa `(12, 6)`, horta `6×5` a partir de `(6, 11)`, celeiro `(4, 7)`.
+- Galinheiro `(18, 7)`, curral `(20, 12)`, estábulo `(16, 17)`.
+- Poço `(15, 8)`, moinho `(21, 5)`, espantalho `(13, 16)`, porteira `(22, 20)`.
+
+O cenário inclui terreno estendido com variação orgânica de grama, estradas que continuam para fora da porteira, árvores com copa em camadas, cercas de madeira, fardos de feno, barris, regador, carrinho de mão, caixotes de sementes, varal, caixa de correio, postes de lanterna, placas rústicas e marcador de propriedade. Borboletas e a atmosfera (vinheta quente e luz de sol) dão vida sem competir com os elementos interativos.
+
+Canteiros bloqueados se misturam à grama; canteiros liberados usam moldura de madeira e só revelam o contorno no hover. O foco visual permanece na horta, nos animais e nas construções.
+
+### 16.3 Esquema de profundidade
+
+| Camada | Depth |
+|---|---|
+| Chão | `0` |
+| Detalhes de prado | `2` |
+| Objetos do mundo e personagem | `2000 + y` |
+| Atmosfera (vinheta/sol) | `8000`–`8001` |
+| Tooltip do rancho | `9500` |
+| HUD do rancho | `9600` |
+| Modais (sementes, animal) | `9700` |
+| Loja do rancho (overlay HTML) | `12400` |
+
+O mundo usa um contêiner com transformação manual (escala e posição), não o scroll da câmera do Phaser. A HUD e os modais ficam fora desse contêiner, portanto não sofrem zoom nem deslocamento.
+
+### 16.4 HUD do rancho
+
+A HUD (`RanchHud`) é um painel de madeira escura com moldura dourada, moeda desenhada em vetor e três cartões de resumo: canteiros liberados (`x/30`), animais e abrigos (`x/3`). Abaixo ficam o armazém de milho, trigo e cenoura, a linha de sementes e o botão **Mercado do rancho**. Valores são atualizados a cada sincronização da fazenda.
+
+### 16.5 Mercado do rancho
+
+A loja mantém as abas **Abrigos**, **Animais**, **Sementes** e **Cuidados**, agora com aparência de pergaminho sobre estrutura de madeira:
+
+- Cabeçalho com título, saldo em ouro e botão de fechar.
+- Abas em fita, cartões de item com ícone, descrição, preço e ação.
+- Faixa de expansão de terra e receitas de ração no estilo de recibo.
+- Rodapé com dica e botão **Voltar ao rancho**.
+- Feedback de compra em faixa própria, foco visível para teclado e estados de botão desabilitado.
+
+Todo o estilo usa classes com prefixo `.farm-shop-*`, sem afetar outros painéis do jogo.
+
+### 16.6 Câmera e responsividade
+
+- **Desktop:** zoom entre `0.66` e `1.04`, calculado por `min(largura/1800, altura/1080)`.
+- **Compacto** (`largura < 760` ou `altura < 520`): zoom entre `0.36` e `0.62`, calculado por `min(largura/1150, altura/1000)`, com foco horizontal deslocado `+380` para manter celeiro, horta e curral enquadrados.
+- **HUD:** escala `1` no desktop, `0.74` em telas compactas e `0.66` abaixo de `480px`; reposiciona-se para não cobrir a navegação inferior.
+- **Loja:** em paisagem baixa (`altura ≤ 540`) o cabeçalho é compactado, textos introdutórios são ocultados e o conteúdo rola dentro do painel. Em retrato, o cabeçalho empilha saldo e botão de fechar.
+- **Cidade:** o controle de montaria em telas ≤ `540px` fica acima da HUD inferior, sem cobrir a navegação.
+
+Viewports validados visualmente: `1600×900`, `1280×800`, `430×900` e `844×390`.
+
+### 16.7 Interações preservadas
+
+Plantar, regar, colher, expandir a terra, comprar sementes, abrir a ficha de animais, alimentar/abastecer instalações, sincronizar a fazenda e sair para a cidade continuam funcionando. O seletor de sementes e a ficha do animal escondem tooltips antes de abrir, e o botão de saída do rancho permanece na porteira.
+
+### 16.8 Arquivos
+
+- `apps/web/src/scenes/FarmScene.ts` — composição, câmera, interações e modais.
+- `apps/web/src/scenes/ranch/ranch-theme.ts` — paleta, terreno, cenário, construções e atmosfera.
+- `apps/web/src/scenes/ranch/ranch-buildings.ts` — galinheiro, curral, estábulo, plataformas vagas e placas.
+- `apps/web/src/scenes/ranch/ranch-animals.ts` — visuais animados de galinha, vaca e cavalo.
+- `apps/web/src/scenes/ranch/ranch-ui.ts` — HUD e botões do rancho.
+- `apps/web/src/ui/farm-shop-panel.ts` — markup e lógica do mercado.
+- `apps/web/src/style.css` — estilos `.farm-shop-*`, responsividade e correção do controle de montaria.
+
+## 17. Pesca no Lago de Valedouro (implementado em 11/11/2026)
+
+A pesca pública da cidade ganhou uma ficha visual completa, recordes pessoais por espécie e uma espera de arremesso. O sistema continua usando a rota autenticada `POST /characters/:id/city/fish` e o peixe é guardado no inventário da fazenda.
+
+### 17.1 Catálogo e sorteio
+
+O catálogo fica em `packages/shared/src/index.ts` (`FISH_CATALOG` e `FISH_ORDER`) e é a única fonte para servidor e interface:
+
+| Espécie | Chance | Peso (kg) | Comprimento (cm) |
+|---|---:|---:|---:|
+| Lambari | 48% | 0,02–0,14 | 4–11 |
+| Truta | 30% | 0,35–2,80 | 22–58 |
+| Carpa | 16% | 1,20–7,50 | 32–82 |
+| Peixe Dourado | 6% | 2,50–14,50 | 45–112 |
+
+O sorteio é autoritativo no servidor. Peso e comprimento usam uma curva que favorece exemplares menores; cada captura recebe uma pontuação de `0` a `100`, calculada por `65%` de peso normalizado + `35%` de comprimento normalizado dentro da faixa da espécie.
+
+### 17.2 Recordes, ranks e títulos
+
+Cada espécie mantém o melhor peso e o melhor comprimento de forma independente, além da melhor pontuação e do total de capturas. Os ranks de exemplar são:
+
+| Rank | Pontuação mínima |
+|---|---:|
+| Filhote | 0 |
+| Comum | 25 |
+| Graúdo | 50 |
+| Troféu | 75 |
+| Lendário | 92 |
+
+O rank geral do pescador soma a melhor pontuação das quatro espécies (máximo `400`) e concede títulos em `0` (Novato do Lago), `60` (Aprendiz de Pesca), `140` (Pescador do Vale), `220` (Veterano das Águas), `300` (Mestre da Vara) e `360` (Lenda do Lago). A interface mostra o progresso até o próximo título e ordena os recordes pela pontuação.
+
+### 17.3 Tempo de arremesso e proteção contra repetição
+
+- O cliente anima o arremesso por `3,2 s`, com barra de progresso, boia balançando e mensagens de “lançando”, “esperando a mordida” e “recolhendo”.
+- A chamada à API só acontece depois da animação; o botão fica desabilitado durante a espera.
+- O servidor aplica um cooldown de `2,5 s` por `lastFishedAt`, impedindo duas capturas em sequência mesmo que a requisição seja repetida fora da interface.
+- Ao terminar, a ficha da captura substitui a cena do lago no painel, exibindo ilustração vetorial, peso, comprimento, pontuação, rank, recordes e total de peixes.
+
+### 17.4 Persistência e compatibilidade
+
+O estado fica em `FarmState.fishing`, dentro de `Character.combat.farm`, sem necessidade de migração de banco:
+
+```ts
+fishing?: {
+  records: Partial<Record<FishId, FishRecord>>;
+  totalCaught: number;
+  lastFishedAt?: string;
+}
+```
+
+Fazendas antigas sem esse campo são sanitizadas com `records: {}` e `totalCaught: 0`. O mesmo sanitizador valida números, limites de pontuação e ranks ao carregar o personagem.
+
+### 17.5 Interface e responsividade
+
+O painel `FishingPanel` é um overlay HTML sobre o canvas, com fundo de pergaminho e madeira, cena de lago ao entardecer e ilustrações SVG procedurais em `apps/web/src/ui/fish-art.ts`. A abertura ocorre ao clicar no lago ou no cais da cidade; o painel bloqueia cliques no chão, fecha por Escape, botão, fundo ou redimensionamento da janela.
+
+- **Desktop:** duas colunas com cena/resultado à esquerda e placar de recordes à direita; as colunas rolam de forma independente quando necessário.
+- **Retrato:** coluna única; a ficha da captura aparece logo após o botão e o placar fica abaixo.
+- **Paisagem baixa:** ficha compacta, arte reduzida e textos auxiliares ocultos para manter peso, comprimento e pontuação visíveis.
+
+Viewports validados visualmente: `1600×900`, `430×900` e `844×390`, sem overflow horizontal. O arremesso dura `3,2 s`; a ficha aparece logo depois da resposta da API, tipicamente entre `3,5 s` e `4 s` no navegador.
+
+### 17.6 Arquivos
+
+- `apps/web/src/ui/fishing-panel.ts` — painel, espera, ficha da captura e placar.
+- `apps/web/src/ui/fish-art.ts` — ilustrações vetoriais de Lambari, Truta, Carpa e Peixe Dourado.
+- `apps/api/src/game/farm.ts` — sorteio, peso/comprimento, pontuação, recordes e cooldown.
+- `packages/shared/src/index.ts` — catálogo, ranks e tipos compartilhados.
+- `apps/web/src/scenes/CityScene.ts` — abertura/fechamento do painel no lago.
+- `apps/web/src/style.css` — estilos `.fishing-*` e `.fish-art`.

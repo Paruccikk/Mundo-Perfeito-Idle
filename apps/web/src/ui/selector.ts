@@ -28,11 +28,11 @@ export function renderCharacterSelector(
   const header = el('header', 'selector__header');
   header.append(
     el('p', 'eyebrow', 'Mundo Perfeito'),
-    el('h1', 'selector__title', 'Escolha seu aventureiro'),
+    el('h1', 'selector__title', 'Escolha seu personagem'),
     el(
       'p',
       'selector__subtitle',
-      'Seu progresso é salvo no servidor. O combate só acontece enquanto o jogo estiver aberto e conectado.'
+      'Sua vida no campo começa aqui. Cuide da propriedade, crie animais, plante e pesque.'
     )
   );
 
@@ -75,22 +75,22 @@ function buildCharacterCard(
 ): HTMLButtonElement {
   const card = el('button', 'character-card') as HTMLButtonElement;
   card.type = 'button';
-  card.dataset.class = character.classId;
+  card.dataset.class = 'farmer';
   card.setAttribute(
     'aria-label',
-    `Entrar com ${character.name}, ${character.className}, nível ${character.level}`
+    `Entrar com ${character.name}, ${character.professionName ?? 'Fazendeiro'}, nível ${character.professionLevel ?? 1}`
   );
 
   const top = el('div', 'character-card__top');
 
   const crest = el('div', 'crest');
-  crest.dataset.class = character.classId;
-  crest.append(el('span', 'crest__glyph', CLASS_GLYPHS[character.classId]));
+  crest.dataset.class = 'farmer';
+  crest.append(el('span', 'crest__glyph', '🌾'));
 
   const identity = el('div', 'character-card__identity');
   identity.append(
     el('strong', 'character-card__name', character.name),
-    el('span', 'character-card__meta', `${character.className} • Nível ${character.level}`)
+    el('span', 'character-card__meta', `${character.professionName ?? 'Fazendeiro'} • ${character.professionRank ?? 'Novato'} • Nível ${character.professionLevel ?? 1}`)
   );
 
   top.append(crest, identity);
@@ -100,10 +100,8 @@ function buildCharacterCard(
   }
 
   const stats = el('dl', 'character-card__stats');
-  appendStat(stats, 'Vida', formatNumber(character.stats.maxHp));
-  const classDamage = character.classId === 'mage' || character.classId === 'priest' ? character.stats.magicDamage : character.stats.physicalDamage;
-  appendStat(stats, 'Dano', formatDecimal(classDamage));
   appendStat(stats, 'Ouro', formatNumber(character.gold));
+  appendStat(stats, 'Profissão', character.professionName ?? 'Fazendeiro');
 
   const xp = el('div', 'character-card__xp');
   const xpTrack = el('div', 'character-card__xp-track');
@@ -119,7 +117,7 @@ function buildCharacterCard(
     )
   );
 
-  card.append(top, stats, xp, el('span', 'character-card__cta', 'Entrar no mundo →'));
+  card.append(top, stats, xp, el('span', 'character-card__cta', 'Ir para a fazenda →'));
   card.addEventListener('click', () => onSelect(character));
 
   return card;

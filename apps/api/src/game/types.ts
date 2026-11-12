@@ -25,6 +25,8 @@ export interface DerivedStats {
 export interface CombatStats extends DerivedStats {}
 
 export type CharacterClassId = 'warrior' | 'mage' | 'priest' | 'archer';
+export type CharacterGender = 'male' | 'female';
+export type ProfessionId = 'animal_caretaker' | 'lumberjack' | 'fisher' | 'farmer';
 
 export interface ClassGrowth {
   maxHp: number;
@@ -63,6 +65,12 @@ export interface EquipmentRecord {
 }
 
 export interface CharacterSummary {
+  gender?: CharacterGender;
+  professionId?: ProfessionId;
+  professionName?: string;
+  professionExperience?: number;
+  professionLevel?: number;
+  professionRank?: string;
   id: string;
   name: string;
   title: string | null;
@@ -186,10 +194,29 @@ export interface StageDefinition {
 
 export type CombatStatus = 'fighting' | 'recovering' | 'dead';
 
+export interface CombatMonsterRecord {
+  slotId: string;
+  monsterId: string;
+  hp: number;
+  respawnAt: string | null;
+}
+
 export interface CombatStateRecord {
   stageId: string;
   monsterId: string;
   monsterHp: number;
+  /** Grupo persistido de monstros; ausente em personagens legados até a primeira sincronização. */
+  pack?: CombatMonsterRecord[];
+  targetIndex?: number;
+  skillPoints?: number;
+  skillLevels?: Record<string, number>;
+  skillCooldowns?: Record<string, number>;
+  pendingSkillMultiplier?: number;
+  pendingSkillId?: string | null;
+  /** Montaria atualmente equipada; null mantém o personagem a pé. */
+  mountId?: string | null;
+  /** Estado da fazenda particular do personagem. */
+  farm?: import('@mundo-perfeito/shared').FarmState;
   playerHp: number;
   killsInStage: number;
   bossActive: boolean;
@@ -211,7 +238,8 @@ export type CombatEventType =
   | 'boss_spawn'
   | 'boss_defeated'
   | 'player_death'
-  | 'item_drop';
+  | 'item_drop'
+  | 'skill_cast';
 
 export interface CombatEvent {
   type: CombatEventType;
@@ -226,6 +254,7 @@ export interface CombatSnapshot {
     stageName: string;
     stage: StageDefinition;
     monster: MonsterDefinition & { hp: number };
+    monsters: Array<MonsterDefinition & { hp: number; slotId: string; respawnInSeconds: number; isTarget: boolean }>;
     playerHp: number;
     playerMaxHp: number;
     playerMp: number;
@@ -235,6 +264,8 @@ export interface CombatSnapshot {
     bossActive: boolean;
     bossDefeated: number;
     status: CombatStatus;
+    skillPoints: number;
+    skills: Array<{ id: string; name: string; description: string; effect: 'damage' | 'heal' | 'group_heal'; level: number; maxLevel: number; requiredLevel: number; cooldownSeconds: number; cooldownRemainingSeconds: number; manaCost: number; unlocked: boolean; special: boolean }>;
   };
   events: CombatEvent[];
   simulatedSeconds: number;
@@ -242,6 +273,10 @@ export interface CombatSnapshot {
 }
 
 export interface CharacterRecord {
+  gender?: CharacterGender;
+  professionId?: ProfessionId;
+  professionExperience?: number;
+  professionLevel?: number;
   id: string;
   playerId: string;
   name: string;

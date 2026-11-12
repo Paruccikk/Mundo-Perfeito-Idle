@@ -1,237 +1,81 @@
-/**
- * Áudio medieval procedural (WebAudio), sem arquivos externos.
- * A trilha usa modo dórico, alaúde dedilhado, bordão e tambor grave.
- */
-
+/** Gerenciador de playlist MP3 e efeitos sonoros WebAudio. */
 type OscillatorKind = OscillatorType;
 
-const MUTE_KEY = 'mundo-perfeito:audio-muted';
-
-let context: AudioContext | null = null;
-let master: GainNode | null = null;
-let musicBus: GainNode | null = null;
-let sfxBus: GainNode | null = null;
-let scheduler: number | null = null;
-let musicWanted = false;
-let nextStepAt = 0;
-let stepIndex = 0;
-
-function readMuted(): boolean {
-  try {
-    return window.localStorage.getItem(MUTE_KEY) === '1';
-  } catch {
-    return false;
-  }
-}
-
-let muted = readMuted();
-
-function makeContext(): AudioContext | null {
-  if (context) return context;
-  try {
-    const Ctor = window.AudioContext
-      ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!Ctor) return null;
-    context = new Ctor();
-    master = context.createGain();
-    master.gain.value = muted ? 0 : 0.85;
-    master.connect(context.destination);
-
-    musicBus = context.createGain();
-    musicBus.gain.value = 0.11;
-    musicBus.connect(master);
-
-    sfxBus = context.createGain();
-    sfxBus.gain.value = 0.32;
-    sfxBus.connect(master);
-  } catch {
-    context = null;
-  }
-  return context;
-}
-
-function resumeContext(): AudioContext | null {
-  const ctx = makeContext();
-  if (!ctx) return null;
-  if (ctx.state === 'suspended') {
-    void ctx.resume()
-      .then(() => {
-        if (musicWanted && !muted) startScheduler();
-      })
-      .catch(() => undefined);
-  } else if (ctx.state === 'running' && musicWanted && !muted) {
-    startScheduler();
-  }
-  return ctx;
-}
-
-/** Precisa rodar dentro de um gesto do usuário para liberar o áudio. */
-export function unlockAudio(): void {
-  const ctx = resumeContext();
-  if (ctx && musicWanted) startScheduler();
-}
-
-export function isAudioMuted(): boolean {
-  return muted;
-}
-
-export function toggleAudioMuted(): boolean {
-  muted = !muted;
-  try {
-    window.localStorage.setItem(MUTE_KEY, muted ? '1' : '0');
-  } catch {
-    /* armazenamento indisponível */
-  }
-  if (master && context) {
-    master.gain.setTargetAtTime(muted ? 0 : 0.85, context.currentTime, 0.08);
-  }
-  if (muted) stopScheduler();
-  else if (musicWanted) {
-    unlockAudio();
-    startScheduler();
-  }
-  return muted;
-}
-
-export function startMusic(): void {
-  musicWanted = true;
-  if (muted) return;
-  const ctx = resumeContext();
-  if (ctx && ctx.state === 'running') startScheduler();
-}
-
-export function stopMusic(): void {
-  musicWanted = false;
-  stopScheduler();
-}
-
-function stopScheduler(): void {
-  if (scheduler !== null) {
-    window.clearInterval(scheduler);
-    scheduler = null;
-  }
-}
-
-function startScheduler(): void {
-  if (scheduler !== null || muted) return;
-  const ctx = context;
-  if (!ctx || ctx.state !== 'running') return;
-  nextStepAt = ctx.currentTime + 0.12;
-  scheduler = window.setInterval(scheduleAhead, 180);
-  scheduleAhead();
-}
-
-const SCALE = [0, 2, 3, 5, 7, 9, 10];
-const MELODY: Array<number | null> = [
-  0, 2, 4, 2, 0, null, 4, 5,
-  7, 5, 4, 2, 0, 2, null, 4,
-  5, 7, 9, 7, 5, 4, 2, null,
-  0, 2, 4, 7, 4, 2, 0, null
-];
-const BASS = [0, null, null, null, 4, null, null, null, 3, null, null, null, 4, null, null, 7];
-
-function scheduleAhead(): void {
-  const ctx = context;
-  if (!ctx || muted || !musicWanted) return;
-  if (ctx.state !== 'running') return;
-  const stepSeconds = 0.42;
-  while (nextStepAt < ctx.currentTime + 0.9) {
-    scheduleStep(stepIndex, nextStepAt, stepSeconds);
-    stepIndex = (stepIndex + 1) % MELODY.length;
-    nextStepAt += stepSeconds;
-  }
-}
-
-function scheduleStep(index: number, at: number, stepSeconds: number): void {
-  const ctx = context;
-  const bus = musicBus;
-  if (!ctx || !bus) return;
-
-  const melodyDegree = MELODY[index];
-  if (melodyDegree !== null && melodyDegree !== undefined) {
-    const midi = 62 + SCALE[melodyDegree % SCALE.length]! + 12 * Math.floor(melodyDegree / SCALE.length);
-    pluck(midi, at, 0.72);
-  }
-
-  const bassDegree = BASS[index];
-  if (bassDegree !== null && bassDegree !== undefined) {
-    const midi = 38 + SCALE[bassDegree % SCALE.length]!;
-    drone(midi, at, stepSeconds * 3.4);
-  }
-
-  if (index % 8 === 0) {
-    drum(at, 0.55);
-  }
-  if (index % 8 === 4) {
-    drum(at, 0.32);
-  }
-}
-
+// Converte nota MIDI em frequência (Hz) para os efeitos musicais.
 function midiToFrequency(midi: number): number {
   return 440 * Math.pow(2, (midi - 69) / 12);
 }
-
-function pluck(midi: number, at: number, loudness: number): void {
-  const ctx = context;
-  const bus = musicBus;
-  if (!ctx || !bus) return;
-  const oscillator = ctx.createOscillator();
-  oscillator.type = 'triangle';
-  oscillator.frequency.setValueAtTime(midiToFrequency(midi), at);
-  oscillator.frequency.exponentialRampToValueAtTime(midiToFrequency(midi) * 0.997, at + 0.5);
-
-  const filter = ctx.createBiquadFilter();
-  filter.type = 'lowpass';
-  filter.frequency.setValueAtTime(2200, at);
-  filter.frequency.exponentialRampToValueAtTime(650, at + 0.55);
-  filter.Q.value = 1.4;
-
-  const gain = ctx.createGain();
-  gain.gain.setValueAtTime(0.0001, at);
-  gain.gain.exponentialRampToValueAtTime(loudness, at + 0.012);
-  gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.62);
-
-  oscillator.connect(filter).connect(gain).connect(bus);
-  oscillator.start(at);
-  oscillator.stop(at + 0.66);
+const MUTE_KEY = 'mundo-perfeito:audio-muted';
+let context: AudioContext | null = null;
+let master: GainNode | null = null;
+let sfxBus: GainNode | null = null;
+let muted = readMuted();
+let musicWanted = false;
+let playlist: string[] = [];
+let playlistLoaded = false;
+let loadingPlaylist = false;
+let currentTrack: HTMLAudioElement | null = null;
+let lastTrackIndex = -1;
+function readMuted(): boolean { try { return window.localStorage.getItem(MUTE_KEY) === '1'; } catch { return false; } }
+function makeContext(): AudioContext | null {
+  if (context) return context;
+  try {
+    const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!Ctor) return null;
+    context = new Ctor();
+    master = context.createGain(); master.gain.value = muted ? 0 : 0.85; master.connect(context.destination);
+    sfxBus = context.createGain(); sfxBus.gain.value = 0.32; sfxBus.connect(master);
+  } catch { context = null; }
+  return context;
 }
-
-function drone(midi: number, at: number, duration: number): void {
-  const ctx = context;
-  const bus = musicBus;
-  if (!ctx || !bus) return;
-  const oscillator = ctx.createOscillator();
-  oscillator.type = 'sine';
-  oscillator.frequency.value = midiToFrequency(midi);
-
-  const gain = ctx.createGain();
-  gain.gain.setValueAtTime(0.0001, at);
-  gain.gain.exponentialRampToValueAtTime(0.12, at + 0.18);
-  gain.gain.exponentialRampToValueAtTime(0.0001, at + duration);
-
-  oscillator.connect(gain).connect(bus);
-  oscillator.start(at);
-  oscillator.stop(at + duration + 0.05);
+function resumeContext(): AudioContext | null { const ctx = makeContext(); if (ctx?.state === 'suspended') void ctx.resume().catch(() => undefined); return ctx; }
+async function loadPlaylist(): Promise<void> {
+  if (playlistLoaded || loadingPlaylist) return;
+  loadingPlaylist = true;
+  try {
+    const response = await fetch('/music/playlist.json', { cache: 'no-cache' });
+    if (!response.ok) throw new Error('Playlist indisponível');
+    const data: unknown = await response.json();
+    if (Array.isArray(data)) playlist = data.filter((item): item is string => typeof item === 'string' && item.toLowerCase().endsWith('.mp3'));
+    playlistLoaded = true;
+  } catch (error) { console.warn('[audio] Não foi possível carregar a playlist:', error); }
+  finally { loadingPlaylist = false; }
 }
-
-function drum(at: number, loudness: number): void {
-  const ctx = context;
-  const bus = musicBus;
-  if (!ctx || !bus) return;
-  const oscillator = ctx.createOscillator();
-  oscillator.type = 'sine';
-  oscillator.frequency.setValueAtTime(92, at);
-  oscillator.frequency.exponentialRampToValueAtTime(48, at + 0.16);
-
-  const gain = ctx.createGain();
-  gain.gain.setValueAtTime(loudness * 0.5, at);
-  gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.24);
-
-  oscillator.connect(gain).connect(bus);
-  oscillator.start(at);
-  oscillator.stop(at + 0.26);
+function pickNextTrack(): string | null {
+  if (!playlist.length) return null;
+  if (playlist.length === 1) { lastTrackIndex = 0; return playlist[0] ?? null; }
+  let index = Math.floor(Math.random() * playlist.length);
+  while (index === lastTrackIndex) index = Math.floor(Math.random() * playlist.length);
+  lastTrackIndex = index; return playlist[index] ?? null;
 }
-
+async function playNextTrack(): Promise<void> {
+  if (!musicWanted || muted) return;
+  await loadPlaylist();
+  if (!musicWanted || muted) return;
+  const source = pickNextTrack();
+  if (!source) { console.warn('[audio] Nenhum MP3 encontrado em public/music.'); return; }
+  currentTrack?.pause();
+  const audio = new Audio(source); audio.preload = 'auto'; audio.volume = 0.24;
+  audio.onended = () => { if (musicWanted && !muted) void playNextTrack(); };
+  audio.onerror = () => { console.warn('[audio] Erro na faixa:', source); if (musicWanted && !muted) void playNextTrack(); };
+  currentTrack = audio;
+  try { await audio.play(); } catch { /* Aguarda o primeiro gesto do jogador. */ }
+}
+export function unlockAudio(): void { resumeContext(); if (musicWanted && !muted && (!currentTrack || currentTrack.paused)) void playNextTrack(); }
+export function isAudioMuted(): boolean { return muted; }
+export function toggleAudioMuted(): boolean {
+  muted = !muted;
+  try { window.localStorage.setItem(MUTE_KEY, muted ? '1' : '0'); } catch { /* armazenamento indisponível */ }
+  if (master && context) master.gain.setTargetAtTime(muted ? 0 : 0.85, context.currentTime, 0.08);
+  if (muted) currentTrack?.pause(); else if (musicWanted) unlockAudio();
+  return muted;
+}
+export function startMusic(): void { musicWanted = true; if (!muted) unlockAudio(); }
+export function stopMusic(): void { musicWanted = false; currentTrack?.pause(); currentTrack = null; }
+if (typeof window !== 'undefined') {
+  const unlock = (): void => { unlockAudio(); if (currentTrack && !currentTrack.paused) { window.removeEventListener('pointerdown', unlock); window.removeEventListener('keydown', unlock); } };
+  window.addEventListener('pointerdown', unlock); window.addEventListener('keydown', unlock);
+}
 function tone(
   frequency: number,
   duration: number,
@@ -348,15 +192,3 @@ export function sfxInventory(): void {
   tone(780, 0.08, 'triangle', 0.1, 820, 0.05);
 }
 
-// Libera o contexto no primeiro gesto do usuário e mantém a escuta até o áudio rodar.
-if (typeof window !== 'undefined') {
-  const unlock = (): void => {
-    unlockAudio();
-    if (context?.state === 'running') {
-      window.removeEventListener('pointerdown', unlock);
-      window.removeEventListener('keydown', unlock);
-    }
-  };
-  window.addEventListener('pointerdown', unlock);
-  window.addEventListener('keydown', unlock);
-}

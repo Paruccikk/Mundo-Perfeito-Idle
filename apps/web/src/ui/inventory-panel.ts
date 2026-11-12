@@ -1,4 +1,58 @@
-import type { InventorySnapshot } from '../api';
+import type { InventorySnapshot, FarmInventoryItem } from '../api';
+
+function formatGold(value: number): string {
+  return Math.max(0, Math.floor(value)).toLocaleString('pt-BR');
+}
+
+function createSection(titleText: string, subtitleText: string, items: FarmInventoryItem[], onSell: (key: string) => Promise<InventorySnapshot>, onRefresh: (inventory: InventorySnapshot) => void): HTMLElement {
+  const section = document.createElement('section');
+  section.className = 'farm-inventory-section';
+  const heading = document.createElement('div');
+  heading.className = 'farm-inventory-section__heading';
+  const title = document.createElement('h3');
+  title.textContent = titleText;
+  const subtitle = document.createElement('p');
+  subtitle.textContent = subtitleText;
+  heading.append(title, subtitle);
+  section.append(heading);
+
+  const grid = document.createElement('div');
+  grid.className = 'farm-inventory-grid';
+  for (const item of items) {
+    const card = document.createElement('article');
+    card.className = 'farm-inventory-card';
+    const icon = document.createElement('span');
+    icon.className = 'farm-inventory-card__icon';
+    icon.textContent = item.icon;
+    const info = document.createElement('div');
+    info.className = 'farm-inventory-card__info';
+    const name = document.createElement('strong');
+    name.textContent = item.name;
+    const quantity = document.createElement('small');
+    quantity.textContent = `${item.quantity} unidades`;
+    info.append(name, quantity);
+    card.append(icon, info);
+    if ((item.category === 'crop' || item.category === 'fish' || item.category === 'egg') && item.quantity > 0) {
+      const sell = document.createElement('button');
+      sell.type = 'button'; sell.className = 'ghost-button'; sell.textContent = 'Vender 1';
+      sell.addEventListener('click', async () => {
+        sell.disabled = true;
+        try { onRefresh(await onSell(item.key)); }
+        catch (error) { sell.disabled = false; const msg = document.createElement('small'); msg.textContent = error instanceof Error ? error.message : 'Falha na venda'; info.append(msg); }
+      });
+      card.append(sell);
+    }
+    grid.append(card);
+  }
+  if (!items.length) {
+    const empty = document.createElement('p');
+    empty.className = 'farm-inventory-empty';
+    empty.textContent = 'Nada armazenado nesta categoria por enquanto.';
+    grid.append(empty);
+  }
+  section.append(grid);
+  return section;
+}
 
 export function renderInventoryPanel(
   root: HTMLElement,
@@ -6,107 +60,88 @@ export function renderInventoryPanel(
   onEquip: (inventoryItemId: string) => Promise<InventorySnapshot>,
   onUnequip: (slot: string) => Promise<InventorySnapshot>,
   onUse: (inventoryItemId: string) => Promise<InventorySnapshot>,
+  onSell: (itemKey: string) => Promise<InventorySnapshot>,
   onClose: () => void
 ): void {
   root.querySelector('.game-panel-overlay')?.remove();
   const overlay = document.createElement('div');
   overlay.className = 'game-panel-overlay';
   const panel = document.createElement('section');
-  panel.className = 'game-panel inventory-panel';
+  panel.className = 'game-panel inventory-panel farm-inventory-panel';
+
   const header = document.createElement('header');
-  header.className = 'game-panel__header';
+  header.className = 'game-panel__header farm-inventory-header';
   const heading = document.createElement('div');
   const eyebrow = document.createElement('p');
   eyebrow.className = 'game-panel__eyebrow';
-  eyebrow.textContent = 'Equipamentos e itens';
+  eyebrow.textContent = `Fazenda de ${inventory.farmSummary?.name ?? 'sua propriedade'}`;
   const title = document.createElement('h2');
-  title.textContent = 'Inventário';
-  heading.append(eyebrow, title);
+  title.textContent = 'Inventário da Fazenda';
+  const description = document.createElement('p');
+  description.className = 'farm-inventory-header__description';
+  description.textContent = 'Tudo o que sua propriedade produz e utiliza fica organizado aqui.';
+  heading.append(eyebrow, title, description);
+
+  const balance = document.createElement('div');
+  balance.className = 'inventory-panel__balance';
+  const coin = document.createElement('span');
+  coin.className = 'coin-glyph';
+  coin.textContent = 'G';
+  coin.setAttribute('aria-hidden', 'true');
+  const gold = document.createElement('strong');
+  gold.textContent = formatGold(inventory.gold);
+  const goldLabel = document.createElement('small');
+  goldLabel.textContent = 'OURO';
+  balance.append(coin, gold, goldLabel);
+
   const close = document.createElement('button');
   close.type = 'button';
   close.className = 'game-panel__close';
   close.textContent = '✕';
+  close.setAttribute('aria-label', 'Fechar inventário');
   close.addEventListener('click', onClose);
-  header.append(heading, close);
+  const right = document.createElement('div');
+  right.className = 'inventory-panel__header-right';
+  right.append(balance, close);
+  header.append(heading, right);
 
-  const equippedTitle = document.createElement('h3');
-  equippedTitle.className = 'game-panel__section-title';
-  equippedTitle.textContent = 'Equipado';
-  const equipped = document.createElement('div');
-  equipped.className = 'inventory-panel__grid';
-  const slots = ['weapon', 'head', 'chest', 'legs', 'boots', 'accessory'];
-  const names: Record<string, string> = { weapon: 'Arma', head: 'Cabeça', chest: 'Peitoral', legs: 'Pernas', boots: 'Botas', accessory: 'Acessório' };
-  for (const slot of slots) {
-    const entry = inventory.equipment.find((item) => item.slot === slot);
-    const card = document.createElement('div');
-    card.className = 'inventory-slot';
+  const summary = document.createElement('div');
+  summary.className = 'farm-inventory-summary';
+  const stats = [
+    { icon: '🏡', label: 'Instalações', value: `${inventory.farmSummary?.installations ?? 0}/${inventory.farmSummary?.maxInstallations ?? 3}` },
+    { icon: '🐄', label: 'Animais', value: String(inventory.farmSummary?.animals ?? 0) },
+    { icon: '🌱', label: 'Canteiros', value: String(inventory.farmSummary?.plots ?? 6) }
+  ];
+  for (const stat of stats) {
+    const tile = document.createElement('div');
+    tile.className = 'farm-inventory-summary__item';
+    const icon = document.createElement('span');
+    icon.textContent = stat.icon;
     const label = document.createElement('small');
-    label.textContent = names[slot] ?? slot;
-    const item = document.createElement('strong');
-    item.textContent = entry?.item.name ?? 'Vazio';
-    card.append(label, item);
-    if (entry) {
-      const unequip = document.createElement('button');
-      unequip.type = 'button';
-      unequip.className = 'ghost-button';
-      unequip.textContent = 'Retirar';
-      unequip.addEventListener('click', async () => {
-        unequip.disabled = true;
-        try { renderInventoryPanel(root, await onUnequip(slot), onEquip, onUnequip, onUse, onClose); }
-        catch (error) { unequip.disabled = false; unequip.textContent = error instanceof Error ? error.message : 'Erro'; }
-      });
-      card.append(unequip);
-    }
-    equipped.append(card);
+    label.textContent = stat.label;
+    const value = document.createElement('strong');
+    value.textContent = stat.value;
+    tile.append(icon, label, value);
+    summary.append(tile);
   }
 
-  const bagTitle = document.createElement('h3');
-  bagTitle.className = 'game-panel__section-title';
-  bagTitle.textContent = 'Mochila';
-  const list = document.createElement('div');
-  list.className = 'inventory-panel__list';
-  if (!inventory.items.length) {
-    const empty = document.createElement('p');
-    empty.className = 'inventory-panel__empty';
-    empty.textContent = 'Seu inventário está vazio. Continue derrotando monstros para encontrar itens.';
-    list.append(empty);
-  }
-  for (const item of inventory.items) {
-    const row = document.createElement('article');
-    row.className = `inventory-item inventory-item--${item.rarity}`;
-    const copy = document.createElement('div');
-    const name = document.createElement('strong');
-    name.textContent = item.name;
-    const description = document.createElement('small');
-    description.textContent = `${item.description} • ${item.rarity} • Qtd: ${item.quantity}`;
-    copy.append(name, description);
-    row.append(copy);
-    if (item.slot) {
-      const equip = document.createElement('button');
-      equip.type = 'button';
-      equip.className = 'ghost-button';
-      equip.textContent = 'Equipar';
-      equip.addEventListener('click', async () => {
-        equip.disabled = true;
-        equip.textContent = 'Equipando…';
-        try { renderInventoryPanel(root, await onEquip(item.id), onEquip, onUnequip, onUse, onClose); }
-        catch (error) { equip.disabled = false; equip.textContent = error instanceof Error ? error.message : 'Erro ao equipar'; }
-      });
-      row.append(equip);
-    }
-    if (item.category === 'consumable' && item.itemId !== 'revive-potion') {
-      const use = document.createElement('button');
-      use.type = 'button'; use.className = 'ghost-button'; use.textContent = 'Usar';
-      use.addEventListener('click', async () => {
-        use.disabled = true; use.textContent = 'Usando…';
-        try { renderInventoryPanel(root, await onUse(item.id), onEquip, onUnequip, onUse, onClose); }
-        catch (error) { use.disabled = false; use.textContent = error instanceof Error ? error.message : 'Não foi possível usar'; }
-      });
-      row.append(use);
-    }
-    list.append(row);
-  }
-  panel.append(header, equippedTitle, equipped, bagTitle, list);
+  const items = inventory.farmItems ?? [];
+  const storage = items.filter((item) => item.category === 'crop');
+  const seeds = items.filter((item) => item.category === 'seed');
+  const feed = items.filter((item) => item.category === 'feed');
+  const fish = items.filter((item) => item.category === 'fish');
+  const eggs = items.filter((item) => item.category === 'egg');
+  const content = document.createElement('div');
+  content.className = 'farm-inventory-content';
+  content.append(
+    createSection('Armazém', 'Produtos colhidos e guardados para venda.', storage, onSell, (next) => renderInventoryPanel(root, next, onEquip, onUnequip, onUse, onSell, onClose)),
+    createSection('Sementes', 'Sementes disponíveis para iniciar novas plantações.', seeds, onSell, (next) => renderInventoryPanel(root, next, onEquip, onUnequip, onUse, onSell, onClose)),
+    createSection('Rações', 'Alimento preparado para cuidar dos animais do rancho.', feed, onSell, (next) => renderInventoryPanel(root, next, onEquip, onUnequip, onUse, onSell, onClose)),
+    createSection('Pescaria', 'Peixes pescados no lago público de Valedouro.', fish, onSell, (next) => renderInventoryPanel(root, next, onEquip, onUnequip, onUse, onSell, onClose)),
+    createSection('Ovos', 'Ovos comuns recolhidos dos ninhos do galinheiro.', eggs, onSell, (next) => renderInventoryPanel(root, next, onEquip, onUnequip, onUse, onSell, onClose))
+  );
+
+  panel.append(header, summary, content);
   overlay.append(panel);
   overlay.addEventListener('click', (event) => { if (event.target === overlay) onClose(); });
   root.append(overlay);

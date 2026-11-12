@@ -1,192 +1,21 @@
-import type {
-  CharacterClassDefinition,
-  CharacterClassId
-} from '@mundo-perfeito/shared';
-
-export interface CharacterCreatorOptions {
-  classes: CharacterClassDefinition[];
-  onCreate: (input: { name: string; classId: CharacterClassId }) => Promise<void>;
-  onBack?: () => void;
+import type { CharacterGender, ProfessionId } from '@mundo-perfeito/shared';
+export interface CharacterCreatorOptions { onCreate:(input:{name:string;gender:CharacterGender;professionId:ProfessionId})=>Promise<void>; onBack?:()=>void; }
+const JOBS:Array<{id:ProfessionId;name:string;desc:string;icon:string}>=[
+{id:'animal_caretaker',name:'Cuidador de Animais',desc:'Cria, alimenta e cuida dos animais.',icon:'🐄'},
+{id:'lumberjack',name:'Lenhador',desc:'Trabalha com árvores e madeira.',icon:'🪓'},
+{id:'fisher',name:'Pescador',desc:'Pesca em rios, lagos e águas do reino.',icon:'🎣'},
+{id:'farmer',name:'Agricultor',desc:'Planta, irriga e colhe culturas.',icon:'🌾'}];
+export function renderCharacterCreator(root:HTMLElement,o:CharacterCreatorOptions):void{
+const screen=el('section','creator'),panel=el('div','creator__panel'),header=el('header','creator__header');
+header.append(el('p','eyebrow','Mundo Perfeito'),el('h1','creator__title','Comece sua nova vida'),el('p','creator__subtitle','Crie seu personagem fazendeiro. Escolha a aparência e a atividade que deseja desenvolver.'));
+if(o.onBack){const back=el('button','creator__back','← Voltar') as HTMLButtonElement;back.type='button';back.onclick=o.onBack;header.prepend(back);}
+const form=el('form','creator__form');form.noValidate=true;const field=el('label','field');field.append(el('span','field__label','Nome do personagem'));
+const name=el('input','field__input') as HTMLInputElement;name.maxLength=16;name.minLength=3;name.placeholder='Ex.: Kael';name.required=true;field.append(name,el('small','field__hint','De 3 a 16 caracteres.'));
+const genderField=el('fieldset','class-fieldset');genderField.append(el('legend','field__label','Aparência'));const genderGrid=el('div','class-grid');let gender:CharacterGender='male';
+for(const [id,label,emoji] of [['male','Homem','👨'],['female','Mulher','👩']] as const){const b=el('button','class-card',emoji+' '+label) as HTMLButtonElement;b.type='button';b.classList.toggle('class-card--active',id===gender);b.onclick=()=>{gender=id;Array.from(genderGrid.children).forEach((x,i)=>x.classList.toggle('class-card--active',i===(id==='male'?0:1)));};genderGrid.append(b);}genderField.append(genderGrid);
+const jobField=el('fieldset','class-fieldset');jobField.append(el('legend','field__label','Sua atividade no rancho'));const jobs=el('div','class-grid');let professionId:ProfessionId='animal_caretaker';
+for(const job of JOBS){const b=el('button','class-card');b.type='button';b.classList.toggle('class-card--active',job.id===professionId);b.append(el('strong','class-card__name',job.icon+' '+job.name),el('p','class-card__description',job.desc));b.onclick=()=>{professionId=job.id;Array.from(jobs.children).forEach(x=>x.classList.toggle('class-card--active',x===b));};jobs.append(b);}jobField.append(jobs);
+const error=el('p','form-error');const submit=el('button','primary-button','Criar personagem') as HTMLButtonElement;submit.type='submit';form.append(field,genderField,jobField,error,submit);panel.append(header,form);screen.append(panel);root.replaceChildren(screen);
+form.onsubmit=e=>{e.preventDefault();const clean=name.value.trim().replace(/\s+/g,' ');if(clean.length<3||clean.length>16){error.textContent='O nome deve ter de 3 a 16 caracteres.';return;}submit.disabled=true;submit.textContent='Criando…';o.onCreate({name:clean,gender,professionId}).catch(err=>{error.textContent=err instanceof Error?err.message:'Não foi possível criar o personagem.';submit.disabled=false;submit.textContent='Criar personagem';});};
 }
-
-export function renderCharacterCreator(
-  root: HTMLElement,
-  options: CharacterCreatorOptions
-): void {
-  const { classes, onCreate } = options;
-
-  const screen = el('section', 'creator');
-  const panel = el('div', 'creator__panel');
-
-  const header = el('header', 'creator__header');
-  header.append(
-    el('p', 'eyebrow', 'Mundo Perfeito'),
-    el('h1', 'creator__title', 'Forje seu aventureiro'),
-    el(
-      'p',
-      'creator__subtitle',
-      'Escolha um nome e uma classe. O servidor é a autoridade sobre todo o progresso.'
-    )
-  );
-
-  if (options.onBack) {
-    const back = el('button', 'creator__back', '← Voltar aos personagens') as HTMLButtonElement;
-    back.type = 'button';
-    back.addEventListener('click', options.onBack);
-    header.prepend(back);
-  }
-
-  const form = el('form', 'creator__form');
-  form.noValidate = true;
-
-  const nameField = el('label', 'field');
-  const nameLabel = el('span', 'field__label', 'Nome do personagem');
-  const nameInput = el('input', 'field__input') as HTMLInputElement;
-  nameInput.type = 'text';
-  nameInput.name = 'name';
-  nameInput.maxLength = 16;
-  nameInput.minLength = 3;
-  nameInput.autocomplete = 'off';
-  nameInput.placeholder = 'Ex.: Kael';
-  nameInput.required = true;
-  const nameHint = el('small', 'field__hint', 'De 3 a 16 caracteres.');
-  nameField.append(nameLabel, nameInput, nameHint);
-
-  const classFieldset = el('fieldset', 'class-fieldset');
-  classFieldset.append(el('legend', 'field__label', 'Classe'));
-
-  const classGrid = el('div', 'class-grid');
-  classGrid.setAttribute('role', 'radiogroup');
-  classGrid.setAttribute('aria-label', 'Classe do personagem');
-
-  let selectedClassId: CharacterClassId = classes[0]?.id ?? 'warrior';
-  const cards = new Map<CharacterClassId, HTMLButtonElement>();
-
-  for (const definition of classes) {
-    const card = el('button', 'class-card') as HTMLButtonElement;
-    card.type = 'button';
-    card.dataset.classId = definition.id;
-    card.setAttribute('role', 'radio');
-    card.setAttribute('aria-checked', String(definition.id === selectedClassId));
-
-    const cardHeader = el('div', 'class-card__header');
-    cardHeader.append(
-      el('strong', 'class-card__name', definition.name),
-      el('span', 'class-card__role', definition.role)
-    );
-
-    card.append(
-      cardHeader,
-      el('p', 'class-card__description', definition.description),
-      buildStats(definition)
-    );
-
-    card.addEventListener('click', () => {
-      selectedClassId = definition.id;
-      for (const [id, other] of cards) {
-        const active = id === selectedClassId;
-        other.classList.toggle('class-card--active', active);
-        other.setAttribute('aria-checked', String(active));
-      }
-    });
-
-    if (definition.id === selectedClassId) {
-      card.classList.add('class-card--active');
-    }
-
-    cards.set(definition.id, card);
-    classGrid.append(card);
-  }
-
-  classFieldset.append(classGrid);
-
-  const error = el('p', 'form-error');
-  error.setAttribute('role', 'alert');
-
-  const submit = el('button', 'primary-button', 'Começar jornada') as HTMLButtonElement;
-  submit.type = 'submit';
-
-  form.append(nameField, classFieldset, error, submit);
-  panel.append(header, form);
-  screen.append(panel);
-  root.replaceChildren(screen);
-
-  nameInput.focus();
-
-  let submitting = false;
-
-  form.addEventListener('submit', (event) => {
-    event.preventDefault();
-    if (submitting) {
-      return;
-    }
-
-    const name = nameInput.value.trim().replace(/\s+/g, ' ');
-    if (name.length < 3) {
-      showError('O nome precisa ter pelo menos 3 caracteres.');
-      nameInput.focus();
-      return;
-    }
-    if (name.length > 16) {
-      showError('O nome pode ter no máximo 16 caracteres.');
-      nameInput.focus();
-      return;
-    }
-
-    setError('');
-    submitting = true;
-    submit.disabled = true;
-    submit.textContent = 'Criando personagem…';
-
-    onCreate({ name, classId: selectedClassId })
-      .catch((unknownError: unknown) => {
-        const message =
-          unknownError instanceof Error
-            ? unknownError.message
-            : 'Não foi possível criar o personagem.';
-        showError(message);
-        submitting = false;
-        submit.disabled = false;
-        submit.textContent = 'Começar jornada';
-      });
-  });
-
-  function showError(message: string): void {
-    setError(message);
-  }
-
-  function setError(message: string): void {
-    error.textContent = message;
-    error.classList.toggle('form-error--visible', message.length > 0);
-  }
-}
-
-function buildStats(definition: CharacterClassDefinition): HTMLElement {
-  const stats = definition.baseAttributes;
-  const list = el('dl', 'class-card__stats');
-  const entries: Array<[string, string]> = [
-    ['Constituição', String(stats.constitution)],
-    ['Força', String(stats.strength)],
-    ['Inteligência', String(stats.intelligence)],
-    ['Destreza', String(stats.dexterity)]
-  ];
-  for (const [label, value] of entries) {
-    list.append(el('dt', 'class-card__stat-label', label), el('dd', 'class-card__stat-value', value));
-  }
-  return list;
-}
-
-function el<K extends keyof HTMLElementTagNameMap>(
-  tag: K,
-  className?: string,
-  text?: string
-): HTMLElementTagNameMap[K] {
-  const element = document.createElement(tag);
-  if (className) {
-    element.className = className;
-  }
-  if (text !== undefined) {
-    element.textContent = text;
-  }
-  return element;
-}
+function el<K extends keyof HTMLElementTagNameMap>(tag:K,cls?:string,txt?:string):HTMLElementTagNameMap[K]{const n=document.createElement(tag);if(cls)n.className=cls;if(txt!==undefined)n.textContent=txt;return n;}

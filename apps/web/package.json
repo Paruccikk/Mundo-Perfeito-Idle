@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "tsc -p tsconfig.json && vite build",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "predev": "node scripts/generate-music-playlist.mjs",
+    "prebuild": "node scripts/generate-music-playlist.mjs"
   },
   "dependencies": {
     "phaser": "^3.90.0"

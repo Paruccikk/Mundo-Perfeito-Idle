@@ -15,11 +15,17 @@ export interface GameHudOptions {
   onCharacter: () => void;
   onInventory: () => void;
   onTown: () => void;
+  onFarm: () => void;
   onMap: () => void;
+  onSkills: () => void;
+  onCastSkill: (skillId: string) => void;
+  onUsePotion: (itemId: string) => void;
 }
 
 export interface GameHud {
   update(snapshot: CombatSnapshot): void;
+  setGold(value: number): void;
+  setProfessionProgress(experience: number, level: number, rank: string): void;
   setLocation(name: string, label: string, safeZone?: boolean): void;
   setConnection(state: HudConnectionState): void;
   pushFeed(text: string, tone?: HudFeedTone): void;
@@ -35,7 +41,7 @@ const CLASS_GLYPHS: Record<CharacterClassId, string> = {
 };
 
 export function createGameHud(root: HTMLElement, options: GameHudOptions): GameHud {
-  const { character, onSwitch, onCharacter, onInventory, onTown, onMap } = options;
+  const { character, onSwitch, onCharacter, onInventory, onTown, onFarm, onMap, onSkills, onCastSkill, onUsePotion } = options;
 
   const hud = el('div', 'hud');
   hud.setAttribute('aria-live', 'polite');
@@ -43,44 +49,50 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
   // ---------- Cartão do jogador ----------
   const playerCard = el('div', 'hud__card hud__card--player');
 
-  const crest = el('div', `hud__crest hud__crest--${character.classId}`);
-  crest.append(el('span', 'hud__crest-glyph', CLASS_GLYPHS[character.classId]));
+  const crest = el('div', 'hud__crest hud__crest--farmer');
+  crest.append(el('span', 'hud__crest-glyph', '🌾'));
 
   const identity = el('div', 'hud__identity');
   const nameEl = el('strong', 'hud__name', character.name);
-  const metaEl = el('span', 'hud__meta', `${character.className} • Nível ${character.level}`);
+  const metaEl = el('span', 'hud__meta', `Profissão: ${character.professionName ?? 'Agricultor'} • Rank: ${character.professionRank ?? 'Novato'} • Nv. ${character.professionLevel ?? 1}`);
   identity.append(nameEl, metaEl);
 
   const bars = el('div', 'hud__bars');
   const hpBar = buildBar('HP', 'hp');
   const mpBar = buildBar('MP', 'mp');
   const xpBar = buildBar('XP', 'xp');
+  hpBar.root.hidden = true; mpBar.root.hidden = true;
   bars.append(hpBar.root, mpBar.root, xpBar.root);
 
   playerCard.append(crest, identity, bars);
 
   // ---------- Cartão da fase ----------
   const stageCard = el('div', 'hud__card hud__card--stage');
+  stageCard.hidden = true;
   const stageEyebrow = el('p', 'hud__eyebrow', 'Fase 1');
   stageCard.append(stageEyebrow);
 
   const stageNameEl = el('strong', 'hud__stage-name', 'Clareira dos Aprendizes');
   const killsEl = el('span', 'hud__kills', '0 / 10 abates');
+  const mobsEl = el('span', 'hud__kills', 'Criaturas vivas: 0');
+  const targetEl = el('span', 'hud__kills', 'Alvo: —');
   const progressTrack = el('div', 'hud__progress-track');
   const progressFill = el('div', 'hud__progress-fill');
   progressTrack.append(progressFill);
 
   const stageBottom = el('div', 'hud__stage-bottom');
   const goldEl = el('span', 'hud__gold');
-  goldEl.append(el('span', 'hud__coin', '◆'), el('b', 'hud__gold-value', '0'));
+  goldEl.append(el('span', 'hud__coin coin-glyph', 'G'), el('b', 'hud__gold-value', '0'));
   const bossesEl = el('span', 'hud__bosses', 'Chefes: 0');
-  stageBottom.append(goldEl, bossesEl);
+  stageBottom.append(bossesEl);
+  playerCard.append(goldEl);
 
   const farmEl = el('span', 'hud__farm', 'Farm: —');
-  stageCard.append(stageNameEl, killsEl, progressTrack, farmEl, stageBottom);
+  stageCard.append(stageNameEl, killsEl, mobsEl, targetEl, progressTrack, farmEl, stageBottom);
 
   // ---------- Barra do chefe ----------
   const bossBar = el('div', 'hud__boss');
+  bossBar.hidden = true;
   bossBar.hidden = true;
 
   const bossHead = el('div', 'hud__boss-head');
@@ -105,15 +117,21 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
   connection.append(el('span', 'hud__connection-dot'), el('span', 'hud__connection-text', 'Reconectando…'));
 
   const autoPill = el('div', 'hud__auto');
+  autoPill.hidden = true;
   autoPill.append(el('span', 'hud__auto-dot'), el('span', 'hud__auto-text', 'Combate automático'));
 
   const tools = el('div', 'hud__tools');
   const mapButton = el('button', 'ghost-button', 'Mapa') as HTMLButtonElement;
+  mapButton.hidden = true;
   mapButton.type = 'button';
   mapButton.addEventListener('click', () => {
     sfxClick();
     onMap();
   });
+  const farmButton = el('button', 'ghost-button hud__farm-button', '⌂ Fazenda') as HTMLButtonElement;
+  farmButton.type = 'button';
+  farmButton.title = 'Ir para minha fazenda';
+  farmButton.addEventListener('click', onFarm);
   const townButton = el('button', 'ghost-button', 'Cidade') as HTMLButtonElement;
   townButton.type = 'button';
   townButton.addEventListener('click', onTown);
@@ -126,6 +144,10 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
   const inventoryButton = el('button', 'ghost-button', 'Inventário') as HTMLButtonElement;
   inventoryButton.type = 'button';
   inventoryButton.addEventListener('click', onInventory);
+  const skillsButton = el('button', 'ghost-button', 'Habilidades') as HTMLButtonElement;
+  skillsButton.hidden = true;
+  skillsButton.type = 'button';
+  skillsButton.addEventListener('click', onSkills);
   const soundButton = el('button', 'ghost-button hud__sound', isAudioMuted() ? 'Som: mudo' : 'Som: ligado') as HTMLButtonElement;
   soundButton.type = 'button';
   soundButton.setAttribute('aria-pressed', isAudioMuted() ? 'false' : 'true');
@@ -135,7 +157,34 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
     soundButton.setAttribute('aria-pressed', nowMuted ? 'false' : 'true');
     if (!nowMuted) sfxClick();
   });
-  tools.append(mapButton, townButton, characterButton, inventoryButton, switchButton, soundButton);
+  tools.append(farmButton, townButton, inventoryButton, characterButton, soundButton);
+
+  const hotbar = el('div', 'hud__hotbar');
+  hotbar.hidden = true;
+  const skillSlots = Array.from({ length: 4 }, (_, index) => {
+    const button = el('button', 'hud__slot hud__slot--skill') as HTMLButtonElement;
+    button.type = 'button';
+    button.hidden = true;
+    button.addEventListener('click', () => { if (button.dataset.skillId) onCastSkill(button.dataset.skillId); });
+    button.append(el('span', 'hud__slot-key', String(index + 1)), el('strong', 'hud__slot-name', '—'), el('small', 'hud__slot-meta', ''));
+    hotbar.append(button);
+    return button;
+  });
+  const hpPotion = el('button', 'hud__slot hud__slot--potion') as HTMLButtonElement;
+  hpPotion.type = 'button'; hpPotion.textContent = 'HP · Poção'; hpPotion.title = 'Usar Poção de Vida';
+  hpPotion.addEventListener('click', () => onUsePotion('small-potion'));
+  const mpPotion = el('button', 'hud__slot hud__slot--potion') as HTMLButtonElement;
+  mpPotion.type = 'button'; mpPotion.textContent = 'MP · Poção'; mpPotion.title = 'Usar Poção de Mana';
+  mpPotion.addEventListener('click', () => onUsePotion('mp-potion'));
+  hotbar.append(hpPotion, mpPotion);
+  const handleHotkeys = (event: KeyboardEvent): void => {
+    if (!['1', '2', '3', '4'].includes(event.key) || hotbar.hidden || root.querySelector('.game-panel-overlay')) return;
+    const target = event.target as HTMLElement | null;
+    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+    const button = skillSlots[Number(event.key) - 1];
+    if (button && !button.hidden && !button.disabled) button.click();
+  };
+  window.addEventListener('keydown', handleHotkeys);
 
   hud.append(
     playerCard,
@@ -145,6 +194,7 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
     banner,
     connection,
     autoPill,
+    hotbar,
     tools
   );
   root.append(hud);
@@ -157,21 +207,39 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
   hpBar.value.textContent = `${formatNumber(character.stats.maxHp)} / ${formatNumber(character.stats.maxHp)}`;
   mpBar.fill.style.width = '100%';
   mpBar.value.textContent = `${formatNumber(character.stats.maxMp)} / ${formatNumber(character.stats.maxMp)}`;
-  xpBar.fill.style.width = '0%';
+  const professionLevel = character.professionLevel ?? 1;
+  const professionXp = character.professionExperience ?? 0;
+  const professionXpRequired = professionLevel * 100;
+  xpBar.fill.style.width = `${clampRatio(professionXp / professionXpRequired) * 100}%`;
+  xpBar.value.textContent = `${formatNumber(professionXp)} / ${formatNumber(professionXpRequired)}`;
   goldEl.querySelector('.hud__gold-value')!.textContent = formatNumber(character.gold);
-  metaEl.textContent = `${character.className} • Nível ${character.level}`;
+  metaEl.textContent = `Profissão: ${character.professionName ?? 'Agricultor'} • Rank: ${character.professionRank ?? 'Novato'} • Nv. ${character.professionLevel ?? 1}`;
 
   return {
+    setGold(value: number): void {
+      goldEl.querySelector('.hud__gold-value')!.textContent = formatNumber(value);
+    },
+
+    setProfessionProgress(experience: number, level: number, rank: string): void {
+      const required = Math.max(100, level * 100);
+      xpBar.fill.style.width = `${clampRatio(experience / required) * 100}%`;
+      xpBar.value.textContent = `${formatNumber(experience)} / ${formatNumber(required)}`;
+      metaEl.textContent = `Profissão: ${character.professionName ?? 'Agricultor'} • Rank: ${rank} • Nv. ${level}`;
+    },
+
     setLocation(name: string, label: string, safeZone = false): void {
       stageNameEl.textContent = name;
       stageEyebrow.textContent = label;
       hud.classList.toggle('hud--safe', safeZone);
       killsEl.hidden = safeZone;
+      mobsEl.hidden = safeZone;
+      targetEl.hidden = safeZone;
       progressTrack.hidden = safeZone;
       bossesEl.hidden = safeZone;
       farmEl.hidden = safeZone;
       bossBar.hidden = safeZone;
       autoPill.hidden = safeZone;
+      hotbar.hidden = safeZone;
     },
 
     update(snapshot: CombatSnapshot): void {
@@ -179,7 +247,7 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
       const combat = snapshot.combat;
 
       nameEl.textContent = summary.name;
-      metaEl.textContent = `${summary.className} • Nível ${summary.level}`;
+      metaEl.textContent = `Profissão: ${summary.professionName ?? 'Agricultor'} • Rank: ${summary.professionRank ?? 'Novato'} • Nv. ${summary.professionLevel ?? 1}`;
       stageNameEl.textContent = combat.stageName;
       stageEyebrow.textContent = `${combat.stage.region} · Fase ${combat.stage.order + 1}`;
       farmEl.textContent = `Farm: ${combat.stage.farm.name}`;
@@ -194,12 +262,31 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
       mpBar.fill.style.width = `${mpRatio * 100}%`;
       mpBar.value.textContent = `${formatNumber(combat.playerMp)} / ${formatNumber(combat.playerMaxMp)}`;
 
-      const xpRatio = clampRatio(summary.experience / Math.max(1, summary.experienceToNextLevel));
-      xpBar.fill.style.width = `${xpRatio * 100}%`;
-      xpBar.value.textContent = `${formatNumber(summary.experience)} / ${formatNumber(summary.experienceToNextLevel)}`;
+      const professionLevel = summary.professionLevel ?? 1;
+      const professionExperience = summary.professionExperience ?? 0;
+      const professionXpRequired = professionLevel * 100;
+      const professionXpRatio = clampRatio(professionExperience / professionXpRequired);
+      xpBar.fill.style.width = `${professionXpRatio * 100}%`;
+      xpBar.value.textContent = `${formatNumber(professionExperience)} / ${formatNumber(professionXpRequired)}`;
 
       goldEl.querySelector('.hud__gold-value')!.textContent = formatNumber(summary.gold);
       bossesEl.textContent = `Chefes: ${combat.bossDefeated}`;
+      const aliveMobs = combat.monsters?.filter((monster) => monster.hp > 0).length ?? 1;
+      mobsEl.textContent = `Criaturas vivas: ${aliveMobs}`;
+      targetEl.textContent = `Alvo: ${combat.monster.name}`;
+
+      const skills = combat.skills ?? [];
+      skillSlots.forEach((button, index) => {
+        const skill = skills[index];
+        button.hidden = !skill;
+        if (!skill) return;
+        button.dataset.skillId = skill.id;
+        const remaining = Math.ceil(skill.cooldownRemainingSeconds);
+        button.querySelector('.hud__slot-name')!.textContent = skill.name;
+        button.querySelector('.hud__slot-meta')!.textContent = !skill.unlocked ? `Nv. ${skill.requiredLevel}` : remaining > 0 ? `${remaining}s` : `${skill.manaCost} MP`;
+        button.disabled = !skill.unlocked || remaining > 0 || combat.playerMp < skill.manaCost || combat.status !== 'fighting';
+        button.title = `${skill.name} · ${skill.description}`;
+      });
 
       const kills = combat.bossActive
         ? combat.killsRequiredForBoss
@@ -284,6 +371,7 @@ export function createGameHud(root: HTMLElement, options: GameHudOptions): GameH
     },
 
     destroy(): void {
+      window.removeEventListener('keydown', handleHotkeys);
       window.clearTimeout(levelTimer);
       window.clearTimeout(bannerTimer);
       hud.remove();

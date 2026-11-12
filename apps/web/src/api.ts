@@ -2,11 +2,17 @@ import type {
   ApiErrorBody,
   CharacterClassDefinition,
   CharacterClassId,
+  CharacterGender,
+  ProfessionId,
   CharacterSummary,
   CombatSnapshot,
   InventoryItem,
   EquipmentItem,
-  StageCatalog
+  StageCatalog,
+  FarmBuildingId,
+  FarmResponse,
+  CropTypeId,
+  AnimalSpeciesId
 } from '@mundo-perfeito/shared';
 import { getAuthToken } from './player';
 
@@ -32,7 +38,8 @@ export class ApiError extends Error {
   }
 }
 
-export interface InventorySnapshot { items: InventoryItem[]; equipment: EquipmentItem[]; }
+export interface FarmInventoryItem { key: string; name: string; icon: string; quantity: number; category: 'crop' | 'seed' | 'feed' | 'fish' | 'egg'; }
+export interface InventorySnapshot { gold: number; farmItems: FarmInventoryItem[]; farmSummary?: { name: string; installations: number; maxInstallations: number; animals: number; plots: number }; goldReceived?: number; mount: { id: 'starter-horse'; name: string; rarity: 'white'; equipped: boolean }; items: InventoryItem[]; equipment: EquipmentItem[]; }
 
 interface RequestOptions {
   method?: 'GET' | 'POST';
@@ -91,7 +98,7 @@ export const api = {
     const data = await request<{ classes: CharacterClassDefinition[] }>('/api/v1/game/classes');
     return data.classes;
   },
-  async createCharacter(input: { name: string; classId: CharacterClassId }): Promise<CharacterSummary> {
+  async createCharacter(input: { name: string; gender: CharacterGender; professionId: ProfessionId }): Promise<CharacterSummary> {
     const data = await request<{ character: CharacterSummary }>('/api/v1/characters', { method: 'POST', body: input });
     return data.character;
   },
@@ -105,6 +112,12 @@ export const api = {
   },
   async getCombat(id: string, _playerId?: string): Promise<CombatSnapshot> {
     return request<CombatSnapshot>(`/api/v1/characters/${encodeURIComponent(id)}/combat`);
+  },
+  async castSkill(id: string, skillId: string): Promise<CombatSnapshot> {
+    return request<CombatSnapshot>(`/api/v1/characters/${encodeURIComponent(id)}/skills/${encodeURIComponent(skillId)}/cast`, { method: 'POST', body: {} });
+  },
+  async upgradeSkill(id: string, skillId: string): Promise<CombatSnapshot> {
+    return request<CombatSnapshot>(`/api/v1/characters/${encodeURIComponent(id)}/skills/${encodeURIComponent(skillId)}/upgrade`, { method: 'POST', body: {} });
   },
   async enterTown(id: string): Promise<CombatSnapshot> {
     return request<CombatSnapshot>(`/api/v1/characters/${encodeURIComponent(id)}/town`, { method: 'POST', body: {} });
@@ -125,13 +138,58 @@ export const api = {
   async getInventory(id: string): Promise<InventorySnapshot> {
     return request<InventorySnapshot>(`/api/v1/characters/${encodeURIComponent(id)}/inventory`);
   },
+  async sellItem(id: string, inventoryItemId: string, quantity: number): Promise<InventorySnapshot> {
+    return request<InventorySnapshot>(`/api/v1/characters/${encodeURIComponent(id)}/sell-item`, { method: 'POST', body: { inventoryItemId, quantity } });
+  },
   async useItem(id: string, inventoryItemId: string): Promise<InventorySnapshot> {
     return request<InventorySnapshot>(`/api/v1/characters/${encodeURIComponent(id)}/use-item`, { method: 'POST', body: { inventoryItemId } });
+  },
+  async setMount(id: string, equipped: boolean): Promise<InventorySnapshot> {
+    return request<InventorySnapshot>(`/api/v1/characters/${encodeURIComponent(id)}/mount`, { method: 'POST', body: { equipped } });
   },
   async equipItem(id: string, inventoryItemId: string): Promise<InventorySnapshot> {
     return request<InventorySnapshot>(`/api/v1/characters/${encodeURIComponent(id)}/equip`, { method: 'POST', body: { inventoryItemId } });
   },
   async unequipItem(id: string, slot: string): Promise<InventorySnapshot> {
     return request<InventorySnapshot>(`/api/v1/characters/${encodeURIComponent(id)}/unequip`, { method: 'POST', body: { slot } });
+  },
+  async getFarm(id: string): Promise<FarmResponse> {
+    return request<FarmResponse>(`/api/v1/characters/${encodeURIComponent(id)}/farm`);
+  },
+  async sellFarmItem(id: string, itemKey: string): Promise<FarmResponse> {
+    return request<FarmResponse>(`/api/v1/characters/${encodeURIComponent(id)}/farm/sell-item`, { method: 'POST', body: { itemKey } });
+  },
+  async collectFarmEgg(id: string, eggId: string): Promise<FarmResponse> {
+    return request<FarmResponse>(`/api/v1/characters/${encodeURIComponent(id)}/farm/collect-egg`, { method: 'POST', body: { eggId } });
+  },
+  async expandFarm(id: string): Promise<FarmResponse> {
+    return request<FarmResponse>(`/api/v1/characters/${encodeURIComponent(id)}/farm/expand`, { method: 'POST', body: {} });
+  },
+  async fishAtCity(id: string): Promise<FarmResponse> {
+    return request<FarmResponse>(`/api/v1/characters/${encodeURIComponent(id)}/city/fish`, { method: 'POST', body: {} });
+  },
+  async buyFarmBuilding(id: string, buildingId: FarmBuildingId): Promise<FarmResponse> {
+    return request<FarmResponse>(`/api/v1/characters/${encodeURIComponent(id)}/farm/buy-building`, { method: 'POST', body: { buildingId } });
+  },
+  async buyFarmAnimal(id: string, animalId: string, name?: string): Promise<FarmResponse> {
+    return request<FarmResponse>(`/api/v1/characters/${encodeURIComponent(id)}/farm/buy-animal`, { method: 'POST', body: { animalId, ...(name ? { name } : {}) } });
+  },
+  async plantFarmCrop(id: string, plotIndex: number, cropId: CropTypeId): Promise<FarmResponse> {
+    return request<FarmResponse>(`/api/v1/characters/${encodeURIComponent(id)}/farm/plant`, { method: 'POST', body: { plotIndex, cropId } });
+  },
+  async harvestFarmCrop(id: string, plotIndex: number): Promise<FarmResponse> {
+    return request<FarmResponse>(`/api/v1/characters/${encodeURIComponent(id)}/farm/harvest`, { method: 'POST', body: { plotIndex } });
+  },
+  async buyFarmSeeds(id: string, cropId: CropTypeId, quantity: number): Promise<FarmResponse> {
+    return request<FarmResponse>(`/api/v1/characters/${encodeURIComponent(id)}/farm/buy-seeds`, { method: 'POST', body: { cropId, quantity } });
+  },
+  async waterFarmCrop(id: string, plotIndex: number): Promise<FarmResponse> {
+    return request<FarmResponse>(`/api/v1/characters/${encodeURIComponent(id)}/farm/water`, { method: 'POST', body: { plotIndex } });
+  },
+  async craftFarmFeed(id: string, species: AnimalSpeciesId, quantity: number): Promise<FarmResponse> {
+    return request<FarmResponse>(`/api/v1/characters/${encodeURIComponent(id)}/farm/craft-feed`, { method: 'POST', body: { species, quantity } });
+  },
+  async fillFarmTrough(id: string, buildingId: FarmBuildingId, kind: 'feed' | 'water', quantity: number): Promise<FarmResponse> {
+    return request<FarmResponse>(`/api/v1/characters/${encodeURIComponent(id)}/farm/fill-trough`, { method: 'POST', body: { buildingId, kind, quantity } });
   }
 };

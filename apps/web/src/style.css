@@ -3065,3 +3065,2231 @@ textarea {
     font-size: 8px;
   }
 }
+
+
+/* Barra de habilidades, poções e árvore de classe */
+.hud__hotbar{position:absolute;left:50%;bottom:66px;transform:translateX(-50%);display:flex;align-items:stretch;gap:7px;padding:8px;border:1px solid rgba(211,174,102,.36);border-radius:13px;background:rgba(17,12,8,.88);box-shadow:0 12px 34px rgba(0,0,0,.45);backdrop-filter:blur(8px);pointer-events:auto;max-width:calc(100vw - 20px)}
+.hud__slot{position:relative;min-width:74px;min-height:54px;padding:7px 8px;border:1px solid rgba(211,174,102,.28);border-radius:9px;background:linear-gradient(180deg,rgba(54,39,24,.96),rgba(22,16,11,.96));color:#f1dfb6;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}
+.hud__slot:hover:not(:disabled){border-color:#e8c877;box-shadow:0 0 16px rgba(232,200,119,.2)}
+.hud__slot:disabled{opacity:.48;cursor:not-allowed;filter:saturate(.55)}
+.hud__slot-key{position:absolute;top:3px;left:5px;font-size:8px;color:#bda77f}
+.hud__slot-name{font-size:9px;line-height:1.2;text-align:center;max-width:88px}
+.hud__slot-meta{font-size:8px;color:#b9a88b}
+.hud__slot--potion{min-width:68px;color:#ffb4a3;border-color:rgba(210,95,82,.35);font-size:9px}
+.hud__slot--potion:nth-last-child(1){color:#cbb5ff;border-color:rgba(145,112,220,.35)}
+.hud__hotbar[hidden],.hud__slot[hidden]{display:none!important}
+.hud--safe .hud__hotbar{display:none}
+.inventory-panel__filters{display:flex;flex-wrap:wrap;gap:7px;margin:0 0 12px}
+.inventory-filter{padding:8px 13px;border:1px solid rgba(211,174,102,.25);border-radius:999px;background:rgba(5,15,24,.62);color:#a99b83;font:inherit;font-size:10px;cursor:pointer}
+.inventory-filter:hover,.inventory-filter.is-active{border-color:#e8c877;background:rgba(117,83,38,.25);color:#ffe4a6}
+.skill-panel{max-width:820px}
+.skill-panel__tree{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.skill-card{display:flex;flex-direction:column;gap:9px;padding:15px;border:1px solid rgba(130,157,180,.25);border-radius:12px;background:linear-gradient(145deg,rgba(31,46,59,.8),rgba(7,16,25,.9))}
+.skill-card--special{border-color:rgba(232,200,119,.5);background:linear-gradient(145deg,rgba(84,58,26,.35),rgba(7,16,25,.92))}
+.skill-card__top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.skill-card__top strong{color:#f2dfb4;font-size:14px}
+.skill-card__top span{color:#a9d9b7;font-size:10px}
+.skill-card p{margin:0;color:#aebdca;font-size:11px;line-height:1.5;min-height:34px}
+.skill-card small{color:#9b8b70;font-size:9px}
+.skill-card__upgrade{align-self:flex-start}
+.skill-card__upgrade:disabled{opacity:.45;cursor:not-allowed}
+@media(max-width:700px){
+  .hud__hotbar{bottom:72px;gap:4px;padding:5px;max-width:calc(100vw - 12px);overflow-x:auto}
+  .hud__slot{min-width:58px;min-height:48px;padding:6px 5px}
+  .hud__slot-name{font-size:8px;max-width:65px}
+  .hud__slot--potion{min-width:54px;font-size:8px}
+  .hud__tools{right:7px;bottom:7px;gap:4px;max-width:calc(100vw - 14px);flex-wrap:wrap;justify-content:flex-end}
+  .hud__tools .ghost-button{padding:6px 7px;font-size:8px}
+  .skill-panel__tree{grid-template-columns:1fr}
+}
+
+
+/* Inventário MMORPG: grade de itens, slots e janela de comércio */
+.inventory-panel--mmorpg{width:min(900px,100%);border-color:rgba(214,174,91,.48);background:linear-gradient(145deg,#182a37 0%,#0b1722 58%,#101a20 100%)}
+.inventory-panel__header-right{display:flex;align-items:flex-start;gap:10px}
+.inventory-panel__balance{display:grid;grid-template-columns:auto auto;grid-template-rows:auto auto;align-items:center;column-gap:8px;padding:7px 12px;border:1px solid rgba(225,187,102,.35);border-radius:10px;background:rgba(6,13,18,.72);color:#f5d98e}
+.inventory-panel__balance>span{grid-row:1/3;font-size:22px}
+.inventory-panel__balance strong{font-size:15px;font-variant-numeric:tabular-nums}
+.inventory-panel__balance small{font-size:8px;letter-spacing:.15em;color:#9eacb3}
+.inventory-panel__equipment{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
+.inventory-equipment-slot{position:relative;display:flex;min-width:0;min-height:108px;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:8px 4px;border:1px solid rgba(183,154,102,.28);border-radius:9px;background:linear-gradient(155deg,rgba(43,53,57,.9),rgba(9,18,25,.95));text-align:center}
+.inventory-equipment-slot__icon{display:grid;place-items:center;width:38px;height:38px;border:1px solid rgba(195,170,121,.28);border-radius:8px;background:linear-gradient(145deg,#33434a,#111c25);font-size:22px}
+.inventory-equipment-slot>small{color:#9baab2;font-size:9px;text-transform:uppercase;letter-spacing:.08em}
+.inventory-equipment-slot>strong{max-width:100%;overflow:hidden;color:#e5d5ae;font-size:10px;text-overflow:ellipsis;white-space:nowrap}
+.inventory-mini-action{padding:3px 7px;border:1px solid rgba(211,174,102,.28);border-radius:5px;background:#1a2b37;color:#e8cf95;font:inherit;font-size:9px;cursor:pointer}
+.inventory-panel__content{display:grid;grid-template-columns:minmax(0,1fr) 245px;gap:14px;align-items:stretch}
+.inventory-panel__bag-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));align-content:start;gap:7px;min-height:225px;padding:11px;border:1px solid rgba(137,161,174,.2);border-radius:11px;background:rgba(3,10,16,.56)}
+.inventory-bag-slot{position:relative;display:grid;place-items:center;aspect-ratio:1;min-width:0;padding:3px;border:1px solid rgba(141,157,164,.38);border-radius:7px;background:linear-gradient(145deg,#263640,#101a22 75%);box-shadow:inset 0 1px 0 rgba(255,255,255,.06);cursor:pointer;transition:transform .12s,border-color .12s,filter .12s}
+.inventory-bag-slot:hover{transform:translateY(-2px);filter:brightness(1.18)}
+.inventory-bag-slot.is-selected{border-color:#f1d18a;box-shadow:0 0 0 1px rgba(241,209,138,.45),0 0 16px rgba(225,177,83,.2)}
+.inventory-bag-slot__icon{font-size:clamp(20px,3vw,29px);filter:drop-shadow(0 2px 2px rgba(0,0,0,.6))}
+.inventory-bag-slot__quantity{position:absolute;right:4px;bottom:2px;color:#fff4d6;font-size:10px;font-weight:900;text-shadow:0 1px 3px #000}
+.inventory-bag-slot--uncommon{border-color:#65bd82}
+.inventory-bag-slot--rare{border-color:#61a9ed}
+.inventory-bag-slot--epic{border-color:#b883e8}
+.inventory-bag-slot--legendary,.inventory-bag-slot--mythic{border-color:#e5bd64;box-shadow:inset 0 0 12px rgba(229,189,100,.12)}
+.inventory-item-details{display:flex;flex-direction:column;align-items:flex-start;gap:8px;min-width:0;padding:13px;border:1px solid rgba(211,174,102,.24);border-radius:11px;background:linear-gradient(160deg,rgba(30,43,50,.92),rgba(6,15,22,.96))}
+.inventory-item-details__icon{display:grid;place-items:center;width:62px;height:62px;border:2px solid rgba(177,158,119,.4);border-radius:12px;background:linear-gradient(145deg,#35434a,#101a22);font-size:36px}
+.inventory-item-details__icon.inventory-item--uncommon{border-color:#65bd82}
+.inventory-item-details__icon.inventory-item--rare{border-color:#61a9ed}
+.inventory-item-details__icon.inventory-item--epic{border-color:#b883e8}
+.inventory-item-details__icon.inventory-item--legendary,.inventory-item-details__icon.inventory-item--mythic{border-color:#e5bd64}
+.inventory-item-details__name{margin:2px 0 0;color:#f0e5c9;font-size:15px}
+.inventory-item-details__name--uncommon{color:#8cdaa1}.inventory-item-details__name--rare{color:#8cc8ff}.inventory-item-details__name--epic{color:#d2a2ff}.inventory-item-details__name--legendary,.inventory-item-details__name--mythic{color:#f5d27c}
+.inventory-item-details__rarity{color:#a99a7d;font-size:8px;letter-spacing:.15em}
+.inventory-item-details>p{margin:0;color:#afbec5;font-size:11px;line-height:1.5}
+.inventory-item-details__meta{color:#91a4ae;font-size:10px}
+.inventory-item-details__sale{color:#f0cf82;font-size:10px}
+.inventory-item-details__stats{display:grid;gap:4px;width:100%;padding-top:7px;border-top:1px solid rgba(146,166,173,.17);color:#a5d7b3;font-size:10px}
+.inventory-item-details__actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:auto;padding-top:8px}
+.inventory-item-details__actions .primary-button,.inventory-item-details__actions .ghost-button{padding:8px 11px;font-size:10px}
+.blacksmith-panel{width:min(820px,100%);border-color:rgba(211,146,85,.55);background:linear-gradient(145deg,#2b2119,#111b22 70%,#0c151c)}
+.blacksmith-panel__intro{max-width:480px;margin:7px 0 0;color:#b6c0c3;font-size:11px;line-height:1.5}
+.blacksmith-panel__layout{display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:14px;min-height:300px}
+.blacksmith-panel__items{display:grid;align-content:start;gap:6px;max-height:55vh;overflow:auto;padding:8px;border:1px solid rgba(196,150,94,.22);border-radius:10px;background:rgba(5,12,17,.5)}
+.blacksmith-item{display:grid;grid-template-columns:42px minmax(0,1fr) auto;align-items:center;gap:9px;padding:7px;border:1px solid rgba(131,149,154,.2);border-radius:8px;background:rgba(26,38,43,.8);color:#e8e1d2;text-align:left;cursor:pointer}
+.blacksmith-item:hover,.blacksmith-item.is-selected{border-color:#d9b36b;background:rgba(102,75,39,.28)}
+.blacksmith-item__icon{display:grid;place-items:center;width:40px;height:40px;border:1px solid rgba(183,165,125,.3);border-radius:7px;background:linear-gradient(145deg,#39464a,#111c22);font-size:22px}
+.blacksmith-item__icon.inventory-item--uncommon{border-color:#65bd82}.blacksmith-item__icon.inventory-item--rare{border-color:#61a9ed}.blacksmith-item__icon.inventory-item--epic{border-color:#b883e8}.blacksmith-item__icon.inventory-item--legendary,.blacksmith-item__icon.inventory-item--mythic{border-color:#e5bd64}
+.blacksmith-item__copy{display:grid;gap:4px;min-width:0}
+.blacksmith-item__copy strong{overflow:hidden;color:#e9dfc7;font-size:11px;text-overflow:ellipsis;white-space:nowrap}
+.blacksmith-item__copy small{color:#8fa2aa;font-size:9px}
+.blacksmith-item>b{color:#e9c779;font-size:10px;white-space:nowrap}
+.blacksmith-panel__detail{display:flex;flex-direction:column;align-items:flex-start;gap:10px;padding:16px;border:1px solid rgba(208,157,91,.25);border-radius:11px;background:linear-gradient(160deg,rgba(54,42,29,.6),rgba(5,14,20,.92))}
+.blacksmith-detail__icon{display:grid;place-items:center;width:68px;height:68px;border:2px solid rgba(189,151,94,.5);border-radius:12px;background:linear-gradient(145deg,#4b3a28,#111c22);font-size:40px}
+.blacksmith-detail__icon.inventory-item--uncommon{border-color:#65bd82}.blacksmith-detail__icon.inventory-item--rare{border-color:#61a9ed}.blacksmith-detail__icon.inventory-item--epic{border-color:#b883e8}.blacksmith-detail__icon.inventory-item--legendary,.blacksmith-detail__icon.inventory-item--mythic{border-color:#e5bd64}
+.blacksmith-panel__detail h3{margin:0;color:#f2dfb4;font-size:16px}
+.blacksmith-panel__detail p{margin:0;color:#aab9bf;font-size:11px;line-height:1.5}
+.blacksmith-detail__price{color:#e9c779;font-size:12px;font-weight:800}
+.blacksmith-detail__total{color:#f4e5bf;font-size:11px}
+.blacksmith-panel__detail>small{color:#8ea1a9;font-size:10px}
+.blacksmith-detail__sell{width:100%;margin-top:auto;padding:11px;border:1px solid #9d713c;border-radius:8px;background:linear-gradient(180deg,#8a6134,#5a3c22);color:#fff0ca;font-weight:800;cursor:pointer}
+.blacksmith-detail__sell:disabled{opacity:.55;cursor:wait}
+@media(max-width:680px){
+ .inventory-panel__equipment{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .inventory-panel__content,.blacksmith-panel__layout{grid-template-columns:1fr}
+ .inventory-panel__bag-grid{grid-template-columns:repeat(5,minmax(0,1fr));min-height:180px}
+ .inventory-item-details{min-height:170px}
+ .blacksmith-panel__items{max-height:32vh}
+ .blacksmith-panel__detail{min-height:220px}
+}
+@media(max-width:420px){
+ .game-panel-overlay{padding:7px}
+ .inventory-panel--mmorpg,.blacksmith-panel{padding:14px 10px}
+ .inventory-panel__bag-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;padding:7px}
+ .inventory-panel__header-right{gap:5px}
+ .inventory-panel__balance{padding:6px 8px}
+ .inventory-panel__balance strong{font-size:12px}
+ .inventory-filter{padding:7px 9px;font-size:9px}
+}
+
+.inventory-bag-slot--empty{border-style:dashed;border-color:rgba(115,135,144,.16);background:rgba(13,24,31,.34);box-shadow:none;cursor:default}
+
+
+/* Símbolo de ouro vetorial em CSS: não depende de emoji ou fonte do sistema. */
+.coin-glyph {
+  display: inline-grid !important;
+  place-items: center;
+  width: 19px;
+  height: 19px;
+  border: 2px solid #8f682c;
+  border-radius: 50%;
+  background: radial-gradient(circle at 32% 26%, #fff0b3 0%, #e8bd5f 42%, #a87528 100%);
+  color: #5b3b13 !important;
+  font: 900 10px/1 Georgia, serif !important;
+  text-shadow: none;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.38), 0 1px 4px rgba(0,0,0,.35);
+}
+.hud__coin.coin-glyph { width: 15px; height: 15px; font-size: 8px !important; }
+.inventory-panel__balance > .coin-glyph { grid-row: 1 / 3; width: 25px; height: 25px; font-size: 13px !important; }
+
+.city-mount-control {
+  position: absolute;
+  left: 16px;
+  bottom: 18px;
+  z-index: 40;
+  min-width: 138px;
+  border-color: rgba(226, 190, 112, .7);
+  background: linear-gradient(180deg, rgba(76, 55, 31, .96), rgba(34, 27, 20, .96));
+  color: #ffe1a0;
+  font-weight: 700;
+  box-shadow: 0 8px 24px rgba(0,0,0,.38);
+}
+.city-mount-control:hover,
+.city-mount-control.is-mounted {
+  border-color: #f4d58d;
+  color: #fff0c4;
+}
+@media (max-width: 540px) {
+  .city-mount-control { left: 10px; top: 108px; bottom: auto; min-width: 0; padding: 8px 10px; font-size: 10px; }
+}
+
+
+/* Escala de raridade compartilhada para futuras montarias, pets e armaduras. */
+.rank-white { --rank-color: #e8edf2; }
+.rank-green { --rank-color: #65d28a; }
+.rank-blue { --rank-color: #63a9ff; }
+.rank-orange { --rank-color: #ff9a45; }
+.rank-red { --rank-color: #f04452; }
+.rank-white, .rank-green, .rank-blue, .rank-orange, .rank-red {
+  border-color: color-mix(in srgb, var(--rank-color) 72%, transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--rank-color) 16%, transparent);
+}
+
+
+/* Acesso rápido à fazenda particular no HUD. */
+.hud__farm-button{border-color:rgba(112,170,100,.65)!important;background:linear-gradient(180deg,rgba(38,76,42,.92),rgba(20,43,29,.94))!important;color:#d8f0c8!important;font-weight:800}
+.hud__farm-button:hover{border-color:#b7e59a!important;color:#fff!important;box-shadow:0 0 14px rgba(140,208,112,.25)}
+
+
+/* Interface de vida rural: remove elementos herdados do RPG de combate. */
+.hud__card--player {
+  display: block !important;
+  grid-template-columns: 1fr !important;
+}
+.hud__card--player .hud__crest,
+.hud__card--player .hud__identity,
+.hud__bar--hp,
+.hud__bar--mp,
+.hud__card--stage,
+.hud__boss,
+.hud__auto,
+.hud__hotbar,
+.stage-map-overlay,
+.game-panel.inventory-panel,
+.game-panel.skill-panel {
+  display: none !important;
+}
+.hud__card--player .hud__bars {
+  display: grid !important;
+  grid-template-columns: minmax(140px, 260px) !important;
+  gap: 6px !important;
+  margin: 0 !important;
+}
+
+.hud__card--player > .hud__gold {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+}
+
+
+/* Recursos da fazenda exibidos no inventário */
+.inventory-panel__farm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:9px;margin-top:10px}
+.inventory-farm-item{display:flex;align-items:center;gap:10px;min-width:0;padding:10px;border:1px solid rgba(183,154,102,.28);border-radius:9px;background:linear-gradient(155deg,rgba(43,53,57,.9),rgba(9,18,25,.95))}
+.inventory-farm-item__icon{display:grid;place-items:center;flex:0 0 42px;width:42px;height:42px;border:1px solid rgba(195,170,121,.28);border-radius:8px;background:linear-gradient(145deg,#33434a,#111c25);font-size:25px}
+.inventory-farm-item__info{display:grid;gap:4px;min-width:0;flex:1}
+.inventory-farm-item__info strong{overflow-wrap:anywhere;color:#f0e5c9;font-size:12px}
+.inventory-farm-item__info small{color:#a9b8bd;font-size:10px}
+.inventory-farm-item__sell{padding:7px 9px;border:1px solid rgba(232,200,119,.5);border-radius:6px;background:linear-gradient(180deg,#6d512b,#3c2b18);color:#ffe7ae;font-size:10px;font-weight:800;cursor:pointer}
+.inventory-farm-item__sell:hover:not(:disabled){filter:brightness(1.15)}
+.inventory-farm-item__sell:disabled{opacity:.55;cursor:wait}
+@media(max-width:720px){.inventory-panel__farm-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.inventory-farm-item{flex-wrap:wrap}.inventory-farm-item__sell{width:100%}}
+
+
+/* Reativa identidade e inventário na interface rural simplificada. */
+.hud__card--player .hud__identity{display:flex!important;flex-direction:column;gap:3px;min-width:0;margin-bottom:8px}
+.hud__card--player .hud__name{display:block!important;color:#f6e6bd;font-size:15px;font-weight:800}
+.hud__card--player .hud__meta{display:block!important;color:#c8b58f;font-size:10px;line-height:1.4}
+.game-panel.inventory-panel{display:block!important}
+
+
+/* Inventário rural: armazém, sementes e rações. */
+.farm-inventory-panel{width:min(900px,calc(100vw - 28px));max-height:min(88vh,820px);overflow:auto;background:linear-gradient(155deg,#263b2b 0%,#1c2d23 58%,#17251e 100%);border:1px solid rgba(201,177,116,.48);box-shadow:0 24px 70px rgba(0,0,0,.55)}
+.farm-inventory-header{align-items:flex-start}
+.farm-inventory-header h2{color:#f4e8c8}
+.farm-inventory-header__description{margin:6px 0 0;color:#c3cdb8;font-size:12px;line-height:1.45}
+.farm-inventory-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:14px 0 20px}
+.farm-inventory-summary__item{display:grid;grid-template-columns:34px 1fr;grid-template-rows:auto auto;align-items:center;column-gap:8px;padding:11px 13px;border:1px solid rgba(214,197,145,.2);border-radius:10px;background:rgba(12,25,17,.42)}
+.farm-inventory-summary__item>span{grid-row:1/3;font-size:25px}
+.farm-inventory-summary__item small{color:#b8c5ac;font-size:10px;text-transform:uppercase;letter-spacing:.08em}
+.farm-inventory-summary__item strong{color:#f6e6bd;font-size:18px}
+.farm-inventory-content{display:grid;gap:18px}
+.farm-inventory-section{padding:14px;border:1px solid rgba(210,190,135,.22);border-radius:12px;background:rgba(8,19,13,.3)}
+.farm-inventory-section__heading{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:12px}
+.farm-inventory-section__heading h3{margin:0;color:#f2dfb0;font-size:16px}
+.farm-inventory-section__heading p{margin:0;color:#b4c0a9;font-size:11px;text-align:right}
+.farm-inventory-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.farm-inventory-card{display:grid;grid-template-columns:42px minmax(0,1fr);align-items:center;gap:8px;min-width:0;padding:10px;border:1px solid rgba(201,183,135,.2);border-radius:9px;background:linear-gradient(145deg,rgba(77,99,60,.42),rgba(33,51,35,.65))}
+.farm-inventory-card__icon{display:grid;place-items:center;width:40px;height:40px;border-radius:8px;background:rgba(8,18,11,.42);font-size:25px}
+.farm-inventory-card__info{display:grid;gap:4px;min-width:0}
+.farm-inventory-card__info strong{overflow-wrap:anywhere;color:#f1e7cd;font-size:12px}
+.farm-inventory-card__info small{color:#c2cbb8;font-size:10px}
+.farm-inventory-card__sell{grid-column:1/-1;width:100%;padding:7px 8px;border:1px solid rgba(230,197,119,.42);border-radius:6px;background:#66502d;color:#ffedc2;font-size:10px;font-weight:800;cursor:pointer}
+.farm-inventory-card__sell:disabled{opacity:.55;cursor:wait}
+.farm-inventory-empty{grid-column:1/-1;margin:0;padding:12px;color:#b8c5ac;font-size:12px;text-align:center}
+@media(max-width:620px){.farm-inventory-panel{width:calc(100vw - 16px);max-height:92vh;padding:14px}.farm-inventory-summary{gap:6px}.farm-inventory-summary__item{grid-template-columns:26px 1fr;padding:8px}.farm-inventory-summary__item>span{font-size:20px}.farm-inventory-summary__item strong{font-size:15px}.farm-inventory-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.farm-inventory-section__heading{display:block}.farm-inventory-section__heading p{margin-top:4px;text-align:left}}
+
+
+/* ---------- Comércio do rancho: pergaminho e madeira ---------- */
+
+.farm-shop-overlay {
+  z-index: 12400;
+  padding: clamp(8px, 2vw, 28px);
+  background:
+    radial-gradient(ellipse at 50% 12%, rgba(112, 79, 38, 0.34), transparent 62%),
+    radial-gradient(ellipse at 50% 108%, rgba(38, 52, 28, 0.28), transparent 55%),
+    rgba(7, 5, 3, 0.84);
+  backdrop-filter: blur(10px) saturate(0.9);
+}
+
+.farm-shop-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(1080px, 100%);
+  max-height: min(92vh, 950px);
+  overflow: hidden;
+  border: 10px solid transparent;
+  border-radius: 18px;
+  background:
+    radial-gradient(ellipse at 16% 0%, rgba(255, 252, 240, 0.62), transparent 46%) padding-box,
+    radial-gradient(ellipse at 94% 104%, rgba(148, 110, 58, 0.24), transparent 58%) padding-box,
+    repeating-linear-gradient(0deg, rgba(110, 80, 42, 0.032) 0 1px, transparent 1px 4px) padding-box,
+    linear-gradient(157deg, #f2e5c6 0%, #e9d9b4 46%, #dcc89c 100%) padding-box,
+    linear-gradient(160deg, #7a5530 0%, #4a3019 28%, #24160c 68%, #52391e 100%) border-box;
+  box-shadow:
+    0 34px 100px rgba(0, 0, 0, 0.72),
+    0 0 0 1px rgba(24, 14, 7, 0.9),
+    inset 0 0 0 1px rgba(255, 236, 190, 0.14),
+    inset 0 0 90px rgba(122, 88, 42, 0.16);
+  color: #3a2917;
+}
+
+.farm-shop__header {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 22px;
+  padding: 24px 30px 19px;
+  border-bottom: 1px solid rgba(84, 56, 28, 0.26);
+  background:
+    radial-gradient(ellipse at 0% 0%, rgba(255, 255, 255, 0.36), transparent 54%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.2), transparent);
+}
+
+.farm-shop__heading {
+  min-width: 0;
+}
+
+.farm-shop__eyebrow {
+  margin: 0 0 6px;
+  color: #8a3f23;
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.farm-shop__title {
+  margin: 0;
+  color: #35230f;
+  font-family: var(--font-display);
+  font-size: 32px;
+  line-height: 1.06;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 0 rgba(255, 246, 222, 0.75);
+}
+
+.farm-shop__intro {
+  max-width: 62ch;
+  margin: 8px 0 0;
+  color: #6d5738;
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.farm-shop__header-right {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.farm-shop__balance {
+  display: grid;
+  grid-template-columns: 30px auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: 9px;
+  padding: 8px 15px 8px 11px;
+  border: 1px solid #8b6b36;
+  border-radius: 11px;
+  background:
+    radial-gradient(ellipse at 20% 0%, rgba(255, 232, 172, 0.14), transparent 60%),
+    linear-gradient(180deg, #3a2a18, #1d140c);
+  color: var(--gold);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 240, 200, 0.14),
+    0 6px 14px rgba(60, 40, 18, 0.22);
+}
+
+.farm-shop__balance > .coin-glyph {
+  grid-row: 1 / 3;
+  width: 30px;
+  height: 30px;
+  font-size: 14px !important;
+}
+
+.farm-shop__balance strong {
+  color: var(--gold-bright);
+  font-size: 18px;
+  line-height: 1.1;
+  letter-spacing: 0.03em;
+}
+
+.farm-shop__balance small {
+  color: #b9a074;
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+
+.farm-shop__close {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid #8b6b36;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #4a3720, #24180d);
+  color: #f0d699;
+  font-family: var(--font-body);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 240, 200, 0.15), 0 5px 12px rgba(50, 32, 14, 0.24);
+  transition: border-color 0.18s ease, color 0.18s ease, transform 0.15s ease;
+}
+
+.farm-shop__close:hover {
+  border-color: var(--gold);
+  color: #fff0c4;
+  transform: translateY(-1px);
+}
+
+.farm-shop__tabs {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+  padding: 10px 26px 0;
+  overflow-x: auto;
+  border-bottom: 2px solid rgba(84, 56, 28, 0.35);
+  background: rgba(255, 250, 235, 0.16);
+  scrollbar-width: none;
+}
+
+.farm-shop__tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.farm-shop__tab {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 18px 10px;
+  border: 1px solid rgba(84, 56, 28, 0.3);
+  border-bottom: none;
+  border-radius: 9px 9px 0 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(126, 95, 52, 0.13));
+  color: #6b5231;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+}
+
+.farm-shop__tab:hover {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.38), rgba(126, 95, 52, 0.18));
+  color: #4b3418;
+}
+
+.farm-shop__tab.is-active {
+  border-color: #2c1d0f;
+  background: linear-gradient(180deg, #533b20, #2c1d0f);
+  color: #ffe4a3;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 235, 190, 0.22),
+    0 -2px 10px rgba(70, 45, 18, 0.18);
+}
+
+.farm-shop__tab.is-active::after {
+  content: '';
+  position: absolute;
+  top: -1px;
+  right: 12px;
+  left: 12px;
+  height: 2px;
+  border-radius: 0 0 2px 2px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+}
+
+.farm-shop__tab-icon {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.farm-shop__tab-label {
+  white-space: nowrap;
+}
+
+.farm-shop__feedback {
+  flex: 0 0 auto;
+  margin: 14px 30px 0;
+  padding: 10px 14px;
+  border: 1px solid rgba(138, 96, 42, 0.4);
+  border-left: 3px solid #a97b3d;
+  border-radius: 8px;
+  background: rgba(255, 246, 220, 0.55);
+  color: #6a4b21;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.farm-shop__feedback:empty {
+  display: none;
+}
+
+.farm-shop__feedback.is-success {
+  border-color: rgba(74, 109, 58, 0.42);
+  border-left-color: #4f7a3c;
+  background: rgba(214, 230, 189, 0.55);
+  color: #3d5729;
+}
+
+.farm-shop__feedback.is-error {
+  border-color: rgba(150, 62, 42, 0.42);
+  border-left-color: #a14a33;
+  background: rgba(242, 211, 196, 0.62);
+  color: #7a2f1c;
+}
+
+.farm-shop__content {
+  display: grid;
+  flex: 1 1 auto;
+  grid-auto-rows: max-content;
+  align-content: start;
+  gap: 16px;
+  min-height: 0;
+  padding: 18px 30px 24px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.farm-shop__land {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 15px 18px;
+  border: 1px solid #7d5c2d;
+  border-radius: 12px;
+  background:
+    radial-gradient(ellipse at 10% 0%, rgba(179, 209, 140, 0.4), transparent 55%),
+    linear-gradient(135deg, #4a5d34, #33431f 58%, #28361a);
+  color: #eef4d8;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 235, 0.16),
+    0 6px 16px rgba(50, 60, 30, 0.2);
+}
+
+.farm-shop__land-copy {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.farm-shop__land-title {
+  display: block;
+  color: #f4f8e2;
+  font-family: var(--font-display);
+  font-size: 16px;
+  letter-spacing: 0.02em;
+}
+
+.farm-shop__land-info {
+  max-width: 66ch;
+  margin: 5px 0 0;
+  color: #cfdab7;
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.primary-button.farm-shop__land-button {
+  flex: 0 0 auto;
+  padding: 10px 16px;
+  font-size: 10px;
+  border-radius: 8px;
+}
+
+.farm-shop__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(248px, 1fr));
+  gap: 13px;
+}
+
+.farm-shop__card {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid rgba(96, 64, 30, 0.34);
+  border-radius: 11px;
+  background:
+    linear-gradient(180deg, rgba(255, 252, 240, 0.74), rgba(244, 232, 203, 0.56));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.66),
+    0 5px 12px rgba(92, 64, 30, 0.09);
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+
+.farm-shop__card:hover {
+  border-color: rgba(96, 64, 30, 0.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 9px 18px rgba(92, 64, 30, 0.14);
+  transform: translateY(-1px);
+}
+
+.farm-shop__card.is-owned {
+  border-color: rgba(74, 109, 58, 0.48);
+  background:
+    linear-gradient(180deg, rgba(246, 251, 232, 0.78), rgba(224, 233, 200, 0.58));
+}
+
+.farm-shop__card.is-locked {
+  opacity: 0.76;
+}
+
+.farm-shop__card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.farm-shop__icon {
+  display: grid;
+  flex: 0 0 46px;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border: 1px solid rgba(89, 58, 26, 0.35);
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at 32% 24%, #fff5d8, #d8bd85 70%, #b69357);
+  font-size: 25px;
+  line-height: 1;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 3px 8px rgba(90, 62, 30, 0.16);
+}
+
+.farm-shop__card-title-wrap {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.farm-shop__card-name {
+  margin: 0;
+  color: #3a2712;
+  font-family: var(--font-display);
+  font-size: 16px;
+  line-height: 1.15;
+}
+
+.farm-shop__meta {
+  margin: 0;
+  color: #806742;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.farm-shop__desc {
+  flex: 1;
+  margin: 0;
+  color: #5f4a2d;
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.farm-shop__card-bottom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.primary-button.farm-shop__buy {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 7px;
+  font-size: 9.5px;
+  letter-spacing: 0.07em;
+}
+
+.farm-shop__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 10px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.farm-shop__badge--owned {
+  border: 1px solid rgba(74, 109, 58, 0.4);
+  background: rgba(74, 109, 58, 0.14);
+  color: #3e5c2e;
+}
+
+.farm-shop__gender {
+  margin-left: auto;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.farm-shop__gender--male {
+  border: 1px solid rgba(47, 92, 128, 0.38);
+  background: rgba(175, 205, 228, 0.5);
+  color: #29557c;
+}
+
+.farm-shop__gender--female {
+  border: 1px solid rgba(138, 58, 87, 0.34);
+  background: rgba(238, 202, 214, 0.52);
+  color: #8a3a57;
+}
+
+.farm-shop__requirement {
+  margin: 0;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+.farm-shop__requirement.is-ok {
+  color: #4a6c37;
+}
+
+.farm-shop__requirement.is-locked {
+  color: #94432c;
+}
+
+.farm-shop__notice {
+  margin: 0;
+  padding: 11px 14px;
+  border: 1px solid rgba(138, 96, 42, 0.34);
+  border-left: 3px solid #a97b3d;
+  border-radius: 8px;
+  background: rgba(255, 248, 226, 0.46);
+  color: #66502e;
+  font-size: 11.5px;
+  line-height: 1.55;
+}
+
+.farm-shop__notice--gold {
+  border-left-color: #b8842f;
+  background: rgba(250, 236, 196, 0.5);
+}
+
+.farm-shop__notice--green {
+  border-left-color: #5c7c43;
+  background: rgba(224, 236, 203, 0.5);
+  color: #476031;
+}
+
+.farm-shop__notice--plain {
+  border-left-color: #8b7350;
+  background: rgba(246, 239, 222, 0.46);
+}
+
+.farm-shop__seed-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.farm-shop__seed-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 10px;
+  border: 1px solid rgba(96, 64, 30, 0.2);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.farm-shop__seed-stat strong {
+  color: #4a3216;
+  font-size: 15px;
+  line-height: 1.1;
+}
+
+.farm-shop__seed-stat small {
+  color: #806742;
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.farm-shop__section-title {
+  margin: 4px 0 0;
+  color: #7a4a22;
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.farm-shop__status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 9px;
+}
+
+.farm-shop__status-card {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid rgba(96, 64, 30, 0.24);
+  border-radius: 9px;
+  background: rgba(255, 252, 240, 0.42);
+}
+
+.farm-shop__status-name {
+  color: #4a3216;
+  font-size: 12px;
+}
+
+.farm-shop__status-needs {
+  margin: 0;
+  color: #6d5738;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.farm-shop__stock-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(96, 64, 30, 0.28);
+  color: #6d5738;
+  font-size: 10.5px;
+}
+
+.farm-shop__stock-line strong {
+  color: #4a3216;
+  font-size: 14px;
+}
+
+.farm-shop__trough {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 13px 15px;
+  border: 1px solid rgba(96, 64, 30, 0.3);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(255, 252, 240, 0.62), rgba(244, 232, 203, 0.46));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.farm-shop__trough-info {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+
+.farm-shop__trough-name {
+  color: #4a3216;
+  font-family: var(--font-display);
+  font-size: 14px;
+}
+
+.farm-shop__trough-values {
+  margin: 4px 0 0;
+  color: #5f4a2d;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.farm-shop__trough-stock {
+  margin: 3px 0 0;
+  color: #806742;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.farm-shop__trough-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.farm-shop__trough-button {
+  padding: 8px 11px;
+  border: 1px solid #7d5c2d;
+  border-radius: 7px;
+  background: linear-gradient(180deg, #f7ead0, #e2cfa6);
+  color: #4a3216;
+  font-family: var(--font-body);
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 2px 5px rgba(90, 62, 30, 0.12);
+  transition: filter 0.15s ease, transform 0.15s ease;
+}
+
+.farm-shop__trough-button:hover:not(:disabled) {
+  filter: brightness(1.04);
+  transform: translateY(-1px);
+}
+
+.farm-shop__trough-button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.farm-shop__footer {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 13px 30px 16px;
+  border-top: 1px solid rgba(84, 56, 28, 0.26);
+  background: linear-gradient(180deg, rgba(201, 176, 132, 0.16), rgba(156, 124, 76, 0.24));
+}
+
+.farm-shop__hint {
+  max-width: 64ch;
+  margin: 0;
+  color: #79613f;
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+.farm-shop__back {
+  padding: 10px 16px;
+  border: 1px solid #6f4f26;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #51371d, #2d1d0f);
+  color: #f3d99c;
+  font-family: var(--font-body);
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 235, 190, 0.16), 0 2px 0 #1b1109;
+  transition: filter 0.15s ease, transform 0.15s ease;
+}
+
+.farm-shop__back:hover {
+  filter: brightness(1.12);
+  transform: translateY(-1px);
+}
+
+.farm-shop__tab:focus-visible,
+.farm-shop__close:focus-visible,
+.farm-shop__back:focus-visible,
+.farm-shop__trough-button:focus-visible,
+.farm-shop__buy:focus-visible,
+.farm-shop__land-button:focus-visible {
+  outline: 2px solid #8a5a26;
+  outline-offset: 2px;
+}
+
+@media (max-width: 760px) {
+  .farm-shop-overlay {
+    padding: 6px;
+  }
+
+  .farm-shop-panel {
+    max-height: 94vh;
+    border-width: 6px;
+    border-radius: 14px;
+  }
+
+  .farm-shop__header {
+    gap: 12px;
+    padding: 16px 16px 12px;
+  }
+
+  .farm-shop__title {
+    font-size: 24px;
+  }
+
+  .farm-shop__intro {
+    margin-top: 6px;
+    font-size: 11px;
+    line-height: 1.45;
+  }
+
+  .farm-shop__header-right {
+    gap: 8px;
+    margin-top: 2px;
+  }
+
+  .farm-shop__balance {
+    grid-template-columns: 24px auto;
+    column-gap: 7px;
+    padding: 7px 10px 7px 8px;
+  }
+
+  .farm-shop__balance > .coin-glyph {
+    width: 24px;
+    height: 24px;
+    font-size: 11px !important;
+  }
+
+  .farm-shop__balance strong {
+    font-size: 15px;
+  }
+
+  .farm-shop__balance small {
+    font-size: 7.5px;
+  }
+
+  .farm-shop__close {
+    width: 36px;
+    height: 36px;
+    font-size: 20px;
+  }
+
+  .farm-shop__tabs {
+    gap: 4px;
+    padding: 8px 12px 0;
+  }
+
+  .farm-shop__tab {
+    gap: 6px;
+    padding: 9px 11px 8px;
+    font-size: 9px;
+  }
+
+  .farm-shop__tab-icon {
+    font-size: 13px;
+  }
+
+  .farm-shop__feedback {
+    margin: 10px 16px 0;
+    padding: 8px 11px;
+    font-size: 11px;
+  }
+
+  .farm-shop__content {
+    gap: 13px;
+    padding: 13px 16px 18px;
+  }
+
+  .farm-shop__grid {
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 10px;
+  }
+
+  .farm-shop__land {
+    padding: 12px 14px;
+  }
+
+  .primary-button.farm-shop__land-button {
+    width: 100%;
+  }
+
+  .farm-shop__footer {
+    padding: 11px 16px 13px;
+  }
+}
+
+@media (max-height: 540px) and (orientation: landscape) {
+  .farm-shop__header {
+    padding: 12px 18px 10px;
+  }
+
+  .farm-shop__eyebrow,
+  .farm-shop__intro {
+    display: none;
+  }
+
+  .farm-shop__title {
+    font-size: 21px;
+  }
+
+  .farm-shop__balance {
+    padding: 5px 10px 5px 8px;
+  }
+
+  .farm-shop__balance > .coin-glyph {
+    width: 24px;
+    height: 24px;
+    font-size: 11px !important;
+  }
+
+  .farm-shop__balance strong {
+    font-size: 15px;
+  }
+
+  .farm-shop__close {
+    width: 34px;
+    height: 34px;
+    font-size: 19px;
+  }
+
+  .farm-shop__tabs {
+    padding-top: 6px;
+  }
+
+  .farm-shop__tab {
+    padding: 7px 14px 6px;
+  }
+
+  .farm-shop__feedback {
+    margin-top: 8px;
+    padding: 6px 10px;
+  }
+
+  .farm-shop__content {
+    gap: 10px;
+    padding: 10px 18px 14px;
+  }
+
+  .farm-shop__footer {
+    padding: 8px 18px 9px;
+  }
+
+  .farm-shop__hint {
+    display: none;
+  }
+
+  .farm-shop__back {
+    margin-left: auto;
+    padding: 8px 14px;
+  }
+}
+
+@media (max-width: 560px) {
+  .farm-shop__header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .farm-shop__header-right {
+    justify-content: space-between;
+    margin-top: 0;
+  }
+
+  .farm-shop__title {
+    font-size: 22px;
+  }
+
+  .farm-shop__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .farm-shop__tab {
+    padding: 8px 9px 7px;
+  }
+
+  .farm-shop__tab-label {
+    font-size: 8px;
+  }
+
+  .farm-shop__footer {
+    align-items: stretch;
+  }
+
+  .farm-shop__hint {
+    display: none;
+  }
+
+  .farm-shop__back {
+    width: 100%;
+  }
+}
+
+/* ==========================================================================
+   Pesca — Diário do Lago de Valedouro
+   ========================================================================== */
+
+.fishing-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 12300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  overflow-y: auto;
+  background:
+    radial-gradient(circle at 50% 18%, rgba(31, 83, 86, 0.45), transparent 52%),
+    rgba(3, 12, 15, 0.86);
+  backdrop-filter: blur(8px);
+}
+
+.fishing-panel {
+  display: flex;
+  flex-direction: column;
+  width: min(1060px, 100%);
+  max-height: min(92vh, 900px);
+  overflow: hidden;
+  border: 2px solid #c49a58;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #f6e9cd 0%, #ecd9b3 100%);
+  box-shadow:
+    0 32px 90px rgba(0, 0, 0, 0.62),
+    inset 0 0 0 1px rgba(255, 244, 212, 0.6);
+  color: #3a2818;
+  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+}
+
+.fishing-panel__header {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  flex: 0 0 auto;
+  padding: 18px 24px 16px;
+  overflow: hidden;
+  border-bottom: 2px solid #c49a58;
+  background:
+    radial-gradient(circle at 82% -40%, rgba(112, 201, 198, 0.34), transparent 56%),
+    linear-gradient(135deg, #174047 0%, #0d272d 62%, #091b20 100%);
+  color: #f2e3c4;
+}
+
+.fishing-panel__header::after {
+  position: absolute;
+  right: 180px;
+  bottom: -38px;
+  width: 210px;
+  height: 100px;
+  border: 1px solid rgba(232, 189, 112, 0.12);
+  border-radius: 50%;
+  content: "";
+  pointer-events: none;
+}
+
+.fishing-panel__heading {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+}
+
+.fishing-panel__eyebrow {
+  display: block;
+  margin-bottom: 3px;
+  color: #e8bd70;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 2.4px;
+  text-transform: uppercase;
+}
+
+.fishing-panel__title {
+  margin: 0 0 4px;
+  color: #fff0c9;
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 29px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  line-height: 1.08;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+}
+
+.fishing-panel__intro {
+  max-width: 540px;
+  margin: 0;
+  color: #b9d8d4;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.fishing-panel__header-side {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex: 0 0 auto;
+}
+
+.fishing-panel__weather {
+  padding: 7px 11px;
+  border: 1px solid rgba(232, 189, 112, 0.32);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.18);
+  color: #e9cf95;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+  white-space: nowrap;
+}
+
+.fishing-panel__close {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid rgba(232, 189, 112, 0.34);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.2);
+  color: #f7e6b8;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.16s ease, transform 0.16s ease;
+}
+
+.fishing-panel__close:hover {
+  background: rgba(232, 189, 112, 0.16);
+  transform: translateY(-1px);
+}
+
+.fishing-panel__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.22fr) minmax(310px, 0.78fr);
+  gap: 16px;
+  min-height: 0;
+  padding: 16px 20px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(120, 80, 34, 0.45) transparent;
+}
+
+.fishing-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.fishing-stage__lake,
+.fishing-stage__actions,
+.fishing-catch {
+  flex: 0 0 auto;
+}
+
+.fishing-stage.has-catch .fishing-stage__lake {
+  display: none;
+}
+
+.fishing-stage__lake {
+  position: relative;
+  overflow: hidden;
+  border: 2px solid #2b4d4a;
+  border-radius: 14px;
+  background: #173f4a;
+  box-shadow:
+    0 10px 24px rgba(53, 33, 12, 0.22),
+    inset 0 0 0 3px rgba(255, 236, 190, 0.08);
+}
+
+.fishing-stage__scene {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.fishing-stage__status {
+  position: absolute;
+  right: 14px;
+  bottom: 10px;
+  left: 14px;
+  margin: 0;
+  padding: 7px 12px;
+  border: 1px solid rgba(190, 232, 226, 0.16);
+  border-radius: 8px;
+  background: rgba(5, 24, 28, 0.78);
+  color: #d8efdf;
+  font-size: 11px;
+  line-height: 1.35;
+  text-align: center;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(3px);
+}
+
+.fishing-stage__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fishing-cast {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 12px 18px;
+  border: 1px solid #7d531f;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #f0c876 0%, #d9a044 58%, #bd7e29 100%);
+  box-shadow:
+    0 4px 0 #7c4d16,
+    0 10px 18px rgba(74, 47, 12, 0.22),
+    inset 0 1px 0 rgba(255, 248, 210, 0.65);
+  color: #2c1a08;
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  cursor: pointer;
+  transition: filter 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.fishing-cast:hover:not(:disabled) {
+  filter: brightness(1.07);
+  transform: translateY(-1px);
+  box-shadow:
+    0 5px 0 #7c4d16,
+    0 14px 22px rgba(74, 47, 12, 0.26),
+    inset 0 1px 0 rgba(255, 248, 210, 0.7);
+}
+
+.fishing-cast:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow:
+    0 2px 0 #7c4d16,
+    0 5px 10px rgba(74, 47, 12, 0.2),
+    inset 0 1px 0 rgba(255, 248, 210, 0.6);
+}
+
+.fishing-cast:disabled {
+  cursor: wait;
+  filter: saturate(0.62) brightness(0.94);
+}
+
+.fishing-cast__time {
+  padding: 2px 7px;
+  border: 1px solid rgba(66, 39, 8, 0.24);
+  border-radius: 999px;
+  background: rgba(255, 246, 207, 0.28);
+  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+@media (min-width: 821px) {
+  .fishing-panel__body {
+    overflow: hidden;
+  }
+
+  .fishing-stage,
+  .fishing-rank {
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 4px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(120, 80, 34, 0.45) transparent;
+  }
+}
+
+.fishing-cast__spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(44, 26, 8, 0.28);
+  border-top-color: #2c1a08;
+  border-radius: 50%;
+  animation: fishingSpin 0.8s linear infinite;
+}
+
+.fishing-stage__progress {
+  height: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(91, 55, 23, 0.24);
+  border-radius: 999px;
+  background: rgba(46, 29, 12, 0.14);
+  box-shadow: inset 0 1px 2px rgba(60, 38, 12, 0.16);
+}
+
+.fishing-stage__progress span {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #c1852d 0%, #f5d47a 50%, #c1852d 100%);
+  background-size: 200% 100%;
+  transition: width 0.12s linear;
+  animation: fishingShimmer 1.4s linear infinite;
+}
+
+.fishing-stage__bobber-group {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.fishing-stage.is-casting .fishing-stage__bobber-group {
+  animation: fishingBob 1.05s ease-in-out infinite;
+}
+
+.fishing-stage__ripple {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.fishing-stage.is-casting .fishing-stage__ripple--one {
+  animation: fishingRipple 1.7s ease-out infinite;
+}
+
+.fishing-stage.is-casting .fishing-stage__ripple--two {
+  animation: fishingRipple 1.7s 0.34s ease-out infinite;
+}
+
+.fishing-catch {
+  padding: 14px;
+  border: 2px solid #b98a4a;
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 250, 228, 0.95), transparent 60%),
+    linear-gradient(180deg, #fff6df 0%, #f0dfbb 100%);
+  box-shadow:
+    0 8px 18px rgba(66, 43, 16, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+.fishing-catch.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.fishing-catch__frame {
+  position: relative;
+  padding: 12px;
+  border: 1px solid rgba(120, 80, 34, 0.26);
+  border-radius: 10px;
+  background:
+    linear-gradient(90deg, rgba(120, 80, 34, 0.06) 1px, transparent 1px) 0 0 / 18px 18px,
+    linear-gradient(rgba(120, 80, 34, 0.06) 1px, transparent 1px) 0 0 / 18px 18px,
+    rgba(255, 251, 240, 0.55);
+}
+
+.fishing-catch__eyebrow {
+  display: block;
+  color: #9a743d;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.fishing-catch__name {
+  margin: 3px 0 0;
+  color: #3b2512;
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 24px;
+  line-height: 1.1;
+  text-align: center;
+}
+
+.fishing-catch__art {
+  max-width: 390px;
+  margin: 4px auto 8px;
+  filter: drop-shadow(0 10px 14px rgba(55, 32, 10, 0.16));
+}
+
+.fishing-catch__art svg {
+  display: block;
+  width: 100%;
+}
+
+.fishing-catch__badge {
+  display: flex;
+  width: fit-content;
+  margin: 0 auto 10px;
+}
+
+.fishing-rank-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 10px;
+  border: 1px solid #b8b09c;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.fishing-rank-badge__stars {
+  font-size: 8px;
+  letter-spacing: 1px;
+  opacity: 0.85;
+}
+
+.fishing-rank-badge--filhote {
+  border-color: #b8b09c;
+  background: #e7e2d4;
+  color: #5f5a4e;
+}
+
+.fishing-rank-badge--comum {
+  border-color: #93b98a;
+  background: #e3f0df;
+  color: #3f6b3a;
+}
+
+.fishing-rank-badge--graudo {
+  border-color: #8fb4cf;
+  background: #e2eef7;
+  color: #35607f;
+}
+
+.fishing-rank-badge--trofeu {
+  border-color: #d1a160;
+  background: #f7e8d2;
+  color: #8d5a22;
+}
+
+.fishing-rank-badge--lendario {
+  border-color: #d7a52d;
+  background: linear-gradient(180deg, #fff3c4, #f5c85c);
+  box-shadow: 0 0 16px rgba(240, 197, 109, 0.38);
+  color: #6e4508;
+}
+
+.fishing-catch__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.fishing-catch__stat {
+  padding: 7px 6px;
+  border: 1px solid rgba(120, 80, 34, 0.18);
+  border-radius: 8px;
+  background: rgba(120, 80, 34, 0.07);
+  text-align: center;
+}
+
+.fishing-catch__stat span {
+  display: block;
+  margin-bottom: 2px;
+  color: #8f6c3e;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 1.3px;
+  text-transform: uppercase;
+}
+
+.fishing-catch__stat strong {
+  color: #3e2814;
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.fishing-catch__stat small {
+  margin-left: 2px;
+  color: #8f6c3e;
+  font-size: 9px;
+}
+
+.fishing-catch__record {
+  margin: 7px 0;
+  color: #8a5a16;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.fishing-catch__record--quiet {
+  color: #7b6a50;
+  font-weight: 600;
+}
+
+.fishing-catch__description {
+  margin: 6px 4px;
+  color: #6b563a;
+  font-size: 11px;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.fishing-catch__stored {
+  margin: 0;
+  color: #947b54;
+  font-size: 8px;
+  letter-spacing: 0.8px;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.fishing-rank {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid rgba(120, 80, 34, 0.3);
+  border-radius: 14px;
+  background: rgba(255, 248, 232, 0.62);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.fishing-rank__eyebrow {
+  display: block;
+  color: #9a743d;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.fishing-rank__title {
+  margin: 1px 0 2px;
+  color: #3b2512;
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 20px;
+  line-height: 1.1;
+}
+
+.fishing-rank__subtitle {
+  margin: 0 0 2px;
+  color: #7f6a4b;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.fishing-rank__summary {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 10px;
+  border: 1px solid #0d2427;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #23494d 0%, #153136 100%);
+  box-shadow: inset 0 0 0 1px rgba(232, 189, 112, 0.16);
+  color: #f5e6bd;
+}
+
+.fishing-rank__medal {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  border: 1px solid rgba(232, 189, 112, 0.35);
+  border-radius: 50%;
+  background: rgba(232, 189, 112, 0.14);
+  font-size: 16px;
+}
+
+.fishing-rank__summary-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.fishing-rank__tier {
+  color: #ffe9b8;
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 13px;
+  line-height: 1.15;
+}
+
+.fishing-rank__caught {
+  color: #a9c9c4;
+  font-size: 8px;
+  letter-spacing: 0.4px;
+}
+
+.fishing-rank__score {
+  flex: 0 0 auto;
+  color: #e8bd70;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.fishing-rank__progress {
+  height: 7px;
+  overflow: hidden;
+  border: 1px solid rgba(120, 80, 34, 0.2);
+  border-radius: 999px;
+  background: rgba(54, 36, 17, 0.16);
+}
+
+.fishing-rank__progress span {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #b07a2c, #e8bd70);
+  transition: width 0.5s ease;
+}
+
+.fishing-rank__next {
+  margin: -2px 0 2px;
+  color: #7d643f;
+  font-size: 9px;
+}
+
+.fishing-rank__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fishing-record {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid rgba(120, 80, 34, 0.18);
+  border-radius: 9px;
+  background: rgba(255, 251, 240, 0.7);
+}
+
+.fishing-record.is-loading,
+.fishing-record.is-empty {
+  justify-content: center;
+  padding: 14px;
+  color: #8a7657;
+  font-size: 10px;
+}
+
+.fishing-record__position {
+  width: 20px;
+  flex: 0 0 20px;
+  color: #a47736;
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.fishing-record:nth-child(1) .fishing-record__position {
+  color: #b3821d;
+  text-shadow: 0 1px 0 rgba(255, 245, 205, 0.8);
+}
+
+.fishing-record__art {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 34px;
+  flex: 0 0 58px;
+  overflow: hidden;
+}
+
+.fishing-record__art svg {
+  width: 74px;
+  max-width: none;
+  height: auto;
+}
+
+.fishing-record__art .fish-art__fish,
+.fishing-record__art .fish-art__sparkles {
+  animation: none;
+}
+
+.fishing-record__info {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.fishing-record__info strong {
+  overflow: hidden;
+  color: #3b2815;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fishing-record__info small {
+  overflow: hidden;
+  color: #7f6a4b;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fishing-record__badge {
+  padding: 3px 7px;
+  font-size: 8px;
+}
+
+.fishing-record__badge .fishing-rank-badge__stars {
+  display: none;
+}
+
+.fishing-record__none {
+  color: #a49275;
+  font-size: 11px;
+}
+
+.fishing-rank__hint {
+  margin: 0;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(120, 80, 34, 0.25);
+  color: #8b7656;
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.fishing-panel__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex: 0 0 auto;
+  padding: 10px 22px;
+  border-top: 1px solid rgba(120, 80, 34, 0.3);
+  background: rgba(214, 190, 148, 0.34);
+}
+
+.fishing-panel__footer-hint {
+  color: #7c6648;
+  font-size: 9px;
+}
+
+.fishing-panel__back {
+  padding: 8px 16px;
+  border: 1px solid #5d3a1c;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #6d4728, #4d2f17);
+  box-shadow: inset 0 1px 0 rgba(255, 226, 171, 0.18);
+  color: #f5e3b8;
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+}
+
+.fishing-panel__back:hover {
+  filter: brightness(1.1);
+}
+
+.fish-art {
+  display: block;
+  overflow: visible;
+}
+
+.fish-art__fish {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: fishSway 3.4s ease-in-out infinite;
+}
+
+.fish-art--golden .fish-art__fish {
+  filter: drop-shadow(0 0 10px rgba(255, 215, 100, 0.55));
+}
+
+.fish-art__sparkles {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: fishSparkle 2.2s ease-in-out infinite;
+}
+
+@keyframes fishingSpin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes fishingShimmer {
+  to { background-position: -200% 0; }
+}
+
+@keyframes fishingBob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(3px); }
+}
+
+@keyframes fishingRipple {
+  0% { opacity: 0.5; transform: scale(0.55); }
+  100% { opacity: 0; transform: scale(1.3); }
+}
+
+@keyframes fishSway {
+  0%, 100% { transform: rotate(0); }
+  50% { transform: rotate(-1.2deg) translateY(-1px); }
+}
+
+@keyframes fishSparkle {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
+}
+
+.fishing-panel button:focus-visible {
+  outline: 2px solid #ffe6a4;
+  outline-offset: 2px;
+}
+
+@media (max-width: 820px) {
+  .fishing-overlay {
+    align-items: flex-start;
+    padding: 10px;
+  }
+
+  .fishing-panel {
+    max-height: calc(100vh - 20px);
+    border-radius: 14px;
+  }
+
+  .fishing-panel__header {
+    padding: 14px 16px;
+  }
+
+  .fishing-panel__title {
+    font-size: 24px;
+  }
+
+  .fishing-panel__intro {
+    font-size: 11px;
+  }
+
+  .fishing-panel__header-side {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+  }
+
+  .fishing-panel__weather {
+    display: none;
+  }
+
+  .fishing-panel__body {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .fishing-panel__footer {
+    padding: 9px 14px;
+  }
+
+  .fishing-panel__footer-hint {
+    display: none;
+  }
+
+  .fishing-panel__back {
+    width: 100%;
+  }
+}
+
+@media (max-width: 520px) {
+  .fishing-panel__header {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .fishing-panel__title {
+    font-size: 21px;
+  }
+
+  .fishing-panel__intro {
+    display: none;
+  }
+
+  .fishing-catch__stats {
+    gap: 5px;
+  }
+
+  .fishing-catch__stat strong {
+    font-size: 17px;
+  }
+
+  .fishing-record__art {
+    width: 46px;
+    flex-basis: 46px;
+  }
+
+  .fishing-record__art svg {
+    width: 60px;
+  }
+
+  .fishing-record__badge {
+    padding: 3px 6px;
+    letter-spacing: 0.3px;
+  }
+}
+
+@media (max-height: 600px) and (orientation: landscape) and (min-width: 700px) {
+  .fishing-overlay {
+    padding: 6px;
+  }
+
+  .fishing-panel {
+    max-height: calc(100vh - 12px);
+  }
+
+  .fishing-panel__header {
+    padding: 8px 16px;
+  }
+
+  .fishing-panel__eyebrow {
+    font-size: 7px;
+  }
+
+  .fishing-panel__title {
+    margin: 0;
+    font-size: 20px;
+  }
+
+  .fishing-panel__intro {
+    display: none;
+  }
+
+  .fishing-panel__body {
+    grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+    gap: 10px;
+    padding: 8px 12px;
+  }
+
+  .fishing-stage {
+    gap: 7px;
+  }
+
+  .fishing-stage__lake {
+    max-width: 360px;
+    margin: 0 auto;
+  }
+
+  .fishing-stage__status {
+    right: 8px;
+    bottom: 6px;
+    left: 8px;
+    padding: 4px 8px;
+    font-size: 9px;
+  }
+
+  .fishing-cast {
+    padding: 7px 12px;
+    font-size: 11px;
+  }
+
+  .fishing-rank {
+    gap: 6px;
+    padding: 9px;
+  }
+
+  .fishing-rank__title {
+    font-size: 15px;
+  }
+
+  .fishing-rank__subtitle,
+  .fishing-rank__hint,
+  .fishing-rank__next {
+    display: none;
+  }
+
+  .fishing-rank__summary {
+    padding: 6px 8px;
+  }
+
+  .fishing-rank__medal {
+    width: 26px;
+    height: 26px;
+    flex-basis: 26px;
+    font-size: 13px;
+  }
+
+  .fishing-rank__tier {
+    font-size: 11px;
+  }
+
+  .fishing-record {
+    padding: 4px 6px;
+  }
+
+  .fishing-record__art {
+    height: 26px;
+  }
+
+  .fishing-catch__art {
+    max-width: 120px;
+    margin: 0 auto 2px;
+  }
+
+  .fishing-catch {
+    padding: 6px;
+  }
+
+  .fishing-catch__frame {
+    padding: 6px;
+  }
+
+  .fishing-catch__name {
+    font-size: 19px;
+  }
+
+  .fishing-catch__badge {
+    margin-bottom: 2px;
+  }
+
+  .fishing-catch__stats {
+    gap: 4px;
+    margin: 3px 0;
+  }
+
+  .fishing-catch__stat {
+    padding: 3px;
+  }
+
+  .fishing-catch__stat strong {
+    font-size: 15px;
+  }
+
+  .fishing-catch__record {
+    margin: 2px 0;
+    font-size: 9px;
+  }
+
+  .fishing-catch__description,
+  .fishing-catch__stored {
+    display: none;
+  }
+
+  .fishing-panel__footer {
+    padding: 6px 12px;
+  }
+
+  .fishing-panel__footer-hint {
+    display: none;
+  }
+}

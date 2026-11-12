@@ -67,6 +67,29 @@ export function createCharacterRoutes(repository: CharacterRepository) {
       } catch (error) { return sendError(reply, error); }
     });
 
+    app.post('/api/v1/characters/:id/farm/sell-item', { preHandler: authenticate }, async (request, reply) => {
+      try {
+        const { id } = request.params as { id: string };
+        const body = request.body as { itemKey?: unknown } | null;
+        if (!body || typeof body.itemKey !== 'string' || body.itemKey.length > 64) {
+          throw new CharacterError('validation_error', 400, 'Informe o produto da fazenda que deseja vender.');
+        }
+        return reply.send(await service.sellFarmItem(id, accountId(request), body.itemKey));
+      } catch (error) { return sendError(reply, error); }
+    });
+
+    app.post('/api/v1/characters/:id/sell-item', { preHandler: authenticate }, async (request, reply) => {
+      try {
+        const { id } = request.params as { id: string };
+        const body = request.body as { inventoryItemId?: unknown; quantity?: unknown } | null;
+        if (!body || typeof body.inventoryItemId !== 'string' || body.inventoryItemId.length > 128 ||
+            typeof body.quantity !== 'number' || !Number.isInteger(body.quantity) || body.quantity < 1 || body.quantity > 9999) {
+          throw new CharacterError('validation_error', 400, 'Informe o item e a quantidade que deseja vender.');
+        }
+        return reply.send(await service.sellItem(id, accountId(request), body.inventoryItemId, body.quantity));
+      } catch (error) { return sendError(reply, error); }
+    });
+
     app.post('/api/v1/characters/:id/use-item', { preHandler: authenticate }, async (request, reply) => {
       try {
         const { id } = request.params as { id: string };
@@ -87,6 +110,15 @@ export function createCharacterRoutes(repository: CharacterRepository) {
       } catch (error) { return sendError(reply, error); }
     });
 
+    app.post('/api/v1/characters/:id/mount', { preHandler: authenticate }, async (request, reply) => {
+      try {
+        const { id } = request.params as { id: string };
+        const body = request.body as { equipped?: unknown } | null;
+        if (!body || typeof body.equipped !== 'boolean') throw new CharacterError('validation_error', 400, 'Informe se deseja montar ou desmontar.');
+        return reply.send(await service.setMount(id, accountId(request), body.equipped));
+      } catch (error) { return sendError(reply, error); }
+    });
+
     app.post('/api/v1/characters/:id/unequip', { preHandler: authenticate }, async (request, reply) => {
       try {
         const { id } = request.params as { id: string };
@@ -96,6 +128,22 @@ export function createCharacterRoutes(repository: CharacterRepository) {
           throw new CharacterError('validation_error', 400, 'Informe um espaço de equipamento válido.');
         }
         return reply.send(await service.unequipItem(id, accountId(request), body.slot));
+      } catch (error) { return sendError(reply, error); }
+    });
+
+    app.post('/api/v1/characters/:id/skills/:skillId/cast', { preHandler: authenticate }, async (request, reply) => {
+      try {
+        const { id, skillId } = request.params as { id: string; skillId: string };
+        if (skillId.length > 64) throw new CharacterError('validation_error', 400, 'Habilidade inválida.');
+        return reply.send(await service.castSkill(id, accountId(request), skillId));
+      } catch (error) { return sendError(reply, error); }
+    });
+
+    app.post('/api/v1/characters/:id/skills/:skillId/upgrade', { preHandler: authenticate }, async (request, reply) => {
+      try {
+        const { id, skillId } = request.params as { id: string; skillId: string };
+        if (skillId.length > 64) throw new CharacterError('validation_error', 400, 'Habilidade inválida.');
+        return reply.send(await service.upgradeSkill(id, accountId(request), skillId));
       } catch (error) { return sendError(reply, error); }
     });
 
@@ -120,6 +168,134 @@ export function createCharacterRoutes(repository: CharacterRepository) {
       try {
         const { id } = request.params as { id: string };
         return reply.send({ character: await service.getCharacter(id, accountId(request)) });
+      } catch (error) { return sendError(reply, error); }
+    });
+
+    app.get('/api/v1/characters/:id/farm', { preHandler: authenticate }, async (request, reply) => {
+      try {
+        const { id } = request.params as { id: string };
+        return reply.send(await service.getFarm(id, accountId(request)));
+      } catch (error) { return sendError(reply, error); }
+    });
+
+
+    app.post('/api/v1/characters/:id/farm/collect-egg', { preHandler: authenticate }, async (request, reply) => {
+      try {
+        const { id } = request.params as { id: string };
+        const body = request.body as { eggId?: string };
+        if (typeof body.eggId !== 'string' || !body.eggId.trim()) return reply.code(400).send({ error: 'egg_id_required', message: 'Ovo inválido.' });
+        return reply.send(await service.collectFarmEgg(id, accountId(request), body.eggId));
+      } catch (error) { return sendError(reply, error); }
+    });
+
+    app.post('/api/v1/characters/:id/farm/expand', { preHandler: authenticate }, async (request, reply) => {
+      try {
+        const { id } = request.params as { id: string };
+        return reply.send(await service.expandFarm(id, accountId(request)));
+      } catch (error) { return sendError(reply, error); }
+    });
+
+    app.post('/api/v1/characters/:id/city/fish', { preHandler: authenticate }, async (request, reply) => {
+      try {
+        const { id } = request.params as { id: string };
+        return reply.send(await service.fishAtCity(id, accountId(request)));
+      } catch (error) { return sendError(reply, error); }
+    });
+
+    app.post('/api/v1/characters/:id/farm/buy-building', { preHandler: authenticate }, async (request, reply) => {
+      try {
+        const { id } = request.params as { id: string };
+        const body = request.body as { buildingId?: unknown } | null;
+        if (!body || typeof body.buildingId !== 'string' || !['coop', 'corral', 'stable'].includes(body.buildingId)) {
+          throw new CharacterError('validation_error', 400, 'Informe uma construção válida (galinheiro, curral ou estábulo).');
+        }
+        return reply.send(await service.buyFarmBuilding(id, accountId(request), body.buildingId as 'coop' | 'corral' | 'stable'));
+      } catch (error) { return sendError(reply, error); }
+    });
+
+    app.post('/api/v1/characters/:id/farm/buy-animal', { preHandler: authenticate }, async (request, reply) => {
+      try {
+        const { id } = request.params as { id: string };
+        const body = request.body as { animalId?: unknown; name?: unknown } | null;
+        if (!body || typeof body.animalId !== 'string' || body.animalId.length > 64) {
+          throw new CharacterError('validation_error', 400, 'Informe o animal que deseja comprar.');
+        }
+        const customName = typeof body.name === 'string' ? body.name.slice(0, 32) : undefined;
+        return reply.send(await service.buyFarmAnimal(id, accountId(request), body.animalId, customName));
+      } catch (error) { return sendError(reply, error); }
+    });
+
+    app.post('/api/v1/characters/:id/farm/plant', { preHandler: authenticate }, async (request, reply) => {
+      try {
+        const { id } = request.params as { id: string };
+        const body = request.body as { plotIndex?: unknown; cropId?: unknown } | null;
+        if (!body || typeof body.plotIndex !== 'number' || !Number.isInteger(body.plotIndex) ||
+            typeof body.cropId !== 'string' || !['corn', 'wheat', 'carrot'].includes(body.cropId)) {
+          throw new CharacterError('validation_error', 400, 'Informe o canteiro e a semente que deseja plantar.');
+        }
+        return reply.send(await service.plantFarmCrop(id, accountId(request), body.plotIndex, body.cropId as 'corn' | 'wheat' | 'carrot'));
+      } catch (error) { return sendError(reply, error); }
+    });
+
+    app.post('/api/v1/characters/:id/farm/harvest', { preHandler: authenticate }, async (request, reply) => {
+      try {
+        const { id } = request.params as { id: string };
+        const body = request.body as { plotIndex?: unknown } | null;
+        if (!body || typeof body.plotIndex !== 'number' || !Number.isInteger(body.plotIndex)) {
+          throw new CharacterError('validation_error', 400, 'Informe o canteiro que deseja colher.');
+        }
+        return reply.send(await service.harvestFarmCrop(id, accountId(request), body.plotIndex));
+      } catch (error) { return sendError(reply, error); }
+    });
+
+    app.post('/api/v1/characters/:id/farm/buy-seeds', { preHandler: authenticate }, async (request, reply) => {
+      try {
+        const { id } = request.params as { id: string };
+        const body = request.body as { cropId?: unknown; quantity?: unknown } | null;
+        if (!body || !['corn', 'wheat', 'carrot'].includes(String(body.cropId)) ||
+            typeof body.quantity !== 'number' || !Number.isInteger(body.quantity) || body.quantity < 1 || body.quantity > 10) {
+          throw new CharacterError('validation_error', 400, 'Informe a semente e uma quantidade entre 1 e 10.');
+        }
+        return reply.send(await service.buyFarmSeeds(id, accountId(request), body.cropId as 'corn' | 'wheat' | 'carrot', body.quantity));
+      } catch (error) { return sendError(reply, error); }
+    });
+
+    app.post('/api/v1/characters/:id/farm/water', { preHandler: authenticate }, async (request, reply) => {
+      try {
+        const { id } = request.params as { id: string };
+        const body = request.body as { plotIndex?: unknown } | null;
+        if (!body || typeof body.plotIndex !== 'number' || !Number.isInteger(body.plotIndex)) {
+          throw new CharacterError('validation_error', 400, 'Informe o canteiro que deseja regar.');
+        }
+        return reply.send(await service.waterFarmCrop(id, accountId(request), body.plotIndex));
+      } catch (error) { return sendError(reply, error); }
+    });
+
+    app.post('/api/v1/characters/:id/farm/craft-feed', { preHandler: authenticate }, async (request, reply) => {
+      try {
+        const { id } = request.params as { id: string };
+        const body = request.body as { species?: unknown; quantity?: unknown } | null;
+        if (!body || !['chicken', 'cow', 'horse'].includes(String(body.species)) ||
+            typeof body.quantity !== 'number' || !Number.isInteger(body.quantity) || body.quantity < 1 || body.quantity > 20) {
+          throw new CharacterError('validation_error', 400, 'Informe o tipo de animal e uma quantidade entre 1 e 20.');
+        }
+        return reply.send(await service.craftFarmFeed(id, accountId(request), body.species as 'chicken' | 'cow' | 'horse', body.quantity));
+      } catch (error) { return sendError(reply, error); }
+    });
+
+    app.post('/api/v1/characters/:id/farm/fill-trough', { preHandler: authenticate }, async (request, reply) => {
+      try {
+        const { id } = request.params as { id: string };
+        const body = request.body as { buildingId?: unknown; kind?: unknown; quantity?: unknown } | null;
+        if (!body || !['coop', 'corral', 'stable'].includes(String(body.buildingId)) ||
+            !['feed', 'water'].includes(String(body.kind)) ||
+            typeof body.quantity !== 'number' || !Number.isInteger(body.quantity) || body.quantity < 1 || body.quantity > 30) {
+          throw new CharacterError('validation_error', 400, 'Informe a instalação, o tipo de abastecimento e uma quantidade entre 1 e 30.');
+        }
+        return reply.send(await service.fillFarmTrough(
+          id, accountId(request), body.buildingId as 'coop' | 'corral' | 'stable',
+          body.kind as 'feed' | 'water', body.quantity
+        ));
       } catch (error) { return sendError(reply, error); }
     });
   };

@@ -19,6 +19,8 @@ interface Palette {
   cape: number;
 }
 
+const FARMER_PALETTE: Palette = { primary: 0x8b6a3e, secondary: 0x5d7b45, trim: 0xd7b46c, sleeve: 0x9b784b, pants: 0x526342, boot: 0x493222, skin: 0xe8b68f, hair: 0x4d3323, cape: 0x6b4d32 };
+
 const PALETTES: Record<CharacterClassId, Palette> = {
   warrior: {
     primary: 0x7089ad,
@@ -70,6 +72,7 @@ export class PlayerAvatar {
   readonly root: Phaser.GameObjects.Container;
 
   private readonly scene: Phaser.Scene;
+  private readonly classId: CharacterClassId;
   private readonly lunge: Phaser.GameObjects.Container;
   private readonly rig: Phaser.GameObjects.Container;
   private readonly flip: Phaser.GameObjects.Container;
@@ -87,10 +90,12 @@ export class PlayerAvatar {
   private walkTween: Phaser.Tweens.Tween | null = null;
   private stepTweenA: Phaser.Tweens.Tween | null = null;
   private stepTweenB: Phaser.Tweens.Tween | null = null;
+  private walking = false;
 
   constructor(scene: Phaser.Scene, classId: CharacterClassId, x: number, y: number) {
     this.scene = scene;
-    const palette = PALETTES[classId];
+    this.classId = classId;
+    const palette = FARMER_PALETTE;
 
     this.root = scene.add.container(x, y);
 
@@ -107,8 +112,12 @@ export class PlayerAvatar {
     this.rig.add(this.flip);
 
     // Peças traseiras
-    const cape = buildCape(scene, palette, classId);
-    this.flip.add(cape);
+    // Roupa simples de trabalho rural: camisa, calça e avental curto.
+    const cape = scene.add.container(0, 0);
+    const apron = scene.add.graphics();
+    apron.fillStyle(0x9a7042, 1); apron.fillRoundedRect(-12, -48, 24, 34, 4);
+    apron.lineStyle(2, 0x5d4229, 1); apron.strokeRoundedRect(-12, -48, 24, 34, 4);
+    cape.add(apron); this.flip.add(cape);
 
     this.legBack = this.buildLeg(-7, palette);
     this.flip.add(this.legBack);
@@ -116,9 +125,7 @@ export class PlayerAvatar {
     const backArm = this.buildArm(-18, palette, false);
     this.flip.add(backArm);
 
-    if (classId === 'archer') {
-      this.flip.add(buildQuiver(scene));
-    }
+
 
     this.flip.add(this.buildTorso(palette, classId));
 
@@ -128,8 +135,14 @@ export class PlayerAvatar {
     const head = this.buildHead(palette, classId);
     this.head = head;
     this.flip.add(head);
+    // Chapéu de palha largo, visível em todas as direções.
+    const strawHat = scene.add.graphics();
+    strawHat.fillStyle(0x9a7136, 1); strawHat.fillEllipse(0, -91, 47, 12);
+    strawHat.fillStyle(0xd6b45f, 1); strawHat.fillEllipse(0, -98, 27, 15);
+    strawHat.fillStyle(0x75502b, 1); strawHat.fillRect(-14, -96, 28, 3);
+    this.flip.add(strawHat);
 
-    const weapon = this.buildWeapon(classId, palette);
+    const weapon = scene.add.container(0, 0);
     this.frontArm = this.buildArm(18, palette, true, weapon);
     this.flip.add(this.frontArm);
 
@@ -196,6 +209,36 @@ export class PlayerAvatar {
     this.setFacingY(vertical);
   }
 
+  setWalking(walking: boolean): void {
+    if (this.walking === walking) return;
+    this.walking = walking;
+    this.stepTweenA?.stop();
+    this.stepTweenB?.stop();
+    this.stepTweenA = null;
+    this.stepTweenB = null;
+    if (!walking) {
+      this.legFront.angle = 0;
+      this.legBack.angle = 0;
+      return;
+    }
+    this.stepTweenA = this.scene.tweens.add({
+      targets: this.legFront,
+      angle: { from: -18, to: 18 },
+      duration: 190,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Linear'
+    });
+    this.stepTweenB = this.scene.tweens.add({
+      targets: this.legBack,
+      angle: { from: 18, to: -18 },
+      duration: 190,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Linear'
+    });
+  }
+
   attack(targetX: number, targetY?: number): void {
     this.facePoint(targetX, targetY ?? this.root.y);
     const direction = this.facing;
@@ -210,10 +253,12 @@ export class PlayerAvatar {
       ease: 'Quad.easeOut'
     });
 
+    const swing = this.classId === 'warrior' ? -1.45
+      : this.classId === 'archer' ? -0.62 : -0.92;
     this.scene.tweens.add({
       targets: this.frontArm,
-      rotation: { from: 0.1, to: -1.75 },
-      duration: 120,
+      rotation: { from: this.frontArm.rotation, to: swing },
+      duration: this.classId === 'archer' ? 105 : 145,
       yoyo: true,
       ease: 'Quad.easeOut'
     });
@@ -265,43 +310,27 @@ export class PlayerAvatar {
     });
   }
 
-  walkTo(x: number, y: number, duration: number): void {
-    this.setFacing(x >= this.root.x ? 1 : -1);
-
+  stopWalking(): void {
     this.walkTween?.stop();
-    this.stepTweenA?.stop();
-    this.stepTweenB?.stop();
+    this.walkTween = null;
+    this.setWalking(false);
+  }
 
+  walkTo(x: number, y: number, duration: number): void {
+    this.walkTween?.stop();
+    this.setFacing(x >= this.root.x ? 1 : -1);
+    this.setWalking(true);
     this.walkTween = this.scene.tweens.add({
       targets: this.root,
       x,
       y,
       duration,
-      ease: 'Sine.easeInOut'
-    });
-
-    this.stepTweenA = this.scene.tweens.add({
-      targets: this.legFront,
-      angle: { from: -11, to: 11 },
-      duration: 180,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut'
-    });
-    this.stepTweenB = this.scene.tweens.add({
-      targets: this.legBack,
-      angle: { from: 11, to: -11 },
-      duration: 180,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut'
-    });
-
-    this.scene.time.delayedCall(duration, () => {
-      this.stepTweenA?.stop();
-      this.stepTweenB?.stop();
-      this.legFront.angle = 0;
-      this.legBack.angle = 0;
+      ease: 'Linear',
+      onUpdate: () => this.root.setDepth(300 + this.root.y),
+      onComplete: () => {
+        this.walkTween = null;
+        this.setWalking(false);
+      }
     });
   }
 
@@ -517,19 +546,31 @@ export class PlayerAvatar {
     const g = this.scene.add.graphics();
 
     if (classId === 'warrior') {
-      g.fillStyle(0xdce8f5, 1);
+      // Lâmina larga com ponta, fio claro e nervura central para ficar legível em batalha.
+      g.fillStyle(0x9eafc4, 1);
       g.lineStyle(2, OUTLINE, 1);
-      g.fillRoundedRect(-2.5, -44, 5, 44, 2);
-      g.strokeRoundedRect(-2.5, -44, 5, 44, 2);
-      g.fillTriangle(-2.5, -44, 0, -54, 2.5, -44);
-      g.strokeTriangle(-2.5, -44, 0, -54, 2.5, -44);
-
+      g.fillPoints([
+        { x: -6, y: -58 }, { x: 0, y: -72 }, { x: 6, y: -58 },
+        { x: 5, y: -12 }, { x: -5, y: -12 }
+      ], true);
+      g.strokePoints([
+        { x: -6, y: -58 }, { x: 0, y: -72 }, { x: 6, y: -58 },
+        { x: 5, y: -12 }, { x: -5, y: -12 }
+      ], true);
+      g.lineStyle(1.5, 0xf4f7fb, 0.95);
+      g.lineBetween(-2, -60, -2, -16);
       g.fillStyle(palette.trim, 1);
-      g.fillRoundedRect(-9, -3, 18, 5, 2);
-      g.fillEllipse(0, 15, 7, 7);
-
+      g.lineStyle(2, OUTLINE, 1);
+      g.fillRoundedRect(-13, -13, 26, 6, 2);
+      g.strokeRoundedRect(-13, -13, 26, 6, 2);
       g.fillStyle(0x5a3a24, 1);
-      g.fillRoundedRect(-2, 2, 4, 12, 2);
+      g.fillRoundedRect(-3.5, -7, 7, 18, 2);
+      g.lineStyle(1, 0xc59b5c, 1);
+      g.lineBetween(-2, -5, 2, 8);
+      g.fillStyle(palette.trim, 1);
+      g.fillCircle(0, 14, 5);
+      g.lineStyle(1.5, OUTLINE, 1);
+      g.strokeCircle(0, 14, 5);
     }
 
     if (classId === 'mage' || classId === 'priest') {
@@ -559,20 +600,29 @@ export class PlayerAvatar {
     }
 
     if (classId === 'archer') {
-      g.lineStyle(3.5, 0x8a6038, 1);
+      // Arco recurvo na mão: empunhadura, duas lâminas e corda bem visíveis.
+      const top = { x: 13, y: -34 };
+      const bottom = { x: 13, y: 34 };
+      g.lineStyle(5, 0x4a2d19, 1);
       g.beginPath();
-      g.arc(0, 2, 25, Phaser.Math.DegToRad(-68), Phaser.Math.DegToRad(68), false);
+      g.arc(-2, 0, 37, Phaser.Math.DegToRad(-72), Phaser.Math.DegToRad(72), false);
       g.strokePath();
-
-      const ax = Math.cos(Phaser.Math.DegToRad(-68)) * 25;
-      const ay = 2 + Math.sin(Phaser.Math.DegToRad(-68)) * 25;
-      const bx = Math.cos(Phaser.Math.DegToRad(68)) * 25;
-      const by = 2 + Math.sin(Phaser.Math.DegToRad(68)) * 25;
-      g.lineStyle(1, 0xd8e4ef, 0.9);
-      g.lineBetween(ax, ay, bx, by);
-
+      g.lineStyle(2, 0xc18a4d, 1);
+      g.beginPath();
+      g.arc(-2, 0, 34, Phaser.Math.DegToRad(-72), Phaser.Math.DegToRad(72), false);
+      g.strokePath();
+      g.lineStyle(1.5, 0xe8e4d9, 1);
+      g.lineBetween(top.x, top.y, bottom.x, bottom.y);
+      g.lineStyle(3, palette.trim, 1);
+      g.lineBetween(-1, -8, 5, 8);
+      g.lineStyle(2, 0x5a3a24, 1);
+      g.lineBetween(-2, 0, 31, 0);
+      g.fillStyle(0xdce8f5, 1);
+      g.fillTriangle(31, 0, 24, -3.5, 24, 3.5);
       g.fillStyle(palette.trim, 1);
-      g.fillCircle(0, 2, 3);
+      g.fillCircle(1, 0, 4);
+      g.lineStyle(1.5, OUTLINE, 1);
+      g.strokeCircle(1, 0, 4);
     }
 
     weapon.add(g);
@@ -2208,11 +2258,12 @@ export class HorseView {
       repeat: -1,
       ease: 'Sine.easeInOut'
     });
+    // Respiração sutil sem animar scaleX: escalar no eixo horizontal
+    // fazia o cavalo inverter a orientação e parecer girar no próprio lugar.
     scene.tweens.add({
       targets: this.rig,
-      scaleX: this.baseScale * 1.008,
-      scaleY: this.baseScale * 0.993,
-      duration: 2600,
+      y: { from: 0, to: -1.4 * this.baseScale },
+      duration: 1900,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut'
@@ -2225,6 +2276,24 @@ export class HorseView {
     this.rig.scaleX = Math.abs(this.rig.scaleX) * direction;
   }
 
+  setWalking(walking: boolean): void {
+    if (!walking) {
+      this.legTween?.stop();
+      this.legTween = null;
+      this.legs.angle = 0;
+      return;
+    }
+    if (this.legTween) return;
+    this.legTween = this.scene.tweens.add({
+      targets: this.legs,
+      angle: { from: -2.2, to: 2.2 },
+      duration: 230,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Linear'
+    });
+  }
+
   walkTo(x: number, y: number, duration: number): void {
     this.walkTween?.stop();
     this.legTween?.stop();
@@ -2234,22 +2303,22 @@ export class HorseView {
       x,
       y,
       duration,
-      ease: 'Sine.easeInOut',
-      onUpdate: () => {
-        this.root.setDepth(300 + this.root.y);
+      ease: 'Linear',
+      onUpdate: () => this.root.setDepth(300 + this.root.y),
+      onComplete: () => {
+        this.walkTween = null;
+        this.legTween?.stop();
+        this.legTween = null;
+        this.legs.angle = 0;
       }
     });
     this.legTween = this.scene.tweens.add({
       targets: this.legs,
-      angle: { from: -1.6, to: 1.6 },
-      duration: 260,
+      angle: { from: -2.2, to: 2.2 },
+      duration: 230,
       yoyo: true,
       repeat: -1,
-      ease: 'Sine.easeInOut'
-    });
-    this.scene.time.delayedCall(duration, () => {
-      this.legTween?.stop();
-      this.legs.angle = 0;
+      ease: 'Linear'
     });
   }
 
