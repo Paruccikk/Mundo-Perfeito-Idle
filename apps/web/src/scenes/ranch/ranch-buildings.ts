@@ -25,15 +25,15 @@ export function createCoop(
   y: number
 ): Phaser.GameObjects.Container {
   const container = scene.add.container(x, y);
-  addShadow(container, 220, 58);
+  addShadow(container, 310, 88);
 
   const fence = [
-    createFenceLine(scene, -102, -38, -54, -38, { height: 18, spacing: 24, alpha: 0.95 }),
-    createFenceLine(scene, 54, -38, 102, -38, { height: 18, spacing: 24, alpha: 0.95 }),
-    createFenceLine(scene, -102, -38, -102, 38, { height: 18, spacing: 24, alpha: 0.95 }),
-    createFenceLine(scene, 102, -38, 102, 38, { height: 18, spacing: 24, alpha: 0.95 }),
-    createFenceLine(scene, -102, 38, -36, 38, { height: 18, spacing: 24, alpha: 0.95 }),
-    createFenceLine(scene, 36, 38, 102, 38, { height: 18, spacing: 24, alpha: 0.95 })
+    createFenceLine(scene, -142, -58, -72, -58, { height: 22, spacing: 25, alpha: 0.95 }),
+    createFenceLine(scene, 72, -58, 142, -58, { height: 22, spacing: 25, alpha: 0.95 }),
+    createFenceLine(scene, -142, -58, -142, 70, { height: 22, spacing: 25, alpha: 0.95 }),
+    createFenceLine(scene, 142, -58, 142, 70, { height: 22, spacing: 25, alpha: 0.95 }),
+    createFenceLine(scene, -142, 70, -48, 70, { height: 22, spacing: 25, alpha: 0.95 }),
+    createFenceLine(scene, 48, 70, 142, 70, { height: 22, spacing: 25, alpha: 0.95 })
   ];
   container.add(fence);
 
@@ -125,15 +125,15 @@ export function createCoop(
   g.fillRect(-24, -18, 3, 12);
   g.fillRect(21, -18, 3, 12);
   g.fillStyle(0x4b2d1b, 1);
-  g.fillRoundedRect(-88, 20, 34, 13, 3);
+  g.fillRoundedRect(-112, 34, 62, 19, 4);
   g.fillStyle(0xb07a3f, 1);
-  g.fillRect(-85, 19, 28, 4);
+  g.fillRect(-108, 32, 54, 6);
   g.fillStyle(0xe0bd71, 1);
-  g.fillEllipse(-71, 19, 24, 6);
+  g.fillEllipse(-81, 32, 48, 9);
   g.fillStyle(0x557f91, 1);
-  g.fillRoundedRect(58, 20, 32, 13, 4);
+  g.fillRoundedRect(62, 34, 58, 20, 5);
   g.fillStyle(0x9ed6df, 1);
-  g.fillEllipse(74, 20, 23, 5);
+  g.fillEllipse(91, 32, 46, 9);
 
   // Ferradura e detalhes de aconchego.
   g.lineStyle(2, 0x9b8a70, 1);
@@ -163,7 +163,7 @@ export function createCorral(
   y: number
 ): Phaser.GameObjects.Container {
   const container = scene.add.container(x, y);
-  addShadow(container, 280, 74);
+  addShadow(container, 390, 112);
 
   const g = scene.add.graphics();
 
@@ -205,12 +205,12 @@ export function createCorral(
 
   // Cercado do piquete.
   const fence = [
-    createFenceLine(scene, -126, -44, -72, -44, { height: 22, spacing: 26 }),
-    createFenceLine(scene, 72, -44, 126, -44, { height: 22, spacing: 26 }),
-    createFenceLine(scene, -126, -44, -126, 54, { height: 22, spacing: 26 }),
-    createFenceLine(scene, 126, -44, 126, 54, { height: 22, spacing: 26 }),
-    createFenceLine(scene, -126, 54, -32, 54, { height: 22, spacing: 26 }),
-    createFenceLine(scene, 32, 54, 126, 54, { height: 22, spacing: 26 })
+    createFenceLine(scene, -178, -62, -94, -62, { height: 26, spacing: 27 }),
+    createFenceLine(scene, 94, -62, 178, -62, { height: 26, spacing: 27 }),
+    createFenceLine(scene, -178, -62, -178, 78, { height: 26, spacing: 27 }),
+    createFenceLine(scene, 178, -62, 178, 78, { height: 26, spacing: 27 }),
+    createFenceLine(scene, -178, 78, -44, 78, { height: 26, spacing: 27 }),
+    createFenceLine(scene, 44, 78, 178, 78, { height: 26, spacing: 27 })
   ];
   container.add(fence);
 
@@ -267,15 +267,15 @@ export function createStable(
   y: number
 ): Phaser.GameObjects.Container {
   const container = scene.add.container(x, y);
-  addShadow(container, 290, 80);
+  addShadow(container, 410, 124);
 
   const fence = [
-    createFenceLine(scene, -132, -34, -78, -34, { height: 24, spacing: 28 }),
-    createFenceLine(scene, 78, -34, 132, -34, { height: 24, spacing: 28 }),
-    createFenceLine(scene, -132, -34, -132, 58, { height: 24, spacing: 28 }),
-    createFenceLine(scene, 132, -34, 132, 58, { height: 24, spacing: 28 }),
-    createFenceLine(scene, -132, 58, -34, 58, { height: 24, spacing: 28 }),
-    createFenceLine(scene, 34, 58, 132, 58, { height: 24, spacing: 28 })
+    createFenceLine(scene, -184, -50, -104, -50, { height: 28, spacing: 28 }),
+    createFenceLine(scene, 104, -50, 184, -50, { height: 28, spacing: 28 }),
+    createFenceLine(scene, -184, -50, -184, 82, { height: 28, spacing: 28 }),
+    createFenceLine(scene, 184, -50, 184, 82, { height: 28, spacing: 28 }),
+    createFenceLine(scene, -184, 82, -48, 82, { height: 28, spacing: 28 }),
+    createFenceLine(scene, 48, 82, 184, 82, { height: 28, spacing: 28 })
   ];
   container.add(fence);
 
