@@ -329,7 +329,7 @@ export class FarmScene extends Phaser.Scene {
     if (!farm) return '';
     const buildings = [...farm.buildings].sort().join(',');
     const animals = farm.animals.map((animal) => animal.id).join(',');
-    const eggs = (farm.eggs ?? []).map((egg) => `${egg.id}:${egg.fertilized ? 1 : 0}`).join(',');
+    const eggs = (farm.eggs ?? []).map((egg) => `${egg.id}:${egg.fertilized ? 1 : 0}:${egg.clutchId ?? ''}:${egg.hatchAt ?? ''}`).join(',');
     return `${buildings}|${animals}|${eggs}`;
   }
 
