@@ -1556,7 +1556,7 @@ export class FarmScene extends Phaser.Scene {
   private spawnEggs(): void {
     if (!this.farm?.buildings.includes('coop')) return;
     const anchor = this.iso(BUILDING_LAYOUTS.coop.col, BUILDING_LAYOUTS.coop.row);
-    (this.farm.eggs ?? []).slice(0, 8).forEach((egg, index) => {
+    (this.farm.eggs ?? []).forEach((egg, index) => {
       const x = anchor.x - 72 + (index % 4) * 42;
       const y = anchor.y + 46 + Math.floor(index / 4) * 24;
       const reserved = Boolean(egg.clutchId && egg.hatchAt);
