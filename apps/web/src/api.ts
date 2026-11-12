@@ -159,7 +159,7 @@ export const api = {
   async sellFarmItem(id: string, itemKey: string): Promise<FarmResponse> {
     return request<FarmResponse>(`/api/v1/characters/${encodeURIComponent(id)}/farm/sell-item`, { method: 'POST', body: { itemKey } });
   },
-  async expandFarm(id: string): Promise<FarmResponse> {
+  async collectFarmEgg(id: string, eggId: string): Promise<FarmResponse> {\n    return request<FarmResponse>(`/api/v1/characters/${encodeURIComponent(id)}/farm/collect-egg`, { method: 'POST', body: { eggId } });\n  },\n  async expandFarm(id: string): Promise<FarmResponse> {
     return request<FarmResponse>(`/api/v1/characters/${encodeURIComponent(id)}/farm/expand`, { method: 'POST', body: {} });
   },
   async fishAtCity(id: string): Promise<FarmResponse> {
