@@ -1489,6 +1489,38 @@ export function createRanchGate(
   const glow = scene.add.ellipse(0, -88, 190, 100, 0xffd77f, 0.07);
   container.add([g, glow]);
 
+  // Duas folhas de madeira articuladas: o clique abre/fecha a porteira.
+  const gateLeaves = scene.add.container(0, -5);
+  const leftLeaf = scene.add.container(-58, 0);
+  const leftArt = scene.add.graphics();
+  leftArt.fillStyle(0x684326, 1);
+  leftArt.fillRoundedRect(0, -5, 58, 10, 2);
+  leftArt.lineStyle(2, 0xc08a52, 1);
+  leftArt.lineBetween(5, -2, 54, -2);
+  leftArt.lineBetween(5, 3, 54, 3);
+  leftLeaf.add(leftArt);
+  const rightLeaf = scene.add.container(58, 0);
+  const rightArt = scene.add.graphics();
+  rightArt.fillStyle(0x684326, 1);
+  rightArt.fillRoundedRect(-58, -5, 58, 10, 2);
+  rightArt.lineStyle(2, 0xc08a52, 1);
+  rightArt.lineBetween(-54, -2, -5, -2);
+  rightArt.lineBetween(-54, 3, -5, 3);
+  rightLeaf.add(rightArt);
+  gateLeaves.add([leftLeaf, rightLeaf]);
+  container.add(gateLeaves);
+  let gateOpen = false;
+  const gateHit = scene.add.rectangle(0, -5, 132, 28, 0xffffff, 0.001).setInteractive({ useHandCursor: true });
+  gateHit.on('pointerdown', (_pointer: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
+    event.stopPropagation();
+    gateOpen = !gateOpen;
+    scene.tweens.add({ targets: leftLeaf, angle: gateOpen ? -72 : 0, duration: 260, ease: 'Sine.easeOut' });
+    scene.tweens.add({ targets: rightLeaf, angle: gateOpen ? 72 : 0, duration: 260, ease: 'Sine.easeOut' });
+  });
+  gateHit.on('pointerover', () => { gateHit.setAlpha(0.12); });
+  gateHit.on('pointerout', () => { gateHit.setAlpha(0.001); });
+  container.add(gateHit);
+
   const title = scene.add.text(0, -101, `RANCHO ${ownerName.toUpperCase()}`, {
     fontFamily: RANCH_FONT_DISPLAY,
     fontSize: '10px',
