@@ -37,7 +37,8 @@ import {
   processFillTrough,
   processFarmCycles,
   processExpandFarm,
-  processFishAtCity
+  processFishAtCity,
+  processCollectEgg
 } from './farm.js';
 
 export class CharacterError extends Error {
@@ -440,6 +441,13 @@ export class CharacterService {
       }
     }
     return { farm, gold: record.gold };
+  }
+
+
+  async collectFarmEgg(id: string, playerId: unknown, eggId: string) {
+    return this.applyFarmOperation(id, playerId,
+      (farm, gold) => processCollectEgg(farm, gold, eggId),
+      'Não foi possível recolher o ovo.');
   }
 
   async expandFarm(id: string, playerId: unknown) {
