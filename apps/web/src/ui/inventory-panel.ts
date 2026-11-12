@@ -137,7 +137,8 @@ export function renderInventoryPanel(
     createSection('Armazém', 'Produtos colhidos e guardados para venda.', storage, onSell, (next) => renderInventoryPanel(root, next, onEquip, onUnequip, onUse, onSell, onClose)),
     createSection('Sementes', 'Sementes disponíveis para iniciar novas plantações.', seeds, onSell, (next) => renderInventoryPanel(root, next, onEquip, onUnequip, onUse, onSell, onClose)),
     createSection('Rações', 'Alimento preparado para cuidar dos animais do rancho.', feed, onSell, (next) => renderInventoryPanel(root, next, onEquip, onUnequip, onUse, onSell, onClose)),
-    createSection('Pescaria', 'Peixes pescados no lago público de Valedouro.', fish, onSell, (next) => renderInventoryPanel(root, next, onEquip, onUnequip, onUse, onSell, onClose))
+    createSection('Pescaria', 'Peixes pescados no lago público de Valedouro.', fish, onSell, (next) => renderInventoryPanel(root, next, onEquip, onUnequip, onUse, onSell, onClose)),
+    createSection('Ovos', 'Ovos comuns recolhidos dos ninhos do galinheiro.', eggs, onSell, (next) => renderInventoryPanel(root, next, onEquip, onUnequip, onUse, onSell, onClose))
   );
 
   panel.append(header, summary, content);
