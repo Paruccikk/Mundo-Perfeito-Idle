@@ -638,6 +638,10 @@ export interface FarmEgg {
   hatchAt: string | null;
   tier: CollectibleRank;
   fatherTier?: CollectibleRank | null;
+  /** Grupo de postura usado para incubar uma ninhada de oito ovos fecundados. */
+  clutchId?: string | null;
+  /** Tentativa de eclosão definida quando a ninhada completa oito ovos. */
+  hatchChance?: number | null;
 }
 
 export interface FarmAnimalCare {
