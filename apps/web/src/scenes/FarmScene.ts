@@ -57,19 +57,19 @@ import {
   createRusticSign
 } from './ranch/ranch-buildings';
 
-const COLS = 25;
-const ROWS = 21;
-const FARM_LIMITS = { minX: -980, maxX: 980, minY: -470, maxY: 470 };
+const COLS = 32;
+const ROWS = 28;
+const FARM_LIMITS = { minX: -1320, maxX: 1320, minY: -720, maxY: 720 };
 const INITIAL_PLOTS = 6;
 const MAX_PLOTS = 30;
 const GARDEN_COLS = 6;
-const GARDEN_START_COL = 6;
-const GARDEN_START_ROW = 11;
+const GARDEN_START_COL = 5;
+const GARDEN_START_ROW = 15;
 
 const BUILDING_LAYOUTS: Record<FarmBuildingId, { col: number; row: number }> = {
-  coop: { col: 18, row: 6 },
-  corral: { col: 21, row: 12 },
-  stable: { col: 17, row: 18 }
+  coop: { col: 24, row: 5 },
+  corral: { col: 27, row: 14 },
+  stable: { col: 19, row: 22 }
 };
 
 const BUILDING_ORDER: FarmBuildingId[] = ['coop', 'corral', 'stable'];
@@ -412,7 +412,7 @@ export class FarmScene extends Phaser.Scene {
       // Em telas estreitas, desloca o foco para o centro do rancho e mantém
       // celeiro, horta e curral no enquadramento enquanto o jogador caminha.
       const focusX = this.compactView
-        ? this.avatar.root.x + 380
+        ? this.avatar.root.x + 420
         : this.avatar.root.x;
       this.cameraFocusX += (focusX - this.cameraFocusX) * smooth;
       this.cameraFocusY += (this.avatar.root.y - this.cameraFocusY) * smooth;
@@ -449,8 +449,8 @@ export class FarmScene extends Phaser.Scene {
     const zoom = this.cameraZoom;
     const halfW = this.scale.width / (2 * zoom);
     const halfH = this.scale.height / (2 * zoom);
-    const worldHalfX = 1080;
-    const worldHalfY = 600;
+    const worldHalfX = 1450;
+    const worldHalfY = 860;
     const focusX = halfW >= worldHalfX
       ? 0
       : Phaser.Math.Clamp(this.cameraFocusX, -worldHalfX + halfW, worldHalfX - halfW);
@@ -484,6 +484,7 @@ export class FarmScene extends Phaser.Scene {
     this.world.add(meadow);
 
     this.addScenery();
+    this.buildAnimalYards();
     this.buildPlotViews();
     this.rebuildBuildingsAndAnimals();
     this.farmSignature = this.computeFarmSignature(this.farm);
@@ -492,48 +493,109 @@ export class FarmScene extends Phaser.Scene {
     this.atmosphere.resize(this.scale.width, this.scale.height);
   }
 
+
+  /** Grandes áreas de criação: cada setor tem piso, cerca, porteira e acesso por estrada. */
+  private buildAnimalYards(): void {
+    const yards: Array<{ id: FarmBuildingId; halfW: number; halfH: number; label: string }> = [
+      { id: 'coop', halfW: 270, halfH: 168, label: 'GALINHEIRO' },
+      { id: 'corral', halfW: 300, halfH: 190, label: 'CURRAL' },
+      { id: 'stable', halfW: 320, halfH: 205, label: 'ESTÁBULO' }
+    ];
+    for (const yard of yards) {
+      const layout = BUILDING_LAYOUTS[yard.id];
+      const point = this.iso(layout.col, layout.row);
+      const g = this.add.graphics();
+      // Pátio amplo em forma de losango, com chão batido e manchas de grama.
+      g.fillStyle(0x496b36, 0.18);
+      g.fillPoints([
+        new Phaser.Math.Vector2(point.x, point.y - yard.halfH),
+        new Phaser.Math.Vector2(point.x + yard.halfW, point.y),
+        new Phaser.Math.Vector2(point.x, point.y + yard.halfH),
+        new Phaser.Math.Vector2(point.x - yard.halfW, point.y)
+      ], true);
+      g.fillStyle(0xb99a62, 0.16);
+      g.fillPoints([
+        new Phaser.Math.Vector2(point.x, point.y - yard.halfH + 18),
+        new Phaser.Math.Vector2(point.x + yard.halfW - 20, point.y),
+        new Phaser.Math.Vector2(point.x, point.y + yard.halfH - 18),
+        new Phaser.Math.Vector2(point.x - yard.halfW + 20, point.y)
+      ], true);
+      g.lineStyle(2, 0x6b8b4a, 0.48);
+      g.strokePoints([
+        new Phaser.Math.Vector2(point.x, point.y - yard.halfH),
+        new Phaser.Math.Vector2(point.x + yard.halfW, point.y),
+        new Phaser.Math.Vector2(point.x, point.y + yard.halfH),
+        new Phaser.Math.Vector2(point.x - yard.halfW, point.y)
+      ], true);
+      g.setDepth(500 + point.y);
+      this.world.add(g);
+
+      // Cercas nas quatro laterais, deixando uma abertura frontal para a porteira.
+      const fenceParts = [
+        createFenceLine(this, point.x - yard.halfW, point.y, point.x, point.y - yard.halfH, { height: 30, spacing: 30, alpha: 0.98 }),
+        createFenceLine(this, point.x, point.y - yard.halfH, point.x + yard.halfW, point.y, { height: 30, spacing: 30, alpha: 0.98 }),
+        createFenceLine(this, point.x - yard.halfW, point.y, point.x - 38, point.y + yard.halfH * 0.82, { height: 30, spacing: 30, alpha: 0.98 }),
+        createFenceLine(this, point.x + 38, point.y + yard.halfH * 0.82, point.x + yard.halfW, point.y, { height: 30, spacing: 30, alpha: 0.98 })
+      ];
+      for (const fence of fenceParts) {
+        fence.setDepth(1500 + point.y);
+        this.world.add(fence);
+      }
+      const gate = createRanchGate(this, point.x, point.y + yard.halfH * 0.82, yard.label, () => this.openMarket());
+      gate.setScale(0.82);
+      gate.setDepth(1900 + point.y + yard.halfH);
+      this.world.add(gate);
+
+      // Placa de identificação posicionada na entrada de cada setor.
+      const sign = createRusticSign(this, point.x + yard.halfW * 0.58, point.y + yard.halfH * 0.34, yard.label);
+      sign.setScale(1.15);
+      sign.setDepth(1900 + point.y + yard.halfH * 0.34);
+      this.world.add(sign);
+    }
+  }
+
   private addScenery(): void {
-    const housePoint = this.iso(12, 6);
+    const housePoint = this.iso(15, 7);
     const house = createFarmhouse(this, housePoint.x, housePoint.y, this.character.name);
     house.setDepth(2000 + housePoint.y);
     this.world.add(house);
 
-    const barnPoint = this.iso(4, 7);
+    const barnPoint = this.iso(5, 7);
     const barn = createBarn(this, barnPoint.x, barnPoint.y);
     barn.setDepth(2000 + barnPoint.y);
     this.world.add(barn);
 
-    const windmillPoint = this.iso(21, 5);
+    const windmillPoint = this.iso(28, 5);
     const windmill = createWindmill(this, windmillPoint.x, windmillPoint.y);
     windmill.setDepth(2000 + windmillPoint.y);
     this.world.add(windmill);
 
-    const wellPoint = this.iso(15, 8);
+    const wellPoint = this.iso(15, 10);
     const well = createWell(this, wellPoint.x, wellPoint.y);
     well.setDepth(2000 + wellPoint.y);
     this.world.add(well);
 
-    const scarecrowPoint = this.iso(13, 16);
+    const scarecrowPoint = this.iso(12, 19);
     const scarecrow = createScarecrow(this, scarecrowPoint.x, scarecrowPoint.y);
     scarecrow.setDepth(2000 + scarecrowPoint.y);
     this.world.add(scarecrow);
 
-    const gardenPoint = this.iso(5.15, 10.55);
+    const gardenPoint = this.iso(7, 14);
     const gardenSign = createRusticSign(this, gardenPoint.x, gardenPoint.y, 'Horta do rancho');
     gardenSign.setDepth(2000 + gardenPoint.y);
     this.world.add(gardenSign);
 
-    const seedCratePoint = this.iso(5.3, 11.7);
+    const seedCratePoint = this.iso(7, 15.3);
     const seedCrate = createSeedCrate(this, seedCratePoint.x, seedCratePoint.y, 0.95);
     seedCrate.setDepth(2000 + seedCratePoint.y);
     this.world.add(seedCrate);
 
-    const wateringCanPoint = this.iso(4.9, 13.4);
+    const wateringCanPoint = this.iso(6.5, 17);
     const wateringCan = createWateringCan(this, wateringCanPoint.x, wateringCanPoint.y, 1);
     wateringCan.setDepth(2000 + wateringCanPoint.y);
     this.world.add(wateringCan);
 
-    const wheelbarrowPoint = this.iso(4.35, 15.35);
+    const wheelbarrowPoint = this.iso(6, 18.7);
     const wheelbarrow = createWheelbarrow(this, wheelbarrowPoint.x, wheelbarrowPoint.y, 1);
     wheelbarrow.setDepth(2000 + wheelbarrowPoint.y);
     this.world.add(wheelbarrow);
@@ -553,7 +615,7 @@ export class FarmScene extends Phaser.Scene {
     mailbox.setDepth(2000 + 424);
     this.world.add(mailbox);
 
-    const gatePoint = this.iso(22, 20);
+    const gatePoint = this.iso(28, 26);
     const gate = createRanchGate(this, gatePoint.x, gatePoint.y, this.character.name, () => this.exitToCity());
     gate.setDepth(2000 + gatePoint.y);
     this.world.add(gate);
@@ -1306,6 +1368,7 @@ export class FarmScene extends Phaser.Scene {
       const point = this.iso(layout.col, layout.row);
       if (owned.has(buildingId)) {
         const art = this.createBuildingArt(buildingId, point.x, point.y);
+        art.setScale(buildingId === 'coop' ? 1.55 : 1.48);
         art.setDepth(2000 + point.y);
         this.world.add(art);
         this.buildingObjects.push(art);
@@ -1376,7 +1439,7 @@ export class FarmScene extends Phaser.Scene {
   ): Phaser.GameObjects.Container {
     const definition = FARM_BUILDINGS[buildingId];
     // O estábulo possui piquete e cochos baixos; a placa desce para não cobrir os cavalos.
-    const badgeOffset = buildingId === 'stable' ? 154 : buildingId === 'corral' ? 126 : 112;
+    const badgeOffset = buildingId === 'stable' ? 220 : buildingId === 'corral' ? 190 : 170;
     const badge = this.add.container(x, y + badgeOffset).setDepth(2000 + y + badgeOffset + 14);
     const graphics = this.add.graphics();
     graphics.fillStyle(0x263a1e, 0.22);
@@ -1531,7 +1594,7 @@ export class FarmScene extends Phaser.Scene {
   ): void {
     const roam = (): void => {
       if (!this.alive || !visual.root.active) return;
-      const radius = species === 'chicken' ? 34 : species === 'cow' ? 26 : 22;
+      const radius = species === 'chicken' ? 76 : species === 'cow' ? 104 : 118;
       const targetX = homeX + Phaser.Math.Between(-radius, radius);
       const targetY = homeY + Phaser.Math.Between(-4, 7);
       visual.face(targetX >= visual.root.x ? 1 : -1);
@@ -1557,8 +1620,8 @@ export class FarmScene extends Phaser.Scene {
     if (!this.farm?.buildings.includes('coop')) return;
     const anchor = this.iso(BUILDING_LAYOUTS.coop.col, BUILDING_LAYOUTS.coop.row);
     (this.farm.eggs ?? []).forEach((egg, index) => {
-      const x = anchor.x - 72 + (index % 4) * 42;
-      const y = anchor.y + 46 + Math.floor(index / 4) * 24;
+      const x = anchor.x - 112 + (index % 4) * 68;
+      const y = anchor.y + 100 + Math.floor(index / 4) * 36;
       const reserved = Boolean(egg.clutchId && egg.hatchAt);
       const status = reserved
         ? 'EM CHOCA'
