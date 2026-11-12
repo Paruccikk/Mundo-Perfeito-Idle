@@ -25,7 +25,7 @@ export function createCoop(
   y: number
 ): Phaser.GameObjects.Container {
   const container = scene.add.container(x, y);
-  addShadow(container, 310, 88);
+  addShadow(container, 470, 138);
 
   const fence = [
     createFenceLine(scene, -142, -58, -72, -58, { height: 22, spacing: 25, alpha: 0.95 }),
@@ -163,7 +163,7 @@ export function createCorral(
   y: number
 ): Phaser.GameObjects.Container {
   const container = scene.add.container(x, y);
-  addShadow(container, 390, 112);
+  addShadow(container, 570, 170);
 
   const g = scene.add.graphics();
 
@@ -267,7 +267,7 @@ export function createStable(
   y: number
 ): Phaser.GameObjects.Container {
   const container = scene.add.container(x, y);
-  addShadow(container, 410, 124);
+  addShadow(container, 610, 190);
 
   const fence = [
     createFenceLine(scene, -184, -50, -104, -50, { height: 28, spacing: 28 }),
