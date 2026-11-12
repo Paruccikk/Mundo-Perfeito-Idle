@@ -468,6 +468,18 @@ export function processFarmCycles(currentFarm: FarmState): FarmState {
 
  
 /** Expansão permanente salva no estado da fazenda. */
+
+export function processCollectEgg(currentFarm: FarmState, currentGold: number, eggId: string): FarmOperationResult {
+  const farm = sanitizeFarmState(currentFarm);
+  const egg = (farm.eggs ?? []).find((item) => item.id === eggId);
+  if (!egg) return fail(farm, currentGold, 'Este ovo não está mais no ninho. Atualize a fazenda.');
+  if (egg.fertilized && egg.clutchId) return fail(farm, currentGold, 'Este ovo faz parte de uma ninhada em incubação e não pode ser recolhido.');
+  if (egg.fertilized) return fail(farm, currentGold, 'Ovo fecundado reservado: aguarde a galinha completar oito ovos para iniciar a chocagem.');
+  const eggs = (farm.eggs ?? []).filter((item) => item.id !== eggId);
+  const storage = { ...farm.storage, 'egg-unfertilized': (farm.storage['egg-unfertilized'] ?? 0) + 1 };
+  return { ok: true, farm: { ...farm, eggs, storage }, gold: currentGold, message: 'Ovo recolhido e guardado no estoque!' };
+}
+
 export function processExpandFarm(currentFarm: FarmState, currentGold: number): FarmOperationResult {
   const farm = sanitizeFarmState(currentFarm);
   const current = farm.plots.length;
