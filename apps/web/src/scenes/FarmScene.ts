@@ -1559,18 +1559,47 @@ export class FarmScene extends Phaser.Scene {
     (this.farm.eggs ?? []).slice(0, 8).forEach((egg, index) => {
       const x = anchor.x - 72 + (index % 4) * 42;
       const y = anchor.y + 46 + Math.floor(index / 4) * 24;
+      const reserved = Boolean(egg.clutchId && egg.hatchAt);
+      const status = reserved
+        ? 'EM CHOCA'
+        : egg.fertilized ? 'FECUNDADO' : 'RECOLHER';
+      const item = this.add.container(x, y);
       const graphics = this.add.graphics();
-      graphics.fillStyle(0x263a1e, 0.2);
-      graphics.fillEllipse(x, y + 4, 10, 4);
+      graphics.fillStyle(0x263a1e, 0.22);
+      graphics.fillEllipse(0, 5, 24, 9);
       graphics.fillStyle(egg.fertilized ? 0xe9d9a5 : 0xf8f1de, 1);
-      graphics.fillEllipse(x, y, 7, 9);
-      graphics.fillStyle(0xffffff, 0.55);
-      graphics.fillEllipse(x - 1.6, y - 2, 2.4, 3.2);
-      graphics.lineStyle(0.8, egg.fertilized ? 0xb89a52 : 0xd8cbb0, 0.8);
-      graphics.strokeEllipse(x, y, 7, 9);
-      graphics.setDepth(2000 + y);
-      this.world.add(graphics);
-      this.livestockObjects.push(graphics);
+      graphics.fillEllipse(0, 0, 15, 20);
+      graphics.fillStyle(0xffffff, 0.62);
+      graphics.fillEllipse(-3, -5, 4, 6);
+      graphics.lineStyle(1.4, reserved ? 0x8bd18b : egg.fertilized ? 0xb89a52 : 0xd8cbb0, 1);
+      graphics.strokeEllipse(0, 0, 15, 20);
+      item.add(graphics);
+      const label = this.add.text(0, 16, status, {
+        fontFamily: RANCH_FONT_BODY, fontSize: '8px', color: reserved ? '#b9efaa' : egg.fertilized ? '#f3d78b' : '#fff4d8',
+        backgroundColor: 'rgba(30, 23, 13, 0.88)', padding: { x: 4, y: 2 }
+      }).setOrigin(0.5, 0);
+      item.add(label);
+      item.setSize(42, 42).setInteractive(new Phaser.Geom.Rectangle(-21, -10, 42, 42), Phaser.Geom.Rectangle.Contains);
+      item.on('pointerdown', async (pointer: Phaser.Input.Pointer) => {
+        pointer.event.stopPropagation();
+        if (egg.fertilized) {
+          const message = reserved
+            ? 'Esta ninhada está chocando. Os ovos ficam protegidos até a eclosão.'
+            : 'Ovo fecundado! Ele está reservado; quando a galinha juntar oito, começará a chocagem.';
+          this.hud?.pushFeed(message, 'normal');
+          return;
+        }
+        try {
+          const response = await api.collectFarmEgg(this.character.id, egg.id);
+          this.game.events.emit('farm-updated', response);
+          this.hud?.pushFeed(response.message || 'Ovo recolhido!', 'gold');
+        } catch (error) {
+          this.hud?.pushFeed(error instanceof Error ? error.message : 'Não foi possível recolher o ovo.', 'normal');
+        }
+      });
+      item.setDepth(2000 + y + 10);
+      this.world.add(item);
+      this.livestockObjects.push(item);
     });
   }
 
