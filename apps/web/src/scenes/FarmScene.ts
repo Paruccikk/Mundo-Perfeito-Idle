@@ -1444,6 +1444,7 @@ export class FarmScene extends Phaser.Scene {
 
     this.spawnAnimals();
     this.spawnEggs();
+    this.spawnTroughInteractions();
     this.updateBuildingBadges();
   }
 
@@ -1531,6 +1532,48 @@ export class FarmScene extends Phaser.Scene {
       const definition = FARM_BUILDINGS[badge.buildingId];
       const count = this.farm?.animals.filter((animal) => animal.buildingId === badge.buildingId).length ?? 0;
       badge.label.setText(`${definition.name.toUpperCase()} · ${count}/${definition.capacity}`);
+    }
+  }
+
+  private spawnTroughInteractions(): void {
+    const troughs: Array<{ buildingId: FarmBuildingId; kind: 'feed' | 'water'; x: number; y: number; label: string }> = [
+      { buildingId: 'coop', kind: 'feed', x: -108, y: 51, label: 'COMEDOURO' },
+      { buildingId: 'coop', kind: 'water', x: 121, y: 51, label: 'BEBEDOURO' },
+      { buildingId: 'corral', kind: 'feed', x: -78, y: 22, label: 'COCHO' },
+      { buildingId: 'corral', kind: 'water', x: 80, y: 25, label: 'ÁGUA' },
+      { buildingId: 'stable', kind: 'feed', x: -84, y: 28, label: 'FENO' },
+      { buildingId: 'stable', kind: 'water', x: 81, y: 31, label: 'ÁGUA' }
+    ];
+    for (const trough of troughs) {
+      const layout = BUILDING_LAYOUTS[trough.buildingId];
+      const anchor = this.iso(layout.col, layout.row);
+      const x = anchor.x + trough.x;
+      const y = anchor.y + trough.y;
+      const care = this.farm?.animalCare?.[trough.buildingId] ?? { feed: 0, water: 0 };
+      const amount = trough.kind === 'feed' ? care.feed : care.water;
+      const marker = this.add.container(x, y + 22).setDepth(6200 + y);
+      const plate = this.add.graphics();
+      plate.fillStyle(0x302013, 0.88);
+      plate.fillRoundedRect(-43, -8, 86, 16, 4);
+      plate.lineStyle(1, 0xd9b979, 0.85);
+      plate.strokeRoundedRect(-43, -8, 86, 16, 4);
+      const label = this.add.text(0, 0, trough.label + ' ' + amount + '/30', { fontFamily: RANCH_FONT_BODY, fontSize: '8px', fontStyle: 'bold', color: '#ffe9b8' }).setOrigin(0.5);
+      const hit = this.add.rectangle(0, 0, 94, 25, 0xffffff, 0.001).setInteractive({ useHandCursor: true });
+      hit.on('pointerover', (pointer: Phaser.Input.Pointer) => this.showHoverTip(trough.label + '\nNível: ' + amount + '/30\nClique para abastecer com 10 unidades.', pointer.x, pointer.y));
+      hit.on('pointerout', () => this.hideHoverTip());
+      hit.on('pointerdown', async (_pointer: Phaser.Input.Pointer, _x: number, _y: number, event: Phaser.Types.Input.EventData) => {
+        event.stopPropagation();
+        try {
+          const response = await api.fillFarmTrough(this.character.id, trough.buildingId, trough.kind, 10);
+          this.game.events.emit('farm-updated', response);
+          this.hud?.pushFeed(response.message || (trough.label + ' abastecido.'), 'gold');
+        } catch (error) {
+          this.hud?.pushFeed(error instanceof Error ? error.message : 'Não foi possível abastecer.', 'normal');
+        }
+      });
+      marker.add([plate, label, hit]);
+      this.world.add(marker);
+      this.livestockObjects.push(marker);
     }
   }
 
