@@ -304,6 +304,7 @@ async function openFarmShop(characterId: string): Promise<void> {
       farmData,
       async (buildingId) => {
         const updated = await api.buyFarmBuilding(characterId, buildingId);
+        await refreshProfessionHud(characterId);
         hud?.setGold(updated.gold);
         hud?.pushFeed(updated.message ?? 'Construção concluída na fazenda!', 'gold');
         game?.events.emit('farm-updated', updated);
@@ -311,6 +312,7 @@ async function openFarmShop(characterId: string): Promise<void> {
       },
       async (animalId) => {
         const updated = await api.buyFarmAnimal(characterId, animalId);
+        await refreshProfessionHud(characterId);
         hud?.setGold(updated.gold);
         hud?.pushFeed(updated.message ?? 'Animal adquirido!', 'gold');
         game?.events.emit('farm-updated', updated);
@@ -325,12 +327,14 @@ async function openFarmShop(characterId: string): Promise<void> {
       },
       async (species, quantity) => {
         const updated = await api.craftFarmFeed(characterId, species, quantity);
+        await refreshProfessionHud(characterId);
         hud?.pushFeed(updated.message ?? 'Ração preparada!', 'gold');
         game?.events.emit('farm-updated', updated);
         return updated;
       },
       async (buildingId, kind, quantity) => {
         const updated = await api.fillFarmTrough(characterId, buildingId, kind, quantity);
+        await refreshProfessionHud(characterId);
         hud?.pushFeed(updated.message ?? 'Comedouro ou bebedouro abastecido!', 'gold');
         game?.events.emit('farm-updated', updated);
         return updated;
@@ -378,6 +382,15 @@ async function openInventoryPanel(characterId: string): Promise<void> {
     );
   } catch (error) {
     hud?.pushFeed(error instanceof Error ? error.message : 'Não foi possível carregar o inventário.', 'danger');
+  }
+}
+
+async function refreshProfessionHud(characterId: string): Promise<void> {
+  try {
+    const character = await api.getCharacter(characterId);
+    hud?.setProfessionProgress(character.professionExperience ?? 0, character.professionLevel ?? 1, character.professionRank ?? 'Novato');
+  } catch {
+    // A atividade já foi salva; uma falha de atualização visual não deve interrompê-la.
   }
 }
 
