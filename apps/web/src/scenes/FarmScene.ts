@@ -67,9 +67,9 @@ const GARDEN_START_COL = 6;
 const GARDEN_START_ROW = 11;
 
 const BUILDING_LAYOUTS: Record<FarmBuildingId, { col: number; row: number }> = {
-  coop: { col: 18, row: 7 },
-  corral: { col: 20, row: 12 },
-  stable: { col: 16, row: 17 }
+  coop: { col: 18, row: 6 },
+  corral: { col: 21, row: 12 },
+  stable: { col: 17, row: 18 }
 };
 
 const BUILDING_ORDER: FarmBuildingId[] = ['coop', 'corral', 'stable'];
@@ -1376,7 +1376,7 @@ export class FarmScene extends Phaser.Scene {
   ): Phaser.GameObjects.Container {
     const definition = FARM_BUILDINGS[buildingId];
     // O estábulo possui piquete e cochos baixos; a placa desce para não cobrir os cavalos.
-    const badgeOffset = buildingId === 'stable' ? 124 : 96;
+    const badgeOffset = buildingId === 'stable' ? 154 : buildingId === 'corral' ? 126 : 112;
     const badge = this.add.container(x, y + badgeOffset).setDepth(2000 + y + badgeOffset + 14);
     const graphics = this.add.graphics();
     graphics.fillStyle(0x263a1e, 0.22);
@@ -1509,13 +1509,13 @@ export class FarmScene extends Phaser.Scene {
   ): { x: number; y: number } {
     const slots: Record<AnimalSpeciesId, Array<[number, number]>> = {
       chicken: [
-        [-58, 20], [-18, 28], [24, 20], [58, 28], [-38, 36], [6, 36]
+        [-92, 36], [-38, 52], [24, 34], [88, 50], [-70, 68], [-4, 70]
       ],
       cow: [
-        [-70, 26], [30, 30], [-22, 36], [76, 20]
+        [-126, 42], [-42, 60], [48, 54], [128, 34]
       ],
       horse: [
-        [-28, 56], [32, 60], [-4, 50], [64, 54]
+        [-112, 74], [-28, 82], [62, 76], [142, 66]
       ]
     };
     const list = slots[species];
@@ -1531,7 +1531,7 @@ export class FarmScene extends Phaser.Scene {
   ): void {
     const roam = (): void => {
       if (!this.alive || !visual.root.active) return;
-      const radius = species === 'chicken' ? 18 : species === 'cow' ? 14 : 10;
+      const radius = species === 'chicken' ? 34 : species === 'cow' ? 26 : 22;
       const targetX = homeX + Phaser.Math.Between(-radius, radius);
       const targetY = homeY + Phaser.Math.Between(-4, 7);
       visual.face(targetX >= visual.root.x ? 1 : -1);
@@ -1556,9 +1556,9 @@ export class FarmScene extends Phaser.Scene {
   private spawnEggs(): void {
     if (!this.farm?.buildings.includes('coop')) return;
     const anchor = this.iso(BUILDING_LAYOUTS.coop.col, BUILDING_LAYOUTS.coop.row);
-    (this.farm.eggs ?? []).slice(0, 6).forEach((egg, index) => {
-      const x = anchor.x - 30 + (index % 3) * 20;
-      const y = anchor.y + 20 + Math.floor(index / 3) * 9;
+    (this.farm.eggs ?? []).slice(0, 8).forEach((egg, index) => {
+      const x = anchor.x - 72 + (index % 4) * 42;
+      const y = anchor.y + 46 + Math.floor(index / 4) * 24;
       const graphics = this.add.graphics();
       graphics.fillStyle(0x263a1e, 0.2);
       graphics.fillEllipse(x, y + 4, 10, 4);
