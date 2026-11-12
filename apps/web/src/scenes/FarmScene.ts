@@ -1533,7 +1533,7 @@ export class FarmScene extends Phaser.Scene {
       const y = anchor.y + trough.y * buildingScale;
       const care = this.farm?.animalCare?.[trough.buildingId] ?? { feed: 0, water: 0 };
       const amount = trough.kind === 'feed' ? care.feed : care.water;
-      const marker = this.add.container(x, y + 22).setDepth(6200 + y);
+      const marker = this.add.container(x, y).setDepth(6200 + y);
       const plate = this.add.graphics();
       plate.fillStyle(0x302013, 0.88);
       plate.fillRoundedRect(-43, -8, 86, 16, 4);
