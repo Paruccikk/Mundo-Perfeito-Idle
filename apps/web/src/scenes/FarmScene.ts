@@ -265,6 +265,21 @@ export class FarmScene extends Phaser.Scene {
     };
   }
 
+  /** Evita que o personagem atravesse as fachadas principais das construções. */
+  private isBlockedByStructure(x: number, y: number): boolean {
+    const structures: Array<{ col: number; row: number; halfW: number; halfH: number }> = [
+      { col: 23, row: 9, halfW: 145, halfH: 112 },
+      { col: 7, row: 10, halfW: 150, halfH: 110 },
+      { col: BUILDING_LAYOUTS.coop.col, row: BUILDING_LAYOUTS.coop.row, halfW: 150, halfH: 120 },
+      { col: BUILDING_LAYOUTS.corral.col, row: BUILDING_LAYOUTS.corral.row, halfW: 175, halfH: 125 },
+      { col: BUILDING_LAYOUTS.stable.col, row: BUILDING_LAYOUTS.stable.row, halfW: 185, halfH: 135 }
+    ];
+    return structures.some((item) => {
+      const point = this.iso(item.col, item.row);
+      return Math.abs(x - point.x) < item.halfW && Math.abs(y - point.y) < item.halfH;
+    });
+  }
+
   private async loadAndRenderFarm(): Promise<void> {
     try {
       const data = await api.getFarm(this.character.id);
@@ -366,6 +381,10 @@ export class FarmScene extends Phaser.Scene {
       FARM_LIMITS.minY,
       FARM_LIMITS.maxY
     );
+    if (this.isBlockedByStructure(targetX, targetY)) {
+      this.hud?.pushFeed('Esse espaço está ocupado por uma construção. Contorne pela estrada.', 'normal');
+      return;
+    }
     const distance = Phaser.Math.Distance.Between(this.avatar.root.x, this.avatar.root.y, targetX, targetY);
     if (distance < 10) return;
     this.moving = false;
@@ -389,8 +408,12 @@ export class FarmScene extends Phaser.Scene {
           dx /= magnitude;
           dy /= magnitude;
           const distance = 185 * Math.min(delta, 50) / 1000;
-          this.avatar.root.x = Phaser.Math.Clamp(this.avatar.root.x + dx * distance, FARM_LIMITS.minX, FARM_LIMITS.maxX);
-          this.avatar.root.y = Phaser.Math.Clamp(this.avatar.root.y + dy * distance, FARM_LIMITS.minY, FARM_LIMITS.maxY);
+          const nextX = Phaser.Math.Clamp(this.avatar.root.x + dx * distance, FARM_LIMITS.minX, FARM_LIMITS.maxX);
+          const nextY = Phaser.Math.Clamp(this.avatar.root.y + dy * distance, FARM_LIMITS.minY, FARM_LIMITS.maxY);
+          if (!this.isBlockedByStructure(nextX, nextY)) {
+            this.avatar.root.x = nextX;
+            this.avatar.root.y = nextY;
+          }
           this.avatar.facePoint(this.avatar.root.x + dx, this.avatar.root.y + dy);
           this.avatar.setWalking(true);
           this.moving = true;
