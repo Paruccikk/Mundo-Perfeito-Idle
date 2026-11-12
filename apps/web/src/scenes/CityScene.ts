@@ -583,6 +583,7 @@ export class CityScene extends Phaser.Scene {
     this.buildStreetLamps();
     this.buildTrees();
     this.buildStable(-900, 455);
+    this.buildFarmyard();
     this.buildWell(-830, 270);
     this.buildBanners();
     this.buildDistrictSigns();
@@ -1016,12 +1017,13 @@ export class CityScene extends Phaser.Scene {
       stroke: '#35271f', strokeThickness: 4, letterSpacing: 1
     }).setOrigin(0.5);
     stable.add(plaque);
+    stable.setScale(1.3);
     this.world.add(stable);
 
     const horseSpecs: Array<{ x: number; y: number; color: number; mane: number; saddle: number; scale: number }> = [
-      { x: -80, y: 10, color: 0x8a5a32, mane: 0x2c1d12, saddle: 0x8a3b42, scale: 0.5 },
-      { x: 208, y: 12, color: 0x3f3a34, mane: 0x15120f, saddle: 0x3b5c8a, scale: 0.47 },
-      { x: 280, y: 48, color: 0xc9b48c, mane: 0x6b5a42, saddle: 0x5c3b6e, scale: 0.45 }
+      { x: -100, y: 14, color: 0x8a5a32, mane: 0x2c1d12, saddle: 0x8a3b42, scale: 0.58 },
+      { x: 230, y: 16, color: 0x3f3a34, mane: 0x15120f, saddle: 0x3b5c8a, scale: 0.55 },
+      { x: 315, y: 54, color: 0xc9b48c, mane: 0x6b5a42, saddle: 0x5c3b6e, scale: 0.52 }
     ];
     for (const spec of horseSpecs) {
       const horse = new HorseView(this, x + spec.x, y + spec.y, {
@@ -1033,19 +1035,130 @@ export class CityScene extends Phaser.Scene {
       this.stableHorses.push(horse);
     }
 
-    const patrol = new HorseView(this, x - 30, y + 108, {
+    const patrol = new HorseView(this, x - 40, y + 120, {
       color: 0x4a3a2c,
       mane: 0x1c140e,
       saddle: 0x8a3b42,
-      scale: 0.56,
+      scale: 0.62,
       rider: true,
       riderColor: 0x8794a8,
       riderAccent: 0x9b2f35
     });
-    patrol.root.setDepth(100 + y + 108);
+    patrol.root.setDepth(100 + y + 120);
     this.world.add(patrol.root);
     this.mountedPatrol = patrol;
-    this.startMountedPatrol(patrol, x - 210, x + 300, y + 108);
+    this.startMountedPatrol(patrol, x - 230, x + 340, y + 120);
+  }
+
+  private buildFarmyard(): void {
+    const yard = this.add.graphics().setDepth(2);
+    yard.fillStyle(0x6b8150, 0.34);
+    yard.fillEllipse(-1110, 300, 650, 430);
+    yard.lineStyle(3, 0x83945b, 0.35);
+    yard.strokeEllipse(-1110, 300, 650, 430);
+    this.world.add(yard);
+
+    const roads = this.add.graphics().setDepth(4);
+    const paths: Array<Array<[number, number]>> = [
+      [[-1320, 470], [-1190, 500], [-1050, 490], [-920, 465]],
+      [[-1130, 492], [-1110, 405], [-1110, 350]],
+      [[-1110, 405], [-1210, 280], [-1275, 210]]
+    ];
+    for (const path of paths) {
+      for (let i = 1; i < path.length; i += 1) {
+        const from = path[i - 1];
+        const to = path[i];
+        if (!from || !to) continue;
+        roads.lineStyle(38, 0x493b29, 0.5);
+        roads.lineBetween(from[0], from[1] + 3, to[0], to[1] + 3);
+        roads.lineStyle(30, 0xb29a6d, 1);
+        roads.lineBetween(from[0], from[1], to[0], to[1]);
+        roads.lineStyle(2, 0xd5c394, 0.58);
+        roads.lineBetween(from[0], from[1] - 11, to[0], to[1] - 11);
+      }
+    }
+    this.world.add(roads);
+
+    const coopX = -1290;
+    const coopY = 165;
+    const coop = this.add.container(coopX, coopY).setDepth(80 + coopY);
+    const g = this.add.graphics();
+    g.fillStyle(0x111b1a, 0.32);
+    g.fillEllipse(0, 12, 208, 54);
+    g.fillStyle(0x8b6843, 1);
+    g.fillPoints([{ x: -76, y: -8 }, { x: 0, y: -48 }, { x: 76, y: -8 }, { x: 76, y: 42 }, { x: -76, y: 42 }], true);
+    g.lineStyle(3, 0x503820, 1);
+    g.strokePoints([{ x: -76, y: -8 }, { x: 0, y: -48 }, { x: 76, y: -8 }, { x: 76, y: 42 }, { x: -76, y: 42 }], true);
+    g.fillStyle(0xc2743f, 1);
+    g.fillPoints([{ x: -88, y: -10 }, { x: 0, y: -72 }, { x: 88, y: -10 }, { x: 0, y: 22 }], true);
+    g.lineStyle(3, 0x543322, 1);
+    g.strokePoints([{ x: -88, y: -10 }, { x: 0, y: -72 }, { x: 88, y: -10 }, { x: 0, y: 22 }], true);
+    g.fillStyle(0x38271b, 1);
+    g.fillRoundedRect(-20, 6, 40, 36, 8);
+    g.fillStyle(0xe4c984, 1);
+    g.fillRect(-57, 8, 20, 16);
+    g.fillRect(37, 8, 20, 16);
+    g.fillStyle(0x49331f, 1);
+    g.fillRect(-4, -39, 8, 18);
+
+    // Pequeno cercado anexo para as galinhas.
+    g.lineStyle(4, 0x6a4b2d, 1);
+    g.lineBetween(92, -4, 152, 8);
+    g.lineBetween(152, 8, 152, 48);
+    g.lineBetween(152, 48, 92, 40);
+    g.lineStyle(2, 0xb28b56, 1);
+    g.lineBetween(94, 8, 150, 20);
+    g.lineBetween(94, 24, 150, 36);
+    for (const [x, y] of [[108, 16], [132, 26], [116, 35]] as Array<[number, number]>) {
+      g.fillStyle(0xf0dfbb, 1);
+      g.fillEllipse(x, y, 13, 9);
+      g.fillCircle(x + 5, y - 5, 4);
+      g.fillStyle(0xc65b3b, 1);
+      g.fillTriangle(x + 7, y - 6, x + 14, y - 4, x + 7, y - 2);
+      g.fillStyle(0x3e3022, 1);
+      g.fillCircle(x + 6, y - 6, 1);
+    }
+    coop.add(g);
+    coop.add(this.add.text(0, -87, 'GALINHEIRO', {
+      fontFamily: FONT, fontSize: '10px', fontStyle: 'bold', color: '#f6dfaa',
+      stroke: '#35271f', strokeThickness: 4, letterSpacing: 1
+    }).setOrigin(0.5));
+    coop.setScale(1.35);
+    this.world.add(coop);
+
+    const corralX = -1130;
+    const corralY = 270;
+    const corral = this.add.container(corralX, corralY).setDepth(220 + corralY);
+    const fence = this.add.graphics();
+    fence.fillStyle(0x111b1a, 0.22);
+    fence.fillEllipse(0, 12, 310, 106);
+    const corners = [
+      { x: -132, y: 0 },
+      { x: 0, y: -58 },
+      { x: 132, y: 0 },
+      { x: 0, y: 58 }
+    ];
+    fence.lineStyle(6, 0x51391f, 1);
+    for (let i = 0; i < corners.length; i += 1) {
+      const start = corners[i];
+      const end = corners[(i + 1) % corners.length];
+      if (!start || !end) continue;
+      fence.lineBetween(start.x, start.y - 17, end.x, end.y - 17);
+      fence.lineBetween(start.x, start.y - 1, end.x, end.y - 1);
+      fence.lineStyle(2, 0xb28b56, 1);
+      fence.lineBetween(start.x, start.y - 15, end.x, end.y - 15);
+      fence.lineStyle(6, 0x51391f, 1);
+    }
+    for (const corner of corners) {
+      fence.fillStyle(0x6f4c2b, 1);
+      fence.fillRoundedRect(corner.x - 5, corner.y - 33, 10, 40, 3);
+    }
+    corral.add(fence);
+    corral.add(this.add.text(0, -78, 'CURRAL', {
+      fontFamily: FONT, fontSize: '10px', fontStyle: 'bold', color: '#f6dfaa',
+      stroke: '#35271f', strokeThickness: 4, letterSpacing: 1
+    }).setOrigin(0.5));
+    this.world.add(corral);
   }
 
   private startMountedPatrol(horse: HorseView, fromX: number, toX: number, y: number): void {
@@ -1104,8 +1217,8 @@ export class CityScene extends Phaser.Scene {
 
   private buildLivestock(): void {
     const animals: Array<[number, number, number, number]> = [
-      [430, 195, 0.9, 0xd8c7a0], [460, 215, 0.8, 0xc9b48c], [405, 235, 0.7, 0xe4d6b4],
-      [720, 520, 0.9, 0xd9c9a6], [680, 540, 0.75, 0xc2ad84]
+      [-1170, 270, 0.9, 0xd8c7a0], [-1140, 286, 0.8, 0xc9b48c], [-1100, 270, 0.7, 0xe4d6b4],
+      [-1160, 300, 0.9, 0xd9c9a6], [-1110, 306, 0.75, 0xc2ad84]
     ];
     for (const [x, y, s, color] of animals) {
       const animal = this.add.container(x, y).setDepth(220 + y);
