@@ -310,7 +310,7 @@ export const FARM_BUILDINGS: Record<FarmBuildingId, FarmBuildingDefinition> = {
     description: 'Abriga galinhas e galos para postura de ovos e reprodução.',
     cost: 500,
     icon: '🐔',
-    capacity: 6,
+    capacity: 30,
     allowedSpecies: ['chicken']
   },
   corral: {
@@ -319,7 +319,7 @@ export const FARM_BUILDINGS: Record<FarmBuildingId, FarmBuildingDefinition> = {
     description: 'Instalação cercada com cochos para criação de vacas e touros leiteiros.',
     cost: 1500,
     icon: '🐄',
-    capacity: 4,
+    capacity: 20,
     allowedSpecies: ['cow']
   },
   stable: {
@@ -328,7 +328,7 @@ export const FARM_BUILDINGS: Record<FarmBuildingId, FarmBuildingDefinition> = {
     description: 'Celeiro reforçado para cavalos e éguas reprodutoras.',
     cost: 3000,
     icon: '🐎',
-    capacity: 4,
+    capacity: 12,
     allowedSpecies: ['horse']
   }
 };
