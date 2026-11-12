@@ -447,31 +447,31 @@ export class CharacterService {
   }
 
   async fishAtCity(id: string, playerId: unknown) {
-    return this.applyFarmOperation(id, playerId, processFishAtCity, 'Não foi possível pescar agora.');
+    return this.applyFarmOperation(id, playerId, processFishAtCity, 'Não foi possível pescar agora.', 'fisher', 10);
   }
 
   async buyFarmBuilding(id: string, playerId: unknown, buildingId: FarmBuildingId): Promise<{ farm: FarmState; gold: number; message: string }> {
     return this.applyFarmOperation(id, playerId,
       (farm, gold) => processBuyBuilding(farm, gold, buildingId),
-      'Não foi possível construir.');
+      'Não foi possível construir.', 'animal_caretaker', 5);
   }
 
   async buyFarmAnimal(id: string, playerId: unknown, animalId: string, customName?: string): Promise<{ farm: FarmState; gold: number; message: string }> {
     return this.applyFarmOperation(id, playerId,
       (farm, gold) => processBuyAnimal(farm, gold, animalId, customName),
-      'Não foi possível comprar o animal.');
+      'Não foi possível comprar o animal.', 'animal_caretaker', 5);
   }
 
   async plantFarmCrop(id: string, playerId: unknown, plotIndex: number, cropId: CropTypeId): Promise<{ farm: FarmState; gold: number; message: string }> {
     return this.applyFarmOperation(id, playerId,
       (farm, gold) => processPlantCrop(farm, gold, plotIndex, cropId),
-      'Não foi possível plantar.');
+      'Não foi possível plantar.', 'farmer', 3);
   }
 
   async harvestFarmCrop(id: string, playerId: unknown, plotIndex: number): Promise<{ farm: FarmState; gold: number; message: string }> {
     return this.applyFarmOperation(id, playerId,
       (farm, gold) => processHarvestCrop(farm, gold, plotIndex),
-      'Não foi possível colher.');
+      'Não foi possível colher.', 'farmer', 12);
   }
 
   async buyFarmSeeds(id: string, playerId: unknown, cropId: CropTypeId, quantity: number) {
@@ -483,19 +483,19 @@ export class CharacterService {
   async waterFarmCrop(id: string, playerId: unknown, plotIndex: number) {
     return this.applyFarmOperation(id, playerId,
       (farm, gold) => processWaterCrop(farm, gold, plotIndex),
-      'Não foi possível regar o canteiro.');
+      'Não foi possível regar o canteiro.', 'farmer', 3);
   }
 
   async craftFarmFeed(id: string, playerId: unknown, species: AnimalSpeciesId, quantity: number) {
     return this.applyFarmOperation(id, playerId,
       (farm, gold) => processCraftFeed(farm, gold, species, quantity),
-      'Não foi possível preparar a ração.');
+      'Não foi possível preparar a ração.', 'animal_caretaker', 4);
   }
 
   async fillFarmTrough(id: string, playerId: unknown, buildingId: FarmBuildingId, kind: 'feed' | 'water', quantity: number) {
     return this.applyFarmOperation(id, playerId,
       (farm, gold) => processFillTrough(farm, gold, buildingId, kind, quantity),
-      'Não foi possível abastecer o cocho.');
+      'Não foi possível abastecer o cocho.', 'animal_caretaker', 3);
   }
 
   /**
@@ -507,7 +507,9 @@ export class CharacterService {
     id: string,
     playerId: unknown,
     operation: (farm: FarmState, gold: number) => import('./farm.js').FarmOperationResult,
-    fallbackMessage: string
+    fallbackMessage: string,
+    professionReward?: 'animal_caretaker' | 'lumberjack' | 'fisher' | 'farmer',
+    professionXp = 0
   ): Promise<{ farm: FarmState; gold: number; message: string; catch?: FishCatchResult }> {
     assertPlayerId(playerId);
 
@@ -528,6 +530,22 @@ export class CharacterService {
     record.combat = { ...record.combat, farm: result.farm, lastTickAt: nextTick };
     record.gold = result.gold;
 
+    let professionMessage = '';
+    if (professionReward && professionXp > 0 && (record.professionId ?? 'farmer') === professionReward) {
+      const previousLevel = record.professionLevel ?? 1;
+      let experience = (record.professionExperience ?? 0) + professionXp;
+      let level = previousLevel;
+      // Progressão gradual: cada nível exige 100 XP multiplicados pelo nível atual.
+      while (level < 100 && experience >= level * 100) {
+        experience -= level * 100;
+        level += 1;
+      }
+      record.professionExperience = experience;
+      record.professionLevel = level;
+      const gained = level > previousLevel ? ' Subiu para o nível ' + level + '!' : '';
+      professionMessage = ` +${professionXp} XP de profissão.${gained}`;
+    }
+
     const saved = await this.repository.save(record, expectedLastTickAt);
     if (!saved) {
       throw new CharacterError(
@@ -540,7 +558,7 @@ export class CharacterService {
     return {
       farm: result.farm,
       gold: result.gold,
-      message: result.message ?? fallbackMessage,
+      message: (result.message ?? fallbackMessage) + professionMessage,
       ...(result.catch ? { catch: result.catch } : {})
     };
   }
