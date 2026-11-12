@@ -379,12 +379,24 @@ export function processFarmCycles(currentFarm: FarmState): FarmState {
         if (laidAt - lastEggAt < 4 * 3_600_000) continue;
         const rooster = animals.find((animal) => animal.species === 'chicken' && animal.gender === 'male' && animal.buildingId === hen.buildingId && (animal.ageDays ?? 0) >= 1 && (animal.health ?? 100) >= 50);
         const fertilized = Boolean(rooster) && Math.random() < 0.45;
-        eggs.push({
+        const egg = {
           id: 'egg-' + randomUUID().slice(0, 10), motherId: hen.id,
           laidAt: new Date(laidAt).toISOString(), fertilized,
-          hatchAt: fertilized ? new Date(laidAt + 24 * 3_600_000).toISOString() : null,
-          tier: hen.tier, fatherTier: fertilized ? rooster?.tier ?? null : null
-        });
+          hatchAt: null as string | null,
+          tier: hen.tier, fatherTier: fertilized ? rooster?.tier ?? null : null,
+          clutchId: null as string | null, hatchChance: null as number | null
+        };
+        eggs.push(egg);
+        if (fertilized) {
+          const pending = eggs.filter((item) => item.motherId === hen.id && item.fertilized && !item.hatchAt);
+          if (pending.length >= 8) {
+            const clutchId = 'clutch-' + randomUUID().slice(0, 8);
+            const hatchAt = new Date(laidAt + 24 * 3_600_000).toISOString();
+            const chance = 0.75;
+            const ids = new Set(pending.slice(-8).map((item) => item.id));
+            eggs = eggs.map((item) => ids.has(item.id) ? { ...item, clutchId, hatchAt, hatchChance: chance } : item);
+          }
+        }
         lastEggAt = laidAt;
       }
     }
@@ -410,6 +422,7 @@ export function processFarmCycles(currentFarm: FarmState): FarmState {
       remainingEggs.push(egg);
       continue;
     }
+    if (egg.clutchId && Math.random() > (egg.hatchChance ?? 0.75)) continue;
     const tier = improveTier(egg.tier, egg.fatherTier);
     const gender = Math.random() < 0.5 ? 'female' : 'male';
     animals.push({
