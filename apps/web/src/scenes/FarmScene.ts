@@ -1587,7 +1587,9 @@ export class FarmScene extends Phaser.Scene {
       const index = counters[animal.buildingId];
       counters[animal.buildingId] += 1;
 
-      const slot = this.animalSlot(animal.species, index);
+      const brooding = animal.species === 'chicken' && animal.gender === 'female' && (this.farm?.eggs ?? []).some((egg) => egg.motherId === animal.id && Boolean(egg.clutchId && egg.hatchAt));
+      const pregnant = Boolean(animal.pregnantUntil);
+      const slot = brooding ? { x: 0, y: 112 } : this.animalSlot(animal.species, index);
       const visual = createAnimalVisual(this, {
         species: animal.species,
         tier: animal.tier,
@@ -1595,6 +1597,12 @@ export class FarmScene extends Phaser.Scene {
         name: animal.name
       });
       visual.root.setPosition(anchor.x + slot.x, anchor.y + slot.y);
+      if (brooding) visual.root.setScale(1.12);
+      if (pregnant) {
+        const pregnancyMark = this.add.text(anchor.x + slot.x + 18, anchor.y + slot.y - 38, '♥', { fontSize: '16px', color: '#f5a5a5', stroke: '#563323', strokeThickness: 2 }).setOrigin(0.5).setDepth(7000 + anchor.y + slot.y);
+        this.world.add(pregnancyMark);
+        this.livestockObjects.push(pregnancyMark);
+      }
       visual.root.setDepth(2000 + anchor.y + slot.y);
       visual.face(index % 2 === 0 ? 1 : -1);
       this.world.add(visual.root);
@@ -1630,7 +1638,7 @@ export class FarmScene extends Phaser.Scene {
         }
       );
 
-      this.scheduleAnimalRoam(visual, anchor.x + slot.x, anchor.y + slot.y, animal.species);
+      if (!brooding) this.scheduleAnimalRoam(visual, anchor.x + slot.x, anchor.y + slot.y, animal.species);
     }
   }
 
@@ -1687,9 +1695,32 @@ export class FarmScene extends Phaser.Scene {
   private spawnEggs(): void {
     if (!this.farm?.buildings.includes('coop')) return;
     const anchor = this.iso(BUILDING_LAYOUTS.coop.col, BUILDING_LAYOUTS.coop.row);
+    const incubating = (this.farm.eggs ?? []).filter((egg) => egg.clutchId && egg.hatchAt);
+    if (incubating.length) {
+      const nest = this.add.graphics();
+      nest.fillStyle(0x67401f, 0.95);
+      nest.fillEllipse(anchor.x, anchor.y + 112, 190, 62);
+      nest.lineStyle(7, 0x9a6837, 1);
+      nest.strokeEllipse(anchor.x, anchor.y + 112, 190, 62);
+      nest.lineStyle(2, 0xd0a56b, 0.8);
+      nest.strokeEllipse(anchor.x, anchor.y + 112, 174, 50);
+      nest.setDepth(1800 + anchor.y + 112);
+      this.world.add(nest);
+      this.livestockObjects.push(nest);
+      const hatchAt = Math.max(...incubating.map((egg) => Date.parse(egg.hatchAt ?? '')));
+      const remaining = Math.max(0, hatchAt - Date.now());
+      const hours = Math.floor(remaining / 3_600_000);
+      const minutes = Math.floor((remaining % 3_600_000) / 60_000);
+      const timer = this.add.text(anchor.x, anchor.y + 157, 'GALINHA CHOCANDO · ' + hours + 'h ' + minutes + 'min', {
+        fontFamily: RANCH_FONT_BODY, fontSize: '9px', fontStyle: 'bold', color: '#fff0bd',
+        backgroundColor: 'rgba(48, 29, 14, 0.9)', padding: { x: 7, y: 4 }
+      }).setOrigin(0.5).setDepth(7200 + anchor.y);
+      this.world.add(timer);
+      this.livestockObjects.push(timer);
+    }
     (this.farm.eggs ?? []).forEach((egg, index) => {
-      const x = anchor.x - 190 + (index % 4) * 112;
-      const y = anchor.y + 150 + Math.floor(index / 4) * 54;
+      const x = egg.clutchId ? anchor.x - 54 + (index % 4) * 36 : anchor.x - 190 + (index % 4) * 112;
+      const y = egg.clutchId ? anchor.y + 110 + Math.floor(index / 4) * 12 : anchor.y + 150 + Math.floor(index / 4) * 54;
       const reserved = Boolean(egg.clutchId && egg.hatchAt);
       const status = reserved
         ? 'EM CHOCA'
@@ -1715,8 +1746,8 @@ export class FarmScene extends Phaser.Scene {
         pointer.event.stopPropagation();
         if (egg.fertilized) {
           const message = reserved
-            ? 'Esta ninhada está chocando. Os ovos ficam protegidos até a eclosão.'
-            : 'Ovo fecundado! Ele está reservado; quando a galinha juntar oito, começará a chocagem.';
+            ? 'NINHADA EM CHOCA: a galinha está sentada no ninho. Tempo restante: ' + (egg.hatchAt ? new Date(egg.hatchAt).toLocaleString('pt-BR') : 'em andamento') + '. Ovo protegido, não pode ser recolhido.'
+            : 'Ovo fecundado! A galinha precisa completar oito ovos fecundados para iniciar a chocagem.';
           this.hud?.pushFeed(message, 'normal');
           return;
         }
