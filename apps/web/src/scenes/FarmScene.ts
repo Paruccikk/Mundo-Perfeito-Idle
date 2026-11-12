@@ -69,7 +69,7 @@ const GARDEN_START_ROW = 22;
 const BUILDING_LAYOUTS: Record<FarmBuildingId, { col: number; row: number }> = {
   coop: { col: 37, row: 8 },
   corral: { col: 37, row: 25 },
-  stable: { col: 17, row: 31 }
+  stable: { col: 2, row: 34 }
 };
 
 const BUILDING_ORDER: FarmBuildingId[] = ['coop', 'corral', 'stable'];
@@ -121,17 +121,17 @@ function formatRemaining(milliseconds: number): string {
 
 function buildRoads(): Set<string> {
   const roads = new Set<string>();
-  // Estrada principal da entrada até o pátio central da fazenda.
-  addRoadLine(roads, 43, 39, 29, 31);
-  addRoadLine(roads, 29, 31, 23, 20);
-  // Ramal da casa e da horta.
+  // Caminhos livres terminam nas porteiras e contornam as construções.
+  addRoadLine(roads, 43, 39, 29, 34);
+  addRoadLine(roads, 29, 34, 23, 20);
   addRoadLine(roads, 23, 20, 23, 9);
   addRoadLine(roads, 23, 20, 8, 22);
-  // Ramais independentes para cada área de criação.
-  addRoadLine(roads, 29, 31, 37, 25);
-  addRoadLine(roads, 37, 25, 37, 8);
-  addRoadLine(roads, 29, 31, 17, 31);
-  // Acesso externo à cidade.
+  addRoadLine(roads, 29, 34, 36, 35);
+  addRoadLine(roads, 36, 35, 44, 32);
+  addRoadLine(roads, 29, 34, 39, 30);
+  addRoadLine(roads, 39, 30, 44, 15);
+  addRoadLine(roads, 29, 34, 17, 40);
+  addRoadLine(roads, 17, 40, 9, 41);
   addRoadLine(roads, 43, 39, 48, 44);
   return roads;
 }
@@ -491,22 +491,8 @@ export class FarmScene extends Phaser.Scene {
 
   /** Setores de criação em formato de piquete quadrado, com piso e entrada legíveis. */
   private buildAnimalYards(): void {
-    const road = this.add.graphics();
-    const junction = this.iso(29, 31);
-    const entrance = this.iso(43, 39);
-    const branches = [this.iso(37, 8), this.iso(37, 25), this.iso(17, 31)];
-    road.lineStyle(74, 0x76502f, 0.92);
-    road.lineBetween(entrance.x, entrance.y, junction.x, junction.y);
-    road.lineStyle(58, 0xc09a64, 0.95);
-    road.lineBetween(entrance.x, entrance.y, junction.x, junction.y);
-    branches.forEach((point) => {
-      road.lineStyle(68, 0x76502f, 0.94);
-      road.lineBetween(junction.x, junction.y, point.x, point.y + 150);
-      road.lineStyle(52, 0xc09a64, 0.96);
-      road.lineBetween(junction.x, junction.y, point.x, point.y + 150);
-    });
-    road.setDepth(430);
-    this.world.add(road);
+    // O tilemap já desenha os caminhos. Removido o traçado duplicado em Graphics,
+    // que cruzava fachadas, cercados e áreas de circulação.
 
     const yards: Array<{ id: FarmBuildingId; halfW: number; halfH: number; label: string; ground: number }> = [
       { id: 'coop', halfW: 500, halfH: 330, label: 'GALINHEIRO', ground: 0xd8bd83 },
@@ -1952,7 +1938,7 @@ export class FarmScene extends Phaser.Scene {
   // ---------------------------------------------------------------------------
 
   private drawPlayer(): void {
-    const spawn = this.iso(24, 19);
+    const spawn = this.iso(27, 27);
     this.avatar = new PlayerAvatar(this, this.character.classId, spawn.x, spawn.y);
     this.avatar.root.setScale(0.86);
     this.avatar.root.setDepth(2000 + spawn.y);
