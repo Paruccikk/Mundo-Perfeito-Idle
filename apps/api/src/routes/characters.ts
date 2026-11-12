@@ -178,6 +178,16 @@ export function createCharacterRoutes(repository: CharacterRepository) {
       } catch (error) { return sendError(reply, error); }
     });
 
+
+    app.post('/api/v1/characters/:id/farm/collect-egg', { preHandler: authenticate }, async (request, reply) => {
+      try {
+        const { id } = request.params as { id: string };
+        const body = request.body as { eggId?: string };
+        if (typeof body.eggId !== 'string' || !body.eggId.trim()) return reply.code(400).send({ error: 'egg_id_required', message: 'Ovo inválido.' });
+        return reply.send(await service.collectFarmEgg(id, accountId(request), body.eggId));
+      } catch (error) { return sendError(reply, error); }
+    });
+
     app.post('/api/v1/characters/:id/farm/expand', { preHandler: authenticate }, async (request, reply) => {
       try {
         const { id } = request.params as { id: string };
