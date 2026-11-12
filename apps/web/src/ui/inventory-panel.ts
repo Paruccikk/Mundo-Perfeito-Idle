@@ -32,7 +32,7 @@ function createSection(titleText: string, subtitleText: string, items: FarmInven
     quantity.textContent = `${item.quantity} unidades`;
     info.append(name, quantity);
     card.append(icon, info);
-    if ((item.category === 'crop' || item.category === 'fish') && item.quantity > 0) {
+    if ((item.category === 'crop' || item.category === 'fish' || item.category === 'egg') && item.quantity > 0) {
       const sell = document.createElement('button');
       sell.type = 'button'; sell.className = 'ghost-button'; sell.textContent = 'Vender 1';
       sell.addEventListener('click', async () => {
@@ -130,6 +130,7 @@ export function renderInventoryPanel(
   const seeds = items.filter((item) => item.category === 'seed');
   const feed = items.filter((item) => item.category === 'feed');
   const fish = items.filter((item) => item.category === 'fish');
+  const eggs = items.filter((item) => item.category === 'egg');
   const content = document.createElement('div');
   content.className = 'farm-inventory-content';
   content.append(
