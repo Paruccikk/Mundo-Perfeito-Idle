@@ -38,7 +38,7 @@ export class ApiError extends Error {
   }
 }
 
-export interface FarmInventoryItem { key: string; name: string; icon: string; quantity: number; category: 'crop' | 'seed' | 'feed' | 'fish'; }
+export interface FarmInventoryItem { key: string; name: string; icon: string; quantity: number; category: 'crop' | 'seed' | 'feed' | 'fish' | 'egg'; }
 export interface InventorySnapshot { gold: number; farmItems: FarmInventoryItem[]; farmSummary?: { name: string; installations: number; maxInstallations: number; animals: number; plots: number }; goldReceived?: number; mount: { id: 'starter-horse'; name: string; rarity: 'white'; equipped: boolean }; items: InventoryItem[]; equipment: EquipmentItem[]; }
 
 interface RequestOptions {
