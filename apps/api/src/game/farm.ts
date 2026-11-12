@@ -362,10 +362,10 @@ export function processFarmCycles(currentFarm: FarmState): FarmState {
       if (!dayChanged) continue;
       const males = animals.filter((animal) => animal.gender === 'male');
       for (const female of animals.filter((animal) => animal.gender === 'female' && animal.species !== 'chicken')) {
-        if ((female.ageDays ?? 0) < 7 || (female.health ?? 100) < 65 || (female.happiness ?? 100) < 65 || female.pregnantUntil) continue;
-        const male = males.find((candidate) => candidate.species === female.species && candidate.buildingId === female.buildingId && (candidate.ageDays ?? 0) >= 7 && (candidate.health ?? 100) >= 65);
+        if ((female.ageDays ?? 0) < 7 || (female.health ?? 100) < 65 || (female.happiness ?? 100) < 65 || (female.hunger ?? 100) < 50 || (female.hydration ?? 100) < 50 || female.pregnantUntil) continue;
+        const male = males.find((candidate) => candidate.species === female.species && candidate.buildingId === female.buildingId && (candidate.ageDays ?? 0) >= 7 && (candidate.health ?? 100) >= 65 && (candidate.happiness ?? 100) >= 65);
         if (male && Math.random() < 0.12) {
-          const gestationHours = female.species === 'cow' ? 48 : 72;
+          const gestationHours = female.species === 'cow' ? 72 : 48;
           female.pregnantUntil = new Date(hourAt + gestationHours * 3_600_000).toISOString();
           female.fatherTier = male.tier;
         }
