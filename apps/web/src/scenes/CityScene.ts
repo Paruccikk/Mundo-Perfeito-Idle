@@ -6,6 +6,7 @@ import { API_BASE_URL, api } from '../api';
 import { getAuthToken } from '../player';
 import { sfxClick } from '../audio';
 import { closeStageMap, openStageMap } from '../ui/stage-map';
+import { FishingPanel } from '../ui/fishing-panel';
 
 const FONT = '"Cinzel", "MedievalSharp", Georgia, "Times New Roman", serif';
 const TILE_W = 96;
@@ -85,6 +86,7 @@ export class CityScene extends Phaser.Scene {
   private avatar!: PlayerAvatar;
   private nameLabel!: Phaser.GameObjects.Container;
   private dialogue: Phaser.GameObjects.Container | null = null;
+  private fishingPanel: FishingPanel | null = null;
   private npcAvatars: PlayerAvatar[] = [];
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private keys!: { W: Phaser.Input.Keyboard.Key; A: Phaser.Input.Keyboard.Key; S: Phaser.Input.Keyboard.Key; D: Phaser.Input.Keyboard.Key };
@@ -1486,7 +1488,7 @@ export class CityScene extends Phaser.Scene {
   }
 
   private handleGroundClick(pointer: Phaser.Input.Pointer): void {
-    if (this.dialogue || pointer.button !== 0) return;
+    if (this.dialogue || this.fishingPanel || pointer.button !== 0) return;
     const point = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
     if (((point.x - 620) ** 2) / (200 ** 2) + ((point.y - 335) ** 2) / (110 ** 2) <= 1) {
       this.openFishingSpot();
@@ -1509,33 +1511,24 @@ export class CityScene extends Phaser.Scene {
 
   private openFishingSpot(): void {
     this.closeDialogue();
-    const panel = this.add.container(this.scale.width / 2, this.scale.height - 118).setScrollFactor(0).setDepth(5000);
-    const bg = this.add.rectangle(0, 0, Math.min(520, this.scale.width - 28), 142, 0x10232a, 0.97).setStrokeStyle(2, 0x64b7c1, 0.9);
-    const heading = this.add.text(-bg.width / 2 + 18, -52, '🎣 Lago público de Valedouro', { fontFamily: FONT, fontSize: '16px', color: '#bcecf0', fontStyle: 'bold' });
-    const info = this.add.text(-bg.width / 2 + 18, -24, 'Pesque aqui junto de outros moradores. Cada tentativa consome um momento e o peixe vai para seu inventário.', {
-      fontFamily: FONT, fontSize: '12px', color: '#d9e4ef', wordWrap: { width: bg.width - 36 }, lineSpacing: 4
+    if (this.fishingPanel) return;
+    const root = document.getElementById('ui-root');
+    if (!root) return;
+    sfxClick();
+    this.fishingPanel = new FishingPanel(root, {
+      characterId: this.character.id,
+      onCatch: (response) => {
+        if (response.message) this.hud?.pushFeed(response.message, 'gold');
+      },
+      onClose: () => {
+        this.fishingPanel = null;
+      }
     });
-    const action = this.add.text(-bg.width / 2 + 18, 36, '🎣  Lançar a vara', {
-      fontFamily: FONT, fontSize: '14px', fontStyle: 'bold', color: '#e6fbff',
-      backgroundColor: '#205b65', padding: { x: 14, y: 8 }
-    }).setInteractive({ useHandCursor: true });
-    action.on('pointerdown', (_pointer: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
-      event.stopPropagation();
-      action.disableInteractive();
-      action.setText('Pescando…');
-      void api.fishAtCity(this.character.id).then((result) => {
-        action.setText('🎣  Pescar novamente');
-        action.setInteractive({ useHandCursor: true });
-        info.setText(result.message ?? 'Você conseguiu um peixe!');
-        this.hud?.pushFeed(result.message ?? 'Peixe adicionado ao inventário.', 'gold');
-      }).catch((error: unknown) => {
-        action.setText('Tentar novamente');
-        action.setInteractive({ useHandCursor: true });
-        info.setText(error instanceof Error ? error.message : 'Não foi possível pescar agora.');
-      });
-    });
-    panel.add([bg, heading, info, action]);
-    this.dialogue = panel;
+  }
+
+  private closeFishingPanel(): void {
+    this.fishingPanel?.close();
+    this.fishingPanel = null;
   }
 
   private openNpc(npc: NpcDefinition): void {
@@ -1737,6 +1730,7 @@ export class CityScene extends Phaser.Scene {
   private handleResize = (size: Phaser.Structs.Size): void => {
     this.layout(size.width, size.height);
     this.closeDialogue();
+    this.closeFishingPanel();
   };
 
   private handleShutdown(): void {
@@ -1744,6 +1738,7 @@ export class CityScene extends Phaser.Scene {
     this.scale.off(Phaser.Scale.Events.RESIZE, this.handleResize, this);
     this.input.off('pointerdown', this.handleGroundClick, this);
     this.closeDialogue();
+    this.closeFishingPanel();
     closeStageMap();
     this.npcAvatars = [];
     this.stableHorses = [];

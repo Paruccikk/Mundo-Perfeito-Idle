@@ -484,6 +484,125 @@ export const FARM_CROPS: Record<CropTypeId, CropDefinition> = {
   }
 };
 
+export type FishId = 'fish-minnow' | 'fish-trout' | 'fish-carp' | 'fish-golden';
+
+export interface FishDefinition {
+  id: FishId;
+  name: string;
+  icon: string;
+  chance: number;
+  minWeightKg: number;
+  maxWeightKg: number;
+  minLengthCm: number;
+  maxLengthCm: number;
+  description: string;
+}
+
+/** Ordem usada nos catálogos e no placar de pesca. */
+export const FISH_ORDER: FishId[] = ['fish-minnow', 'fish-trout', 'fish-carp', 'fish-golden'];
+
+export const FISH_CATALOG: Record<FishId, FishDefinition> = {
+  'fish-minnow': {
+    id: 'fish-minnow',
+    name: 'Lambari',
+    icon: '🐟',
+    chance: 0.48,
+    minWeightKg: 0.02,
+    maxWeightKg: 0.14,
+    minLengthCm: 4,
+    maxLengthCm: 11,
+    description: 'Pequeno e rápido. O primeiro troféu de todo pescador do vale.'
+  },
+  'fish-trout': {
+    id: 'fish-trout',
+    name: 'Truta',
+    icon: '🐠',
+    chance: 0.3,
+    minWeightKg: 0.35,
+    maxWeightKg: 2.8,
+    minLengthCm: 22,
+    maxLengthCm: 58,
+    description: 'Listras rosadas e escamas pintadas. Gosta das águas frias do lago.'
+  },
+  'fish-carp': {
+    id: 'fish-carp',
+    name: 'Carpa',
+    icon: '🐡',
+    chance: 0.16,
+    minWeightKg: 1.2,
+    maxWeightKg: 7.5,
+    minLengthCm: 32,
+    maxLengthCm: 82,
+    description: 'Robusta e dourada. Um exemplar grande é motivo de orgulho no rancho.'
+  },
+  'fish-golden': {
+    id: 'fish-golden',
+    name: 'Peixe Dourado',
+    icon: '✨',
+    chance: 0.06,
+    minWeightKg: 2.5,
+    maxWeightKg: 14.5,
+    minLengthCm: 45,
+    maxLengthCm: 112,
+    description: 'Lenda do Lago de Valedouro. Brilha como o sol e raramente morde a isca.'
+  }
+};
+
+export type FishRankId = 'filhote' | 'comum' | 'graudo' | 'trofeu' | 'lendario';
+
+export interface FishRankDefinition {
+  id: FishRankId;
+  label: string;
+  minScore: number;
+  stars: number;
+}
+
+/** Faixas de raridade de uma captura, do menor ao maior exemplar. */
+export const FISH_RANKS: FishRankDefinition[] = [
+  { id: 'filhote', label: 'Filhote', minScore: 0, stars: 1 },
+  { id: 'comum', label: 'Comum', minScore: 25, stars: 2 },
+  { id: 'graudo', label: 'Graúdo', minScore: 50, stars: 3 },
+  { id: 'trofeu', label: 'Troféu', minScore: 75, stars: 4 },
+  { id: 'lendario', label: 'Lendário', minScore: 92, stars: 5 }
+];
+
+export function fishRankForScore(score: number): FishRankDefinition {
+  for (let index = FISH_RANKS.length - 1; index >= 0; index -= 1) {
+    const rank = FISH_RANKS[index];
+    if (rank && score >= rank.minScore) return rank;
+  }
+  return FISH_RANKS[0]!;
+}
+
+export interface FishRecord {
+  bestWeightKg: number;
+  bestLengthCm: number;
+  bestScore: number;
+  bestRank: FishRankId;
+  catches: number;
+  lastCaughtAt: string;
+}
+
+export interface FarmFishingState {
+  records: Partial<Record<FishId, FishRecord>>;
+  totalCaught: number;
+  /** Usado pelo servidor para impedir arremessos repetidos em sequência. */
+  lastFishedAt?: string;
+}
+
+export interface FishCatchResult {
+  fishId: FishId;
+  weightKg: number;
+  lengthCm: number;
+  score: number;
+  rank: FishRankId;
+  isRecord: boolean;
+  isWeightRecord: boolean;
+  isLengthRecord: boolean;
+  record: FishRecord;
+  totalCaught: number;
+}
+
 export interface FarmPlotState {
   plotIndex: number;
   cropId: CropTypeId | null;
@@ -544,11 +663,15 @@ export interface FarmState {
   /** Comedouro e bebedouro de cada instalação. */
   animalCare?: Partial<Record<FarmBuildingId, FarmAnimalCare>>;
   lastNeedsAt?: string;
+  /** Recordes e histórico da pesca no lago da cidade. */
+  fishing?: FarmFishingState;
 }
 
 export interface FarmResponse {
   farm: FarmState;
   gold: number;
   message?: string;
+  /** Presente apenas na resposta de uma pescaria. */
+  catch?: FishCatchResult;
 }
 

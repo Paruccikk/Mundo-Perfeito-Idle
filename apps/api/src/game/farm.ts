@@ -3,13 +3,20 @@ import {
   FARM_BUILDINGS,
   FARM_ANIMALS,
   FARM_CROPS,
+  FISH_CATALOG,
+  FISH_ORDER,
+  fishRankForScore,
   type FarmBuildingId,
   type FarmState,
   type FarmPlotState,
   type OwnedAnimal,
   type FarmEgg,
   type CropTypeId,
-  type AnimalSpeciesId
+  type AnimalSpeciesId,
+  type FarmFishingState,
+  type FishCatchResult,
+  type FishId,
+  type FishRecord
 } from '@mundo-perfeito/shared';
 
 const DAILY_SEED_LIMIT = 10;
@@ -33,7 +40,30 @@ export function createDefaultFarm(): FarmState {
     seeds: { corn: 3, wheat: 3, carrot: 3 },
     dailySeedPurchases: { date: now.slice(0, 10), quantities: {} },
     animalCare: {},
-    lastNeedsAt: now
+    lastNeedsAt: now,
+    fishing: { records: {}, totalCaught: 0 }
+  };
+}
+
+function sanitizeFishingState(fishing?: FarmFishingState | null): FarmFishingState {
+  const records: Partial<Record<FishId, FishRecord>> = {};
+  for (const fishId of FISH_ORDER) {
+    const record = fishing?.records?.[fishId];
+    if (!record || !Number.isFinite(record.bestWeightKg) || !Number.isFinite(record.bestLengthCm)) continue;
+    const bestScore = Math.max(0, Math.min(100, Math.round(Number(record.bestScore) || 0)));
+    records[fishId] = {
+      bestWeightKg: Math.max(0, Number(record.bestWeightKg) || 0),
+      bestLengthCm: Math.max(0, Number(record.bestLengthCm) || 0),
+      bestScore,
+      bestRank: fishRankForScore(bestScore).id,
+      catches: Math.max(0, Math.floor(Number(record.catches) || 0)),
+      lastCaughtAt: typeof record.lastCaughtAt === 'string' ? record.lastCaughtAt : new Date().toISOString()
+    };
+  }
+  return {
+    records,
+    totalCaught: Math.max(0, Math.floor(Number(fishing?.totalCaught) || 0)),
+    ...(typeof fishing?.lastFishedAt === 'string' ? { lastFishedAt: fishing.lastFishedAt } : {})
   };
 }
 
@@ -76,7 +106,8 @@ export function sanitizeFarmState(farm?: FarmState | null): FarmState {
     seeds: farm.seeds ?? { corn: 3, wheat: 3, carrot: 3 },
     dailySeedPurchases: purchases,
     animalCare: farm.animalCare ?? {},
-    lastNeedsAt: farm.lastNeedsAt ?? now
+    lastNeedsAt: farm.lastNeedsAt ?? now,
+    fishing: sanitizeFishingState(farm.fishing)
   };
 }
 
@@ -86,6 +117,7 @@ export interface FarmOperationResult {
   farm: FarmState;
   gold: number;
   message?: string;
+  catch?: FishCatchResult;
 }
 
 function fail(farm: FarmState, gold: number, error: string): FarmOperationResult {
@@ -440,19 +472,106 @@ export function processExpandFarm(currentFarm: FarmState, currentGold: number): 
     message: `${quantity} novos canteiros liberados! Total: ${plots.length}/${MAX_PLOTS}.` };
 }
 
-const FISH_CATALOG = [
-  { id: 'fish-minnow', name: 'Lambari', chance: 0.48 },
-  { id: 'fish-trout', name: 'Truta', chance: 0.30 },
-  { id: 'fish-carp', name: 'Carpa', chance: 0.16 },
-  { id: 'fish-golden', name: 'Peixe Dourado', chance: 0.06 }
-] as const;
+const FISH_COOLDOWN_MS = 2500;
 
-export function processFishAtCity(currentFarm: FarmState, currentGold: number): FarmOperationResult {
+function roundWeight(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+function roundLength(value: number): number {
+  return Math.round(value * 10) / 10;
+}
+
+function formatWeight(value: number): string {
+  return value.toFixed(2).replace('.', ',');
+}
+
+function formatLength(value: number): string {
+  return value.toFixed(1).replace('.', ',');
+}
+
+export function processFishAtCity(
+  currentFarm: FarmState,
+  currentGold: number,
+  now = new Date()
+): FarmOperationResult {
   const farm = sanitizeFarmState(currentFarm);
+  const fishing = farm.fishing ?? { records: {}, totalCaught: 0 };
+  const lastFishedAt = fishing.lastFishedAt ? Date.parse(fishing.lastFishedAt) : Number.NaN;
+  if (Number.isFinite(lastFishedAt) && now.getTime() - lastFishedAt < FISH_COOLDOWN_MS) {
+    return {
+      ok: false,
+      error: 'O peixe ainda está desconfiado. Aguarde um instante antes de arremessar novamente.',
+      farm,
+      gold: currentGold
+    };
+  }
+
   const roll = Math.random();
   let total = 0;
-  const caught = FISH_CATALOG.find((fish) => { total += fish.chance; return roll <= total; }) ?? FISH_CATALOG[0];
+  let caught = FISH_CATALOG['fish-minnow'];
+  for (const fishId of FISH_ORDER) {
+    const fish = FISH_CATALOG[fishId];
+    total += fish.chance;
+    if (roll <= total) {
+      caught = fish;
+      break;
+    }
+  }
+
+  // A maioria dos peixes fica perto do tamanho mínimo; exemplares grandes são raros.
+  const sizeRoll = Math.pow(Math.random(), 1.65);
+  const weightKg = roundWeight(
+    caught.minWeightKg + (caught.maxWeightKg - caught.minWeightKg) * Math.min(1, sizeRoll * (0.92 + Math.random() * 0.16))
+  );
+  const lengthCm = roundLength(
+    caught.minLengthCm + (caught.maxLengthCm - caught.minLengthCm) * Math.min(1, sizeRoll * (0.94 + Math.random() * 0.12))
+  );
+
+  const weightNorm = (weightKg - caught.minWeightKg) / (caught.maxWeightKg - caught.minWeightKg);
+  const lengthNorm = (lengthCm - caught.minLengthCm) / (caught.maxLengthCm - caught.minLengthCm);
+  const score = Math.round(Math.max(0, Math.min(1, weightNorm * 0.65 + lengthNorm * 0.35)) * 100);
+  const rank = fishRankForScore(score);
+  const previous = fishing.records[caught.id];
+  const isWeightRecord = !previous || weightKg > previous.bestWeightKg;
+  const isLengthRecord = !previous || lengthCm > previous.bestLengthCm;
+  const record: FishRecord = {
+    bestWeightKg: roundWeight(Math.max(previous?.bestWeightKg ?? 0, weightKg)),
+    bestLengthCm: roundLength(Math.max(previous?.bestLengthCm ?? 0, lengthCm)),
+    bestScore: Math.max(previous?.bestScore ?? 0, score),
+    bestRank: previous && previous.bestScore >= score ? previous.bestRank : rank.id,
+    catches: (previous?.catches ?? 0) + 1,
+    lastCaughtAt: now.toISOString()
+  };
+  const totalCaught = fishing.totalCaught + 1;
+  const catchResult: FishCatchResult = {
+    fishId: caught.id,
+    weightKg,
+    lengthCm,
+    score,
+    rank: rank.id,
+    isRecord: isWeightRecord || isLengthRecord,
+    isWeightRecord,
+    isLengthRecord,
+    record,
+    totalCaught
+  };
   const storage = { ...farm.storage, [caught.id]: (farm.storage[caught.id] ?? 0) + 1 };
-  return { ok: true, farm: { ...farm, storage }, gold: currentGold,
-    message: `Você pescou ${caught.name}! O peixe foi guardado no inventário.` };
+  const recordMessage = catchResult.isRecord ? ' Novo recorde pessoal!' : '';
+
+  return {
+    ok: true,
+    farm: {
+      ...farm,
+      storage,
+      fishing: {
+        records: { ...fishing.records, [caught.id]: record },
+        totalCaught,
+        lastFishedAt: now.toISOString()
+      }
+    },
+    gold: currentGold,
+    message: `Você pescou ${caught.name} de ${formatWeight(weightKg)} kg e ${formatLength(lengthCm)} cm!${recordMessage} O peixe foi guardado no inventário.`,
+    catch: catchResult
+  };
 }

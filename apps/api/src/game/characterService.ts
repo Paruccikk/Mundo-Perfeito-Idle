@@ -21,7 +21,8 @@ import {
   type FarmBuildingId,
   type FarmState,
   type CropTypeId,
-  type AnimalSpeciesId
+  type AnimalSpeciesId,
+  type FishCatchResult
 } from '@mundo-perfeito/shared';
 import {
   createDefaultFarm,
@@ -507,7 +508,7 @@ export class CharacterService {
     playerId: unknown,
     operation: (farm: FarmState, gold: number) => import('./farm.js').FarmOperationResult,
     fallbackMessage: string
-  ): Promise<{ farm: FarmState; gold: number; message: string }> {
+  ): Promise<{ farm: FarmState; gold: number; message: string; catch?: FishCatchResult }> {
     assertPlayerId(playerId);
 
     const record = await this.findOwned(id, playerId);
@@ -539,7 +540,8 @@ export class CharacterService {
     return {
       farm: result.farm,
       gold: result.gold,
-      message: result.message ?? fallbackMessage
+      message: result.message ?? fallbackMessage,
+      ...(result.catch ? { catch: result.catch } : {})
     };
   }
 

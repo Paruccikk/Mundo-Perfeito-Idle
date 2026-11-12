@@ -415,3 +415,74 @@ Plantar, regar, colher, expandir a terra, comprar sementes, abrir a ficha de ani
 - `apps/web/src/scenes/ranch/ranch-ui.ts` — HUD e botões do rancho.
 - `apps/web/src/ui/farm-shop-panel.ts` — markup e lógica do mercado.
 - `apps/web/src/style.css` — estilos `.farm-shop-*`, responsividade e correção do controle de montaria.
+
+## 17. Pesca no Lago de Valedouro (implementado em 11/11/2026)
+
+A pesca pública da cidade ganhou uma ficha visual completa, recordes pessoais por espécie e uma espera de arremesso. O sistema continua usando a rota autenticada `POST /characters/:id/city/fish` e o peixe é guardado no inventário da fazenda.
+
+### 17.1 Catálogo e sorteio
+
+O catálogo fica em `packages/shared/src/index.ts` (`FISH_CATALOG` e `FISH_ORDER`) e é a única fonte para servidor e interface:
+
+| Espécie | Chance | Peso (kg) | Comprimento (cm) |
+|---|---:|---:|---:|
+| Lambari | 48% | 0,02–0,14 | 4–11 |
+| Truta | 30% | 0,35–2,80 | 22–58 |
+| Carpa | 16% | 1,20–7,50 | 32–82 |
+| Peixe Dourado | 6% | 2,50–14,50 | 45–112 |
+
+O sorteio é autoritativo no servidor. Peso e comprimento usam uma curva que favorece exemplares menores; cada captura recebe uma pontuação de `0` a `100`, calculada por `65%` de peso normalizado + `35%` de comprimento normalizado dentro da faixa da espécie.
+
+### 17.2 Recordes, ranks e títulos
+
+Cada espécie mantém o melhor peso e o melhor comprimento de forma independente, além da melhor pontuação e do total de capturas. Os ranks de exemplar são:
+
+| Rank | Pontuação mínima |
+|---|---:|
+| Filhote | 0 |
+| Comum | 25 |
+| Graúdo | 50 |
+| Troféu | 75 |
+| Lendário | 92 |
+
+O rank geral do pescador soma a melhor pontuação das quatro espécies (máximo `400`) e concede títulos em `0` (Novato do Lago), `60` (Aprendiz de Pesca), `140` (Pescador do Vale), `220` (Veterano das Águas), `300` (Mestre da Vara) e `360` (Lenda do Lago). A interface mostra o progresso até o próximo título e ordena os recordes pela pontuação.
+
+### 17.3 Tempo de arremesso e proteção contra repetição
+
+- O cliente anima o arremesso por `3,2 s`, com barra de progresso, boia balançando e mensagens de “lançando”, “esperando a mordida” e “recolhendo”.
+- A chamada à API só acontece depois da animação; o botão fica desabilitado durante a espera.
+- O servidor aplica um cooldown de `2,5 s` por `lastFishedAt`, impedindo duas capturas em sequência mesmo que a requisição seja repetida fora da interface.
+- Ao terminar, a ficha da captura substitui a cena do lago no painel, exibindo ilustração vetorial, peso, comprimento, pontuação, rank, recordes e total de peixes.
+
+### 17.4 Persistência e compatibilidade
+
+O estado fica em `FarmState.fishing`, dentro de `Character.combat.farm`, sem necessidade de migração de banco:
+
+```ts
+fishing?: {
+  records: Partial<Record<FishId, FishRecord>>;
+  totalCaught: number;
+  lastFishedAt?: string;
+}
+```
+
+Fazendas antigas sem esse campo são sanitizadas com `records: {}` e `totalCaught: 0`. O mesmo sanitizador valida números, limites de pontuação e ranks ao carregar o personagem.
+
+### 17.5 Interface e responsividade
+
+O painel `FishingPanel` é um overlay HTML sobre o canvas, com fundo de pergaminho e madeira, cena de lago ao entardecer e ilustrações SVG procedurais em `apps/web/src/ui/fish-art.ts`. A abertura ocorre ao clicar no lago ou no cais da cidade; o painel bloqueia cliques no chão, fecha por Escape, botão, fundo ou redimensionamento da janela.
+
+- **Desktop:** duas colunas com cena/resultado à esquerda e placar de recordes à direita; as colunas rolam de forma independente quando necessário.
+- **Retrato:** coluna única; a ficha da captura aparece logo após o botão e o placar fica abaixo.
+- **Paisagem baixa:** ficha compacta, arte reduzida e textos auxiliares ocultos para manter peso, comprimento e pontuação visíveis.
+
+Viewports validados visualmente: `1600×900`, `430×900` e `844×390`, sem overflow horizontal. O arremesso dura `3,2 s`; a ficha aparece logo depois da resposta da API, tipicamente entre `3,5 s` e `4 s` no navegador.
+
+### 17.6 Arquivos
+
+- `apps/web/src/ui/fishing-panel.ts` — painel, espera, ficha da captura e placar.
+- `apps/web/src/ui/fish-art.ts` — ilustrações vetoriais de Lambari, Truta, Carpa e Peixe Dourado.
+- `apps/api/src/game/farm.ts` — sorteio, peso/comprimento, pontuação, recordes e cooldown.
+- `packages/shared/src/index.ts` — catálogo, ranks e tipos compartilhados.
+- `apps/web/src/scenes/CityScene.ts` — abertura/fechamento do painel no lago.
+- `apps/web/src/style.css` — estilos `.fishing-*` e `.fish-art`.
