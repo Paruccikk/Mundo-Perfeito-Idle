@@ -306,37 +306,44 @@ async function openFarmShop(characterId: string): Promise<void> {
         const updated = await api.buyFarmBuilding(characterId, buildingId);
         hud?.setGold(updated.gold);
         hud?.pushFeed(updated.message ?? 'Construção concluída na fazenda!', 'gold');
+        game?.events.emit('farm-updated', updated);
         return updated;
       },
       async (animalId) => {
         const updated = await api.buyFarmAnimal(characterId, animalId);
         hud?.setGold(updated.gold);
         hud?.pushFeed(updated.message ?? 'Animal adquirido!', 'gold');
+        game?.events.emit('farm-updated', updated);
         return updated;
       },
       async (cropId, quantity) => {
         const updated = await api.buyFarmSeeds(characterId, cropId, quantity);
         hud?.setGold(updated.gold);
         hud?.pushFeed(updated.message ?? 'Sementes compradas!', 'gold');
+        game?.events.emit('farm-updated', updated);
         return updated;
       },
       async (species, quantity) => {
         const updated = await api.craftFarmFeed(characterId, species, quantity);
         hud?.pushFeed(updated.message ?? 'Ração preparada!', 'gold');
+        game?.events.emit('farm-updated', updated);
         return updated;
       },
       async (buildingId, kind, quantity) => {
         const updated = await api.fillFarmTrough(characterId, buildingId, kind, quantity);
         hud?.pushFeed(updated.message ?? 'Comedouro ou bebedouro abastecido!', 'gold');
+        game?.events.emit('farm-updated', updated);
         return updated;
       },
       async () => {
         const updated = await api.expandFarm(characterId);
         hud?.setGold(updated.gold);
         hud?.pushFeed(updated.message ?? 'Sua terra foi expandida!', 'gold');
+        game?.events.emit('farm-updated', updated);
         return updated;
       },
       () => {
+        closeGamePanel();
         if (!game) return;
         game.scene.stop('CityScene');
         game.scene.stop('WorldScene');

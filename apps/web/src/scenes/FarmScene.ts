@@ -1,64 +1,187 @@
 import Phaser from 'phaser';
 import type {
+  AnimalSpeciesId,
   CharacterSummary,
+  CropTypeId,
   FarmBuildingId,
+  FarmPlotState,
+  FarmResponse,
   FarmState,
-  CropTypeId
+  OwnedAnimal
 } from '@mundo-perfeito/shared';
-import { FARM_BUILDINGS, FARM_ANIMALS, FARM_CROPS } from '@mundo-perfeito/shared';
+import { FARM_ANIMALS, FARM_BUILDINGS, FARM_CROPS } from '@mundo-perfeito/shared';
 import { api } from '../api';
 import { sfxClick } from '../audio';
 import type { GameHud } from '../ui/hud';
 import { PlayerAvatar } from './actors';
+import {
+  RANCH_FONT_BODY,
+  RANCH_FONT_DISPLAY,
+  TILE_H,
+  TILE_W,
+  addRoadLine,
+  createAtmosphere,
+  createBarn,
+  createBarrel,
+  createButterfly,
+  createClothesline,
+  createFarmhouse,
+  createFenceLine,
+  createGround,
+  createHayBale,
+  createLanternPost,
+  createMailbox,
+  createMeadowDetails,
+  createRanchGate,
+  createScarecrow,
+  createSeedCrate,
+  createTree,
+  createWateringCan,
+  createWell,
+  createWheelbarrow,
+  createWindmill,
+  fillDiamond,
+  strokeDiamond
+} from './ranch/ranch-theme';
+import { createAnimalVisual, type AnimalVisual } from './ranch/ranch-animals';
+import {
+  RanchHud,
+  createRanchButton,
+  drawRanchPanel
+} from './ranch/ranch-ui';
+import {
+  createCoop,
+  createCorral,
+  createStable,
+  createVacantPad,
+  createRusticSign
+} from './ranch/ranch-buildings';
 
-const TILE_W = 96;
-const TILE_H = 48;
 const COLS = 25;
 const ROWS = 21;
 const FARM_LIMITS = { minX: -980, maxX: 980, minY: -470, maxY: 470 };
+const INITIAL_PLOTS = 6;
+const MAX_PLOTS = 30;
+const GARDEN_COLS = 6;
+const GARDEN_START_COL = 6;
+const GARDEN_START_ROW = 11;
 
-interface PlotLayout {
+const BUILDING_LAYOUTS: Record<FarmBuildingId, { col: number; row: number }> = {
+  coop: { col: 18, row: 7 },
+  corral: { col: 20, row: 12 },
+  stable: { col: 16, row: 17 }
+};
+
+const BUILDING_ORDER: FarmBuildingId[] = ['coop', 'corral', 'stable'];
+
+const RANK_LABELS: Record<string, string> = {
+  white: 'Comum',
+  green: 'Incomum',
+  blue: 'Raro',
+  orange: 'Épico',
+  red: 'Lendário'
+};
+
+const RANK_COLORS: Record<string, number> = {
+  white: 0xe6dfca,
+  green: 0x82cf83,
+  blue: 0x74b6ee,
+  orange: 0xf2a45d,
+  red: 0xe86a62
+};
+
+interface PlotView {
   index: number;
-  col: number;
-  row: number;
+  container: Phaser.GameObjects.Container;
+  soil: Phaser.GameObjects.Graphics;
+  art: Phaser.GameObjects.Graphics;
+  marker: Phaser.GameObjects.Graphics;
+  beacon: Phaser.GameObjects.Container;
+  hovered: boolean;
+  ready: boolean;
 }
 
-const PLOT_LAYOUTS: PlotLayout[] = [
-  { index: 0, col: 8, row: 11 },
-  { index: 1, col: 9, row: 11 },
-  { index: 2, col: 10, row: 11 },
-  { index: 3, col: 8, row: 12 },
-  { index: 4, col: 9, row: 12 },
-  { index: 5, col: 10, row: 12 }
-];
+interface BuildingBadge {
+  buildingId: FarmBuildingId;
+  label: Phaser.GameObjects.Text;
+}
 
-const BUILDING_PADS = [
-  { id: 'coop' as FarmBuildingId, col: 17, row: 7, name: 'Galinheiro', icon: '🐔' },
-  { id: 'corral' as FarmBuildingId, col: 18, row: 12, name: 'Curral', icon: '🐄' },
-  { id: 'stable' as FarmBuildingId, col: 13, row: 16, name: 'Estábulo', icon: '🐎' }
-];
+function plotPosition(index: number): { col: number; row: number } {
+  return {
+    col: GARDEN_START_COL + (index % GARDEN_COLS),
+    row: GARDEN_START_ROW + Math.floor(index / GARDEN_COLS)
+  };
+}
+
+function formatRemaining(milliseconds: number): string {
+  const seconds = Math.max(1, Math.ceil(milliseconds / 1000));
+  if (seconds < 60) return `${seconds}s`;
+  return `${Math.ceil(seconds / 60)} min`;
+}
+
+function buildRoads(): Set<string> {
+  const roads = new Set<string>();
+  // Estrada principal: porteira, casa e pomar.
+  addRoadLine(roads, 22, 20, 12, 20);
+  addRoadLine(roads, 12, 20, 12, 8);
+  addRoadLine(roads, 12, 8, 13, 7);
+  // Caminhos para as instalações.
+  addRoadLine(roads, 12, 18, 14, 18);
+  addRoadLine(roads, 14, 18, 16, 19);
+  addRoadLine(roads, 22, 20, 22, 16);
+  addRoadLine(roads, 22, 16, 21, 15);
+  addRoadLine(roads, 12, 9, 6, 9);
+  addRoadLine(roads, 6, 9, 5, 8);
+  addRoadLine(roads, 12, 9, 14, 9);
+  addRoadLine(roads, 14, 9, 15, 8);
+  addRoadLine(roads, 12, 10, 17, 10);
+  addRoadLine(roads, 17, 10, 19, 10);
+  // Estrada que segue para fora da porteira, rumo à cidade.
+  addRoadLine(roads, 22, 20, 27, 25);
+  return roads;
+}
 
 export class FarmScene extends Phaser.Scene {
   private character!: CharacterSummary;
   private hud: GameHud | null = null;
-  private world!: Phaser.GameObjects.Container;
   private alive = true;
   private farm: FarmState | null = null;
   private farmGold = 0;
-  private farmHudText: Phaser.GameObjects.Text | null = null;
-  private interactiveElements: Phaser.GameObjects.GameObject[] = [];
-  private seedPickerContainer: Phaser.GameObjects.Container | null = null;
-  private refreshTimer: Phaser.Time.TimerEvent | null = null;
+  private farmSignature = '';
   private lastFarmSyncAt = 0;
   private farmSyncInFlight = false;
+
+  private world!: Phaser.GameObjects.Container;
+  private ranchHud!: RanchHud;
+  private atmosphere!: { resize: (width: number, height: number) => void };
+  private plots: PlotView[] = [];
+  private buildingObjects: Phaser.GameObjects.GameObject[] = [];
+  private livestockObjects: Phaser.GameObjects.GameObject[] = [];
+  private buildingBadges: BuildingBadge[] = [];
+
   private avatar!: PlayerAvatar;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
-  private keys!: { W: Phaser.Input.Keyboard.Key; A: Phaser.Input.Keyboard.Key; S: Phaser.Input.Keyboard.Key; D: Phaser.Input.Keyboard.Key };
+  private keys!: {
+    W: Phaser.Input.Keyboard.Key;
+    A: Phaser.Input.Keyboard.Key;
+    S: Phaser.Input.Keyboard.Key;
+    D: Phaser.Input.Keyboard.Key;
+  };
   private moving = false;
-  private cameraZoom = 0.8;
+  private compactView = false;
+  private cameraZoom = 0.85;
   private cameraFocusX = 0;
   private cameraFocusY = 0;
-  private animalDetails: Phaser.GameObjects.Container | null = null;
+
+  private refreshTimer: Phaser.Time.TimerEvent | null = null;
+  private busyPlots = new Set<number>();
+  private hoveredPlotIndex: number | null = null;
+  private lastPointerX = 0;
+  private lastPointerY = 0;
+
+  private seedPicker: Phaser.GameObjects.Container | null = null;
+  private animalPanel: Phaser.GameObjects.Container | null = null;
+  private hoverTip: Phaser.GameObjects.Text | null = null;
 
   constructor() {
     super('FarmScene');
@@ -68,12 +191,30 @@ export class FarmScene extends Phaser.Scene {
     this.character = this.registry.get('character') as CharacterSummary;
     this.hud = (this.registry.get('hud') as GameHud | undefined) ?? null;
     this.alive = true;
-    this.cameras.main.setBackgroundColor('#8dbf6d');
+    this.cameras.main.setBackgroundColor('#83b065');
+
     this.world = this.add.container(0, 0);
 
+    this.ranchHud = new RanchHud(this, {
+      ownerName: this.character.name,
+      onOpenShop: () => this.openMarket()
+    });
+
+    this.atmosphere = createAtmosphere(this);
+    this.hoverTip = this.add.text(0, 0, '', {
+      fontFamily: RANCH_FONT_BODY,
+      fontSize: '10.5px',
+      color: '#f8e8c2',
+      backgroundColor: 'rgba(26, 17, 9, 0.94)',
+      padding: { x: 9, y: 6 },
+      lineSpacing: 3
+    }).setDepth(9500).setVisible(false);
+
     this.hud?.setConnection('online');
-    this.hud?.setLocation('Minha Fazenda', 'Propriedade particular', true);
-    this.hud?.pushFeed(`Bem-vindo à sua fazenda, ${this.character.name}!`, 'gold');
+    this.hud?.setLocation(`Rancho de ${this.character.name}`, 'Propriedade particular', true);
+    this.hud?.pushFeed(`Bem-vindo ao seu rancho, ${this.character.name}!`, 'gold');
+    this.hud?.pushFeed('Clique nos canteiros para plantar, regar e colher.', 'normal');
+    this.hud?.setGold(this.character.gold);
 
     if (this.input.keyboard) {
       this.cursors = this.input.keyboard.createCursorKeys();
@@ -83,112 +224,43 @@ export class FarmScene extends Phaser.Scene {
         S: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S),
         D: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D)
       };
+      this.input.keyboard.on('keydown-ESC', this.handleEscape, this);
     }
-    this.layout();
+
     this.scale.on(Phaser.Scale.Events.RESIZE, this.layout, this);
     this.input.on('pointerdown', this.handleFarmGroundClick, this);
+    this.input.on('pointermove', this.handlePointerMove, this);
+    this.game.events.on('farm-updated', this.handleFarmUpdated, this);
+
+    this.layout();
+    this.renderFullScene();
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.alive = false;
       this.scale.off(Phaser.Scale.Events.RESIZE, this.layout, this);
       this.input.off('pointerdown', this.handleFarmGroundClick, this);
+      this.input.off('pointermove', this.handlePointerMove, this);
+      this.input.keyboard?.off('keydown-ESC', this.handleEscape, this);
+      this.game.events.off('farm-updated', this.handleFarmUpdated, this);
       this.refreshTimer?.destroy();
-      this.seedPickerContainer?.destroy();
-      this.animalDetails?.destroy();
+      this.seedPicker?.destroy();
+      this.animalPanel?.destroy();
+      this.ranchHud?.destroy();
     });
 
     void this.loadAndRenderFarm();
 
-    // Atualiza timers de colheita a cada 1 segundo
     this.refreshTimer = this.time.addEvent({
       delay: 1000,
       loop: true,
       callback: () => {
         if (!this.alive || !this.farm) return;
-        this.renderPlotsOnly();
+        this.tickPlotStates();
         if (Date.now() - this.lastFarmSyncAt >= 30_000 && !this.farmSyncInFlight) {
           void this.syncFarmState();
         }
       }
     });
-  }
-
-  private async loadAndRenderFarm(): Promise<void> {
-    try {
-      const data = await api.getFarm(this.character.id);
-      if (!this.alive) return;
-      this.farm = data.farm;
-      this.farmGold = data.gold;
-      this.lastFarmSyncAt = Date.now();
-      this.hud?.setGold(data.gold);
-      this.renderFullScene();
-    } catch (error) {
-      if (!this.alive) return;
-      this.hud?.pushFeed(
-        error instanceof Error ? error.message : 'Não foi possível carregar os dados da fazenda.',
-        'danger'
-      );
-      this.renderFullScene();
-    }
-  }
-
-  private async syncFarmState(): Promise<void> {
-    if (this.farmSyncInFlight || !this.alive) return;
-    this.farmSyncInFlight = true;
-    try {
-      const data = await api.getFarm(this.character.id);
-      if (!this.alive) return;
-      this.farm = data.farm;
-      this.farmGold = data.gold;
-      this.lastFarmSyncAt = Date.now();
-      this.hud?.setGold(data.gold);
-      this.updateFarmHUD();
-      this.drawBuildings();
-      this.renderPlotsOnly();
-    } catch (error) {
-      this.hud?.pushFeed(error instanceof Error ? error.message : 'Falha ao sincronizar os cuidados da fazenda.', 'danger');
-      this.lastFarmSyncAt = Date.now();
-    } finally {
-      this.farmSyncInFlight = false;
-    }
-  }
-
-  private handleFarmGroundClick(pointer: Phaser.Input.Pointer): void {
-    if (!this.avatar || pointer.button !== 0 || !this.world) return;
-    const targetX = Phaser.Math.Clamp((pointer.x - this.world.x) / this.world.scaleX, FARM_LIMITS.minX, FARM_LIMITS.maxX);
-    const targetY = Phaser.Math.Clamp((pointer.y - this.world.y) / this.world.scaleY, FARM_LIMITS.minY, FARM_LIMITS.maxY);
-    const distance = Phaser.Math.Distance.Between(this.avatar.root.x, this.avatar.root.y, targetX, targetY);
-    if (distance < 10) return;
-    this.moving = false;
-    this.avatar.walkTo(targetX, targetY, Phaser.Math.Clamp(distance * 3.1, 220, 4200));
-  }
-
-  update(_time: number, delta: number): void {
-    if (!this.alive || !this.avatar || !this.keys || !this.cursors) return;
-    let dx = 0;
-    let dy = 0;
-    if (this.cursors.left.isDown || this.keys.A.isDown) { dx -= 1; dy += 0.5; }
-    if (this.cursors.right.isDown || this.keys.D.isDown) { dx += 1; dy -= 0.5; }
-    if (this.cursors.up.isDown || this.keys.W.isDown) { dx -= 1; dy -= 0.5; }
-    if (this.cursors.down.isDown || this.keys.S.isDown) { dx += 1; dy += 0.5; }
-    const magnitude = Math.hypot(dx, dy);
-    if (magnitude > 0) {
-      dx /= magnitude; dy /= magnitude;
-      const distance = 185 * Math.min(delta, 50) / 1000;
-      this.avatar.root.x = Phaser.Math.Clamp(this.avatar.root.x + dx * distance, FARM_LIMITS.minX, FARM_LIMITS.maxX);
-      this.avatar.root.y = Phaser.Math.Clamp(this.avatar.root.y + dy * distance, FARM_LIMITS.minY, FARM_LIMITS.maxY);
-      this.avatar.facePoint(this.avatar.root.x + dx, this.avatar.root.y + dy);
-      this.avatar.setWalking(true);
-      this.moving = true;
-    } else if (this.moving) {
-      this.avatar.setWalking(false);
-      this.moving = false;
-    }
-    this.avatar.root.setDepth(300 + this.avatar.root.y);
-    const smooth = 1 - Math.pow(0.0016, Math.max(0.016, delta / 1000));
-    this.cameraFocusX += (this.avatar.root.x - this.cameraFocusX) * smooth;
-    this.cameraFocusY += (this.avatar.root.y - this.cameraFocusY) * smooth;
-    this.applyFarmCamera();
   }
 
   private iso(col: number, row: number): { x: number; y: number } {
@@ -198,816 +270,173 @@ export class FarmScene extends Phaser.Scene {
     };
   }
 
-  private diamond(
-    graphics: Phaser.GameObjects.Graphics,
-    x: number,
-    y: number,
-    fill: number,
-    line = 0x496d3d
-  ): void {
-    graphics.fillStyle(fill, 1);
-    graphics.lineStyle(1, line, 0.55);
-    graphics.beginPath();
-    graphics.moveTo(x, y - TILE_H / 2);
-    graphics.lineTo(x + TILE_W / 2, y);
-    graphics.lineTo(x, y + TILE_H / 2);
-    graphics.lineTo(x - TILE_W / 2, y);
-    graphics.closePath();
-    graphics.fillPath();
-    graphics.strokePath();
-  }
-
-  private plotsContainer!: Phaser.GameObjects.Container;
-  private buildingsContainer!: Phaser.GameObjects.Container;
-
-  private renderFullScene(): void {
-    this.world.removeAll(true);
-    this.interactiveElements = [];
-
-    // Chão e gramado
-    const ground = this.add.graphics();
-    this.world.add(ground);
-    for (let row = 0; row < ROWS; row += 1) {
-      for (let col = 0; col < COLS; col += 1) {
-        const p = this.iso(col, row);
-        const variation = (col + row) % 4;
-        const color =
-          variation === 0 ? 0x86b85e : variation === 1 ? 0x90c268 : variation === 2 ? 0x8bbb61 : 0x7eb357;
-        this.diamond(ground, p.x, p.y, color);
-      }
-    }
-
-    this.drawPath(ground);
-    this.drawHouse();
-    this.drawTownExit();
-
-    this.buildingsContainer = this.add.container(0, 0);
-    this.world.add(this.buildingsContainer);
-    this.drawBuildings();
-
-    this.plotsContainer = this.add.container(0, 0);
-    this.world.add(this.plotsContainer);
-    this.renderPlotsOnly();
-
-    this.drawDecorations();
-    this.drawPlayer();
-    this.drawFarmHUD();
-  }
-
-  private drawPath(graphics: Phaser.GameObjects.Graphics): void {
-    // Estrada principal de terra entre a casa, as instalações e a saída.
-    const roadTiles = new Set<string>();
-    const addRoad = (col: number, row: number) => roadTiles.add(`${col}:${row}`);
-    for (let row = 6; row <= 20; row += 1) addRoad(12, row);
-    for (let col = 12; col <= 18; col += 1) addRoad(col, 9);
-    for (let row = 9; row <= 12; row += 1) addRoad(18, row);
-    for (let col = 12; col <= 17; col += 1) addRoad(col, 15);
-    for (let row = 12; row <= 15; row += 1) addRoad(17, row);
-    for (let row = 7; row <= 11; row += 1) addRoad(13, row);
-    for (let row = 6; row <= 20; row += 1) {
-      for (let col = 0; col < COLS; col += 1) {
-        if (!roadTiles.has(`${col}:${row}`)) continue;
-        const p = this.iso(col, row);
-        this.diamond(graphics, p.x, p.y, (col + row) % 3 === 0 ? 0xb99a68 : 0xc5a875, 0x94754c);
-        graphics.fillStyle(0x8b704b, 0.24);
-        graphics.fillEllipse(p.x - 10, p.y + 1, 16, 5);
-        graphics.fillEllipse(p.x + 13, p.y - 2, 12, 4);
-      }
-    }
-    // Pedras de borda e pequenos trechos de trilha batida.
-    for (const [col, row] of [[11, 9], [19, 9], [16, 14], [13, 16], [12, 18]] as Array<[number, number]>) {
-      const p = this.iso(col, row);
-      graphics.fillStyle(0x8d8064, 0.8);
-      graphics.fillEllipse(p.x + 22, p.y - 8, 9, 5);
-      graphics.fillStyle(0xd0c2a0, 0.8);
-      graphics.fillCircle(p.x + 20, p.y - 10, 2);
-    }
-  }
-
-  private drawHouse(): void {
-    const p = this.iso(12, 7);
-    const g = this.add.graphics().setDepth(20);
-    g.fillStyle(0x795438, 1);
-    g.fillRect(p.x - 65, p.y - 5, 130, 76);
-    g.fillStyle(0xd9bd88, 1);
-    g.fillRect(p.x - 54, p.y + 4, 108, 59);
-    g.fillStyle(0x8b3e32, 1);
-    g.fillTriangle(p.x - 76, p.y + 4, p.x, p.y - 64, p.x + 76, p.y + 4);
-    g.fillStyle(0x5b3427, 1);
-    g.fillRect(p.x - 13, p.y + 24, 26, 39);
-    g.fillStyle(0x8fc1d0, 1);
-    g.fillRect(p.x - 43, p.y + 17, 20, 18);
-    g.fillRect(p.x + 23, p.y + 17, 20, 18);
-    this.world.add(g);
-    this.world.add(
-      this.add
-        .text(p.x, p.y - 78, '🏡 CASA PRINCIPAL', {
-          fontFamily: 'Georgia, serif',
-          fontSize: '12px',
-          color: '#fff0c2',
-          stroke: '#3d2b1b',
-          strokeThickness: 4
-        })
-        .setOrigin(0.5)
-        .setDepth(25)
-    );
-  }
-
-  private drawTownExit(): void {
-    const p = this.iso(12, 19);
-    const sign = this.add
-      .text(p.x, p.y + 35, '🚪 Voltar para Cidade de Valedouro', {
-        fontFamily: 'Georgia, serif',
-        fontSize: '13px',
-        fontStyle: 'bold',
-        color: '#fef08a',
-        backgroundColor: '#1b3b22',
-        padding: { x: 12, y: 7 },
-        stroke: '#0e2314',
-        strokeThickness: 3
-      })
-      .setOrigin(0.5)
-      .setDepth(80)
-      .setInteractive({ useHandCursor: true });
-
-    sign.on('pointerdown', (_pointer: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
-      event.stopPropagation();
-      sfxClick();
-      this.scene.stop('FarmScene');
-      this.scene.start('CityScene');
-    });
-
-    this.world.add(sign);
-  }
-
-  private drawBuildings(): void {
-    this.buildingsContainer.removeAll(true);
-    const owned = this.farm?.buildings ?? [];
-
-    for (const pad of BUILDING_PADS) {
-      const p = this.iso(pad.col, pad.row);
-      const isBuilt = owned.includes(pad.id);
-      const g = this.add.graphics().setDepth(12);
-
-      if (isBuilt) {
-        // Terreno da construção
-        this.diamond(g, p.x, p.y, 0xa18258, 0x6e5333);
-
-        // Base ampla de terra batida para cada instalação.
-        g.fillStyle(0x5f482e, 0.22); g.fillEllipse(p.x + 4, p.y + 20, 230, 118);
-        this.diamond(g, p.x, p.y + 4, 0xb99a69, 0x80613e);
-
-        // Construções maiores, com telhados, portas, janelas e detalhes de madeira.
-        if (pad.id === 'coop') {
-          // Galinheiro campestre com telhado vermelho, varanda e ninho.
-          g.fillStyle(0x633b22, 1); g.fillRect(p.x - 56, p.y - 42, 112, 62);
-          g.fillStyle(0xb97843, 1); g.fillRect(p.x - 50, p.y - 36, 100, 50);
-          g.fillStyle(0x9f4535, 1);
-          g.fillTriangle(p.x - 68, p.y - 40, p.x, p.y - 94, p.x + 68, p.y - 40);
-          g.fillStyle(0xc96c4c, 1);
-          g.fillTriangle(p.x - 48, p.y - 44, p.x, p.y - 82, p.x + 48, p.y - 44);
-          g.lineStyle(3, 0x6b3829, 1); g.lineBetween(p.x - 64, p.y - 39, p.x + 64, p.y - 39);
-          g.fillStyle(0x3e2418, 1); g.fillRect(p.x - 15, p.y - 8, 30, 28);
-          g.fillStyle(0x23170f, 1); g.fillRect(p.x - 9, p.y - 3, 18, 22);
-          g.fillStyle(0xf0cf82, 1); g.fillRect(p.x - 43, p.y - 28, 17, 15); g.fillRect(p.x + 26, p.y - 28, 17, 15);
-          g.lineStyle(2, 0x6b3829, 1); g.strokeRect(p.x - 43, p.y - 28, 17, 15); g.strokeRect(p.x + 26, p.y - 28, 17, 15);
-          g.fillStyle(0x8b5a31, 1); g.fillRect(p.x - 42, p.y + 17, 84, 8);
-          g.lineStyle(3, 0x684326, 1); g.lineBetween(p.x - 38, p.y + 17, p.x - 38, p.y + 28); g.lineBetween(p.x + 38, p.y + 17, p.x + 38, p.y + 28);
-          g.fillStyle(0xead9ad, 1); g.fillEllipse(p.x - 34, p.y + 8, 17, 9); g.fillEllipse(p.x + 34, p.y + 8, 17, 9);
-          g.fillStyle(0xf0d88b, 1); g.fillCircle(p.x - 34, p.y + 5, 4); g.fillCircle(p.x + 34, p.y + 5, 4);
-          // Palha e caixa de ninho.
-          g.fillStyle(0xc99b55, 1); g.fillRect(p.x + 49, p.y - 4, 19, 15);
-          g.fillStyle(0xf3e6c6, 1); g.fillEllipse(p.x + 58, p.y - 5, 8, 6);
-        } else if (pad.id === 'corral') {
-          // Curral bovino com abrigo aberto, cocho de feno e telhado verde.
-          g.fillStyle(0x5a3922, 1); g.fillRect(p.x - 65, p.y - 38, 130, 56);
-          g.fillStyle(0x9b6a3b, 1); g.fillRect(p.x - 59, p.y - 31, 118, 45);
-          g.fillStyle(0x557d43, 1);
-          g.fillTriangle(p.x - 78, p.y - 34, p.x, p.y - 91, p.x + 78, p.y - 34);
-          g.fillStyle(0x78a653, 1);
-          g.fillTriangle(p.x - 58, p.y - 38, p.x, p.y - 78, p.x + 58, p.y - 38);
-          g.lineStyle(4, 0x644329, 1);
-          for (const dx of [-55, -18, 18, 55]) g.lineBetween(p.x + dx, p.y - 28, p.x + dx, p.y + 18);
-          g.fillStyle(0x402919, 1); g.fillRect(p.x - 24, p.y - 9, 48, 26);
-          g.fillStyle(0xdec17e, 1); g.fillEllipse(p.x, p.y - 8, 34, 11);
-          g.fillStyle(0x6e8c8d, 1); g.fillRoundedRect(p.x + 48, p.y + 19, 30, 13, 4);
-          g.fillStyle(0xb6dce0, 1); g.fillEllipse(p.x + 62, p.y + 20, 22, 5);
-          g.fillStyle(0xc79a51, 1); g.fillRoundedRect(p.x - 83, p.y + 18, 33, 13, 3);
-          g.fillStyle(0xe0bd71, 1); g.fillEllipse(p.x - 67, p.y + 18, 28, 7);
-        } else if (pad.id === 'stable') {
-          // Estábulo de cavalos com duas baias, portas e telhado de telhas.
-          g.fillStyle(0x55351f, 1); g.fillRect(p.x - 73, p.y - 45, 146, 68);
-          g.fillStyle(0x98643b, 1); g.fillRect(p.x - 65, p.y - 38, 130, 56);
-          g.fillStyle(0x713d31, 1);
-          g.fillTriangle(p.x - 86, p.y - 42, p.x, p.y - 104, p.x + 86, p.y - 42);
-          g.fillStyle(0xa95743, 1);
-          g.fillTriangle(p.x - 66, p.y - 47, p.x, p.y - 91, p.x + 66, p.y - 47);
-          g.lineStyle(3, 0x5a3525, 1); g.lineBetween(p.x, p.y - 49, p.x, p.y + 17);
-          for (const dx of [-42, 42]) {
-            g.fillStyle(0x3e281c, 1); g.fillRect(p.x + dx - 16, p.y - 12, 32, 31);
-            g.lineStyle(3, 0xd0a56a, 1); g.strokeRect(p.x + dx - 16, p.y - 12, 32, 31);
-            g.lineStyle(2, 0xd0a56a, 1); g.lineBetween(p.x + dx - 15, p.y + 1, p.x + dx + 15, p.y + 1);
-          }
-          g.fillStyle(0xe2c18b, 1); g.fillRect(p.x - 8, p.y - 33, 16, 9);
-          g.fillStyle(0x593b25, 1); g.fillRect(p.x - 5, p.y - 31, 10, 5);
-          g.fillStyle(0x6e8c8d, 1); g.fillRoundedRect(p.x + 76, p.y + 18, 30, 13, 3);
-          g.fillStyle(0xb6dce0, 1); g.fillEllipse(p.x + 91, p.y + 19, 22, 5);
-        }
-        // Cercado amplo em madeira: dois trilhos, mourões e porteira frontal.
-        const fenceW = pad.id === 'stable' ? 224 : 210;
-        const fenceH = pad.id === 'stable' ? 146 : 138;
-        const left = p.x - fenceW / 2, right = p.x + fenceW / 2;
-        const top = p.y - fenceH / 2, bottom = p.y + fenceH / 2;
-        g.lineStyle(7, 0x57371f, 1);
-        g.lineBetween(left, top, right, top); g.lineBetween(left, top, left, bottom);
-        g.lineBetween(right, top, right, bottom);
-        g.lineStyle(5, 0x9a6a3b, 1);
-        g.lineBetween(left, top - 11, right, top - 11);
-        g.lineBetween(left, top + 7, right, top + 7);
-        g.lineBetween(left, top, left, bottom); g.lineBetween(right, top, right, bottom);
-        // Frente com abertura para a porteira.
-        g.lineStyle(6, 0x57371f, 1); g.lineBetween(left, bottom, p.x - 32, bottom); g.lineBetween(p.x + 32, bottom, right, bottom);
-        g.lineStyle(4, 0x9a6a3b, 1); g.lineBetween(left, bottom - 10, p.x - 32, bottom - 10); g.lineBetween(p.x + 32, bottom - 10, right, bottom - 10);
-        for (const [postX, postY] of [[left, top], [right, top], [left, bottom], [right, bottom], [p.x - 32, bottom], [p.x + 32, bottom], [left, (top + bottom) / 2], [right, (top + bottom) / 2]] as Array<[number, number]>) {
-          g.fillStyle(0x4b2f1b, 1); g.fillRoundedRect(postX - 5, postY - 15, 10, 30, 2);
-          g.fillStyle(0xc08a4e, 1); g.fillRect(postX - 3, postY - 13, 3, 25);
-          g.fillStyle(0xd0a36b, 1); g.fillCircle(postX, postY - 14, 4);
-        }
-        // Porteira de duas folhas na entrada.
-        g.lineStyle(4, 0x684326, 1);
-        g.lineBetween(p.x - 30, bottom - 4, p.x - 30, bottom - 29);
-        g.lineBetween(p.x - 30, bottom - 29, p.x, bottom - 29);
-        g.lineBetween(p.x, bottom - 29, p.x, bottom - 4);
-        g.lineBetween(p.x + 30, bottom - 4, p.x + 30, bottom - 29);
-        g.lineBetween(p.x, bottom - 29, p.x + 30, bottom - 29);
-        g.lineBetween(p.x, bottom - 29, p.x, bottom - 4);
-        // Cocho de madeira e bebedouro de água dentro do piquete.
-        g.fillStyle(0x5a3a22, 1); g.fillRoundedRect(p.x - 82, p.y + 31, 38, 16, 3);
-        g.fillStyle(0xb17a3f, 1); g.fillRect(p.x - 79, p.y + 30, 32, 4);
-        g.fillStyle(0x557f91, 1); g.fillRoundedRect(p.x + 49, p.y + 31, 34, 15, 4);
-        g.fillStyle(0x9ed6df, 1); g.fillEllipse(p.x + 66, p.y + 31, 25, 6);
-        g.fillStyle(0x4b3828, 0.45); g.fillEllipse(p.x - 61, p.y + 49, 47, 7);
-        g.fillStyle(0x4b3828, 0.35); g.fillEllipse(p.x + 66, p.y + 49, 42, 7);
-        this.buildingsContainer.add(g);
-
-        // Rótulo da construção
-        const title = this.add
-          .text(p.x, p.y - 56, `✓ ${pad.name}`, {
-            fontFamily: 'Georgia, serif',
-            fontSize: '11px',
-            fontStyle: 'bold',
-            color: '#86efac',
-            stroke: '#1c341f',
-            strokeThickness: 3
-          })
-          .setOrigin(0.5)
-          .setDepth(18);
-        this.buildingsContainer.add(title);
-
-        // Desenha animais criados dentro da instalação
-        const animalsInBuilding = (this.farm?.animals ?? []).filter((a) => a.buildingId === pad.id);
-        const countText = this.add
-          .text(p.x, p.y + 26, `${animalsInBuilding.length} animais`, {
-            fontFamily: 'Georgia, serif',
-            fontSize: '10px',
-            color: '#fef08a',
-            stroke: '#2c1e14',
-            strokeThickness: 3
-          })
-          .setOrigin(0.5)
-          .setDepth(18);
-        this.buildingsContainer.add(countText);
-
-        const care = this.farm?.animalCare?.[pad.id] ?? { feed: 0, water: 0 };
-        const troughText = this.add
-          .text(p.x, p.y + 42, `🥣 ${care.feed}/30  🚰 ${care.water}/30`, {
-            fontFamily: 'Georgia, serif',
-            fontSize: '9px',
-            color: '#e0f2fe',
-            backgroundColor: 'rgba(15, 23, 42, 0.78)',
-            padding: { x: 5, y: 3 }
-          })
-          .setOrigin(0.5)
-          .setDepth(20)
-          .setInteractive({ useHandCursor: true });
-        troughText.on('pointerdown', (_pointer: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
-          event.stopPropagation();
-          const openShop = this.registry.get('openFarmShop') as (() => void) | undefined;
-          openShop?.();
-        });
-        this.buildingsContainer.add(troughText);
-
-        if (pad.id === 'coop') {
-          const coopEggs = (this.farm?.eggs ?? []).filter((egg) => egg.fertilized);
-          const plainEggs = (this.farm?.eggs ?? []).filter((egg) => !egg.fertilized);
-          const eggLabel = this.add.text(p.x, p.y + 59,
-            `🥚 ${plainEggs.length} ovos  •  🐣 ${coopEggs.length} chocando`, {
-              fontFamily: 'Georgia, serif', fontSize: '9px', color: '#fff2c2',
-              backgroundColor: 'rgba(40, 28, 14, 0.82)', padding: { x: 5, y: 3 }
-            }).setOrigin(0.5).setDepth(30);
-          this.buildingsContainer.add(eggLabel);
-          (this.farm?.eggs ?? []).slice(0, 8).forEach((egg, eggIndex) => {
-            const eggIcon = this.add.text(p.x - 28 + (eggIndex % 4) * 18, p.y + 24 + Math.floor(eggIndex / 4) * 12,
-              egg.fertilized ? '🐣' : '🥚', { fontSize: '12px' }).setOrigin(0.5).setDepth(31);
-            this.buildingsContainer.add(eggIcon);
-          });
-        }
-
-        animalsInBuilding.forEach((animal, idx) => {
-          const startX = p.x + Phaser.Math.Between(-72, 72);
-          const startY = p.y + Phaser.Math.Between(-38, 38);
-          const sprite = this.createAnimalSprite(animal, startX, startY);
-          sprite.setDepth(24 + startY);
-          sprite.on('pointerdown', (_pointer: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
-            event.stopPropagation();
-            this.openAnimalDetails(animal);
-          });
-          this.buildingsContainer.add(sprite);
-          const roam = () => {
-            if (!sprite.active || !this.alive) return;
-            // Os animais passeiam pelo cercado e visitam o comedouro/bebedouro.
-            const visitTrough = Math.random() < 0.32;
-            const targetX = visitTrough
-              ? p.x + (Math.random() < 0.5 ? -65 : 65)
-              : p.x + Phaser.Math.Between(-78, 78);
-            const targetY = visitTrough ? p.y + 30 : p.y + Phaser.Math.Between(-42, 42);
-            this.tweens.add({
-              targets: sprite, x: targetX, y: targetY, duration: Phaser.Math.Between(1800, 3600),
-              ease: 'Sine.easeInOut', onUpdate: () => sprite.setDepth(24 + sprite.y),
-              onComplete: () => { if (sprite.active) this.time.delayedCall(Phaser.Math.Between(500, 1800), roam); }
-            });
-          };
-          this.time.delayedCall(Phaser.Math.Between(300, 1800) + idx * 180, roam);
-          this.tweens.add({ targets: sprite, angle: { from: -3, to: 3 }, duration: 900 + idx * 90, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-        });
-      } else {
-        // Pad vazio (não construído)
-        this.diamond(g, p.x, p.y, 0xb4a078, 0x806d4b);
-        g.lineStyle(1.5, 0xf1e0b6, 0.85);
-        g.strokeRect(p.x - 24, p.y - 14, 48, 28);
-        this.buildingsContainer.add(g);
-
-        const iconText = this.add
-          .text(p.x, p.y - 20, pad.icon, { fontSize: '20px' })
-          .setOrigin(0.5)
-          .setDepth(18);
-        const nameText = this.add
-          .text(p.x, p.y + 18, `Lote do ${pad.name}\n(Comprar no NPC)`, {
-            fontFamily: 'Georgia, serif',
-            fontSize: '9px',
-            align: 'center',
-            color: '#fed7aa',
-            stroke: '#3b2512',
-            strokeThickness: 3
-          })
-          .setOrigin(0.5)
-          .setDepth(18);
-
-        this.buildingsContainer.add([iconText, nameText]);
-      }
-    }
-  }
-
-  private renderPlotsOnly(): void {
-    if (!this.plotsContainer) return;
-    this.plotsContainer.removeAll(true);
-    const plots = this.farm?.plots ?? [];
-    const now = Date.now();
-
-    const layouts = Array.from({ length: this.farm?.plots.length ?? PLOT_LAYOUTS.length }, (_, index) => {
-      if (index < PLOT_LAYOUTS.length) return PLOT_LAYOUTS[index]!;
-      const extra = index - PLOT_LAYOUTS.length;
-      return { index, col: 7 + (extra % 6), row: 13 + Math.floor(extra / 6) };
-    });
-    for (const layout of layouts) {
-      const p = this.iso(layout.col, layout.row);
-      const plotState = plots.find((x) => x.plotIndex === layout.index);
-      const g = this.add.graphics().setDepth(10);
-
-      // Terra arada do canteiro
-      this.diamond(g, p.x, p.y, 0x694627, 0x482e16);
-      g.fillStyle(0x452c17, 1);
-      for (let row = -1; row <= 1; row += 1) {
-        g.fillRoundedRect(p.x - 26, p.y + row * 8 - 2, 52, 4, 2);
-      }
-      this.plotsContainer.add(g);
-
-      if (plotState?.cropId) {
-        const crop = FARM_CROPS[plotState.cropId];
-        const isWatered = Boolean(plotState.readyAt);
-        const readyTime = plotState.readyAt ? new Date(plotState.readyAt).getTime() : Number.POSITIVE_INFINITY;
-        const isReady = isWatered && now >= readyTime;
-
-        // Desenho da plantação
-        if (plotState.cropId === 'corn') {
-          for (let i = -1; i <= 1; i += 1) {
-            g.fillStyle(isReady ? 0x22c55e : 0x4ade80, 1);
-            g.fillRoundedRect(p.x + i * 16 - 3, p.y - 16, 6, 28, 3);
-            if (isReady) {
-              g.fillStyle(0xfacc15, 1);
-              g.fillEllipse(p.x + i * 16, p.y - 12, 8, 14);
-            }
-          }
-        } else if (plotState.cropId === 'wheat') {
-          for (let i = -1; i <= 1; i += 1) {
-            g.lineStyle(3, isReady ? 0xfacc15 : 0x86efac, 1);
-            g.lineBetween(p.x + i * 15, p.y + 6, p.x + i * 15 - 2, p.y - 16);
-            if (isReady) {
-              g.fillStyle(0xfde047, 1);
-              g.fillCircle(p.x + i * 15 - 2, p.y - 17, 4);
-            }
-          }
-        } else if (plotState.cropId === 'carrot') {
-          for (let i = -1; i <= 1; i += 1) {
-            g.fillStyle(0x16a34a, 1);
-            g.fillTriangle(p.x + i * 16, p.y - 18, p.x + i * 16 - 6, p.y - 6, p.x + i * 16 + 6, p.y - 6);
-            if (isReady) {
-              g.fillStyle(0xf97316, 1);
-              g.fillTriangle(p.x + i * 16, p.y - 6, p.x + i * 16 - 4, p.y + 6, p.x + i * 16 + 4, p.y + 6);
-            }
-          }
-        }
-
-        // Indicador de status
-        if (isReady) {
-          const badge = this.add
-            .text(p.x, p.y - 28, `✨ COLHER ${crop?.name.toUpperCase()}`, {
-              fontFamily: 'Georgia, serif',
-              fontSize: '10px',
-              fontStyle: 'bold',
-              color: '#fef08a',
-              backgroundColor: '#166534',
-              padding: { x: 5, y: 3 },
-              stroke: '#052e16',
-              strokeThickness: 2
-            })
-            .setOrigin(0.5)
-            .setDepth(20)
-            .setInteractive({ useHandCursor: true });
-
-          badge.on('pointerdown', (_pointer: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => { event.stopPropagation(); void this.harvestPlot(layout.index, p.x, p.y); });
-          this.plotsContainer.add(badge);
-        } else if (!isWatered) {
-          const waterBadge = this.add
-            .text(p.x, p.y - 25, '💧 REGAR', {
-              fontFamily: 'Georgia, serif',
-              fontSize: '10px',
-              fontStyle: 'bold',
-              color: '#e0f2fe',
-              backgroundColor: '#075985',
-              padding: { x: 6, y: 3 }
-            })
-            .setOrigin(0.5)
-            .setDepth(20)
-            .setInteractive({ useHandCursor: true });
-          waterBadge.on('pointerdown', (_pointer: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => { event.stopPropagation(); void this.waterPlot(layout.index); });
-          this.plotsContainer.add(waterBadge);
-        } else {
-          const remainingSec = Math.max(1, Math.ceil((readyTime - now) / 1000));
-          const timeBadge = this.add
-            .text(p.x, p.y - 25, `⏳ ${crop?.name} (${remainingSec}s)`, {
-              fontFamily: 'Georgia, serif',
-              fontSize: '9px',
-              color: '#e2e8f0',
-              backgroundColor: 'rgba(15, 23, 42, 0.75)',
-              padding: { x: 4, y: 2 }
-            })
-            .setOrigin(0.5)
-            .setDepth(19);
-          this.plotsContainer.add(timeBadge);
-        }
-      } else {
-        // Canteiro vazio
-        const emptyText = this.add
-          .text(p.x, p.y - 8, '🌱 Plantar', {
-            fontFamily: 'Georgia, serif',
-            fontSize: '10px',
-            color: '#bbf7d0',
-            backgroundColor: 'rgba(22, 101, 52, 0.7)',
-            padding: { x: 6, y: 3 }
-          })
-          .setOrigin(0.5)
-          .setDepth(18)
-          .setInteractive({ useHandCursor: true });
-
-        emptyText.on('pointerdown', (_pointer: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => { event.stopPropagation(); this.openSeedPicker(layout.index, p.x, p.y); });
-        this.plotsContainer.add(emptyText);
-      }
-    }
-  }
-
-  private openSeedPicker(plotIndex: number, worldX: number, worldY: number): void {
-    sfxClick();
-    this.seedPickerContainer?.destroy();
-
-    const picker = this.add.container(worldX, worldY - 50).setDepth(120);
-    // O seletor precisa ser filho do mundo: os canteiros usam coordenadas locais
-    // do container e a câmera desloca/escala esse mundo. Fora dele, o painel
-    // aparece em outra posição e os botões ficam fora da área clicável.
-    this.world.add(picker);
-    const bg = this.add
-      .rectangle(0, 0, 240, 126, 0x111c24, 0.96)
-      .setStrokeStyle(2, 0x86efac, 0.9).setInteractive();
-    bg.on('pointerdown', (_pointer: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => event.stopPropagation());
-    const title = this.add
-      .text(0, -42, 'Escolha a semente para plantar:', {
-        fontFamily: 'Georgia, serif',
-        fontSize: '11px',
-        color: '#fef08a'
-      })
-      .setOrigin(0.5);
-
-    const crops: CropTypeId[] = ['corn', 'wheat', 'carrot'];
-    const buttons: Phaser.GameObjects.GameObject[] = [];
-
-    crops.forEach((cropId, i) => {
-      const crop = FARM_CROPS[cropId];
-      const seedCount = this.farm?.seeds?.[cropId] ?? 0;
-      const btnY = -20 + i * 27;
-      const label = seedCount > 0
-        ? `${crop.icon} ${crop.name} • sementes: ${seedCount} • plantar`
-        : `${crop.icon} ${crop.name} • comprar 1 e plantar`;
-      const btn = this.add
-        .text(0, btnY, label, {
-          fontFamily: 'Georgia, serif',
-          fontSize: '10px',
-          color: '#f0fdf4',
-          backgroundColor: '#1b432a',
-          padding: { x: 8, y: 4 }
-        })
-        .setOrigin(0.5)
-        .setInteractive({ useHandCursor: true });
-      btn.on('pointerdown', (_pointer: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
-        event.stopPropagation();
-        picker.destroy();
-        void (async () => {
-          try {
-            if (seedCount < 1) {
-              const bought = await api.buyFarmSeeds(this.character.id, cropId, 1);
-              this.farm = bought.farm;
-              this.farmGold = bought.gold;
-              this.hud?.setGold(bought.gold);
-              this.hud?.pushFeed(bought.message ?? 'Semente comprada.', 'gold');
-            }
-            await this.plantPlot(plotIndex, cropId);
-          } catch (error) {
-            this.hud?.pushFeed(error instanceof Error ? error.message : 'Não foi possível comprar a semente.', 'danger');
-          }
-        })();
-      });
-      buttons.push(btn);
-    });
-
-    const closeBtn = this.add
-      .text(105, -52, '✕', { fontSize: '13px', color: '#f87171' })
-      .setInteractive({ useHandCursor: true });
-    closeBtn.on('pointerdown', (_pointer: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => { event.stopPropagation(); picker.destroy(); });
-
-    picker.add([bg, title, ...buttons, closeBtn]);
-    this.seedPickerContainer = picker;
-  }
-
-  private async waterPlot(plotIndex: number): Promise<void> {
+  private async loadAndRenderFarm(): Promise<void> {
     try {
-      const res = await api.waterFarmCrop(this.character.id, plotIndex);
-      this.farm = res.farm;
-      this.updateFarmHUD();
-      this.hud?.pushFeed(res.message ?? 'Plantação regada!', 'gold');
-      sfxClick();
-      this.renderPlotsOnly();
-    } catch (err) {
-      this.hud?.pushFeed(err instanceof Error ? err.message : 'Não foi possível regar o canteiro.', 'danger');
-    }
-  }
-
-  private async plantPlot(plotIndex: number, cropId: CropTypeId): Promise<void> {
-    try {
-      const res = await api.plantFarmCrop(this.character.id, plotIndex, cropId);
-      this.farm = res.farm;
-      this.updateFarmHUD();
-      this.farmGold = res.gold;
-      this.hud?.setGold(res.gold);
-      this.hud?.pushFeed(res.message ?? 'Semente plantada!', 'gold');
-      sfxClick();
-      this.renderPlotsOnly();
-    } catch (err) {
+      const data = await api.getFarm(this.character.id);
+      if (!this.alive) return;
+      this.setFarmData(data.farm, data.gold);
+    } catch (error) {
+      if (!this.alive) return;
       this.hud?.pushFeed(
-        err instanceof Error ? err.message : 'Não foi possível plantar neste canteiro.',
+        error instanceof Error ? error.message : 'Não foi possível carregar os dados da fazenda.',
         'danger'
       );
+      this.renderFullScene();
+      this.ranchHud.update(null, this.character.gold);
     }
   }
 
-  private async harvestPlot(plotIndex: number, x: number, y: number): Promise<void> {
+  private async syncFarmState(): Promise<void> {
+    if (this.farmSyncInFlight || !this.alive) return;
+    this.farmSyncInFlight = true;
     try {
-      const res = await api.harvestFarmCrop(this.character.id, plotIndex);
-      this.farm = res.farm;
-      this.updateFarmHUD();
-      this.farmGold = res.gold;
-      this.hud?.setGold(res.gold);
-      this.hud?.pushFeed(res.message ?? 'Colheita concluída com sucesso!', 'gold');
-      sfxClick();
-
-      // Feedback visual flutuante
-      const floatText = this.add
-        .text(x, y - 20, '✨ +Colheita!', {
-          fontFamily: 'Georgia, serif',
-          fontSize: '14px',
-          fontStyle: 'bold',
-          color: '#fde047',
-          stroke: '#14532d',
-          strokeThickness: 3
-        })
-        .setOrigin(0.5)
-        .setDepth(200);
-
-      this.tweens.add({
-        targets: floatText,
-        y: y - 55,
-        alpha: 0,
-        duration: 1200,
-        onComplete: () => floatText.destroy()
-      });
-
-      this.renderPlotsOnly();
-    } catch (err) {
+      const data = await api.getFarm(this.character.id);
+      if (!this.alive) return;
+      this.setFarmData(data.farm, data.gold);
+    } catch (error) {
       this.hud?.pushFeed(
-        err instanceof Error ? err.message : 'Não foi possível colher esta plantação.',
+        error instanceof Error ? error.message : 'Falha ao sincronizar os cuidados da fazenda.',
         'danger'
       );
+      this.lastFarmSyncAt = Date.now();
+    } finally {
+      this.farmSyncInFlight = false;
     }
   }
 
-  private createAnimalSprite(animal: FarmState['animals'][number], x: number, y: number): Phaser.GameObjects.Container {
-    const root = this.add.container(x, y);
-    const g = this.add.graphics();
-    const shadow = this.add.ellipse(0, 8, animal.species === 'chicken' ? 24 : 38, 10, 0x1c2b18, 0.28);
-    const rankColor: Record<string, number> = { white: 0xd9d4c7, green: 0x70c77a, blue: 0x63a9e8, orange: 0xf2a65a, red: 0xe86a62 };
-    const accent = rankColor[animal.tier] ?? 0xd9d4c7;
-    if (animal.species === 'chicken') {
-      g.fillStyle(0xf3e8c8, 1); g.fillEllipse(-1, -2, 22, 15);
-      g.fillStyle(accent, 1); g.fillCircle(7, -10, 6);
-      g.fillStyle(0xeaa52d, 1); g.fillTriangle(12, -10, 20, -7, 12, -5);
-      g.fillStyle(0xc84b3e, 1); g.fillCircle(5, -17, 3);
-      g.lineStyle(2, 0x9b682c, 1); g.lineBetween(-5, 4, -6, 9); g.lineBetween(3, 4, 4, 9);
-      g.lineStyle(1, 0x9b682c, 1); g.lineBetween(-8, 9, -3, 9); g.lineBetween(2, 9, 7, 9);
-    } else if (animal.species === 'cow') {
-      g.fillStyle(0xf2eee3, 1); g.fillEllipse(-1, -2, 34, 20);
-      g.fillStyle(0x7b5136, 1); g.fillEllipse(-8, -4, 10, 8); g.fillEllipse(4, 1, 8, 6);
-      g.fillStyle(0xf0e7d7, 1); g.fillEllipse(14, -9, 15, 14);
-      g.fillStyle(0x8d6041, 1); g.fillTriangle(8, -15, 12, -23, 15, -14); g.fillTriangle(17, -14, 22, -22, 23, -11);
-      g.fillStyle(0xd88e91, 1); g.fillEllipse(19, -6, 9, 6);
-      g.lineStyle(3, 0x5a4635, 1); for (const legX of [-11, 8]) g.lineBetween(legX, 5, legX, 12);
+  private setFarmData(farm: FarmState, gold: number): void {
+    this.farm = farm;
+    this.farmGold = gold;
+    this.lastFarmSyncAt = Date.now();
+    this.hud?.setGold(gold);
+    this.ranchHud.update(farm, gold);
+
+    const signature = this.computeFarmSignature(farm);
+    if (signature !== this.farmSignature) {
+      this.farmSignature = signature;
+      this.rebuildBuildingsAndAnimals();
     } else {
-      g.fillStyle(0x9b6038, 1); g.fillEllipse(-2, -2, 38, 18);
-      g.fillStyle(0x9b6038, 1); g.fillTriangle(7, -8, 17, -25, 24, -8);
-      g.fillStyle(0x78442e, 1); g.fillEllipse(23, -20, 12, 9);
-      g.fillStyle(0x4a2d22, 1); g.fillTriangle(19, -25, 20, -34, 25, -25);
-      g.lineStyle(4, 0x5a3929, 1); g.lineBetween(-13, 4, -14, 13); g.lineBetween(7, 4, 8, 13);
-      g.lineStyle(3, 0x3f2921, 1); g.lineBetween(-20, -4, -26, 4);
+      this.updateBuildingBadges();
     }
-    root.add([shadow, g]);
-    root.setSize(48, 44).setInteractive({ useHandCursor: true });
-    return root;
+    this.renderPlots();
   }
 
-  private openAnimalDetails(animal: FarmState['animals'][number]): void {
-    this.animalDetails?.destroy();
-    const tierNames: Record<string, string> = {
-      white: 'Comum (D)', green: 'Incomum (C)', blue: 'Raro (B)', orange: 'Épico (A)', red: 'Lendário (S)'
-    };
-    const panel = this.add.container(this.scale.width / 2, this.scale.height - 132).setScrollFactor(0).setDepth(5000);
-    const bg = this.add.rectangle(0, 0, Math.min(460, this.scale.width - 28), 190, 0x18271d, 0.97)
-      .setStrokeStyle(2, 0xc5a66b, 0.9).setInteractive();
-    bg.on('pointerdown', (_pointer: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => event.stopPropagation());
-    const def = FARM_ANIMALS[animal.definitionId];
-    const tierOrder = ['white', 'green', 'blue', 'orange', 'red'];
-    const nextTierChance: Record<string, string> = { white: '8%', green: '5%', blue: '2%', orange: '0,5%', red: '0%' };
-    const nextTier = tierOrder[tierOrder.indexOf(animal.tier) + 1];
-    const breedingInfo = animal.species === 'chicken'
-      ? 'Ovos: 45% de chance de fecundação com galo adulto'
-      : 'Acasalamento: 12% de chance diária com parceiro adulto';
-    const pregnancyInfo = animal.pregnantUntil
-      ? 'Gestação em andamento'
-      : animal.species === 'chicken' ? 'Postura a cada 4 horas' : 'Aguardando reprodução';
-    const title = this.add.text(0, -73, `${def?.icon ?? '🐾'}  ${animal.name}`, {
-      fontFamily: 'Georgia, serif', fontSize: '16px', fontStyle: 'bold', color: '#f6e6bd'
-    }).setOrigin(0.5);
-    const details = this.add.text(0, -22,
-      `${def?.speciesName ?? 'Animal'} • ${animal.gender === 'female' ? 'Fêmea' : 'Macho'} • Rank ${tierNames[animal.tier] ?? 'Comum'} • ${Math.floor(animal.ageDays ?? 0)} dia(s)\nSaúde: ${animal.health ?? 100}%   Felicidade: ${animal.happiness ?? 100}%\nFome: ${100 - (animal.hunger ?? 100)}%   Sede: ${100 - (animal.hydration ?? 100)}%\n${pregnancyInfo} • ${breedingInfo}\nChance de subir para o próximo rank: ${nextTier ? nextTierChance[animal.tier] : 'rank máximo'}`,
-      { fontFamily: 'Georgia, serif', fontSize: '11px', color: '#e4eadc', align: 'center', lineSpacing: 5, wordWrap: { width: Math.min(420, this.scale.width - 60) } }
-    ).setOrigin(0.5);
-    const close = this.add.text(0, 72, 'Fechar', {
-      fontFamily: 'Georgia, serif', fontSize: '12px', color: '#ffe3a6',
-      backgroundColor: '#5b4529', padding: { x: 14, y: 6 }
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
-    close.on('pointerdown', (_pointer: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => { event.stopPropagation(); this.animalDetails?.destroy(); this.animalDetails = null; });
-    panel.add([bg, title, details, close]);
-    this.animalDetails = panel;
+  private applyFarmResponse(response: FarmResponse): void {
+    this.setFarmData(response.farm, response.gold);
   }
 
-  private drawDecorations(): void {
-    // Árvores com copa em camadas, sombra, tronco e pequenos frutos.
-    const treeSpots: Array<[number, number, number]> = [
-      [2, 2, 1], [5, 3, 0], [22, 2, 1], [24, 7, 0], [2, 16, 1],
-      [4, 20, 0], [23, 19, 1], [20, 18, 0], [7, 5, 0], [15, 3, 1],
-      [1, 10, 0], [5, 16, 1], [21, 5, 0], [10, 19, 0], [19, 16, 1]
-    ];
-    treeSpots.forEach(([col, row, variant], index) => {
-      const p = this.iso(col, row);
-      const g = this.add.graphics().setDepth(30 + p.y);
-      g.fillStyle(0x354d2b, 0.22); g.fillEllipse(p.x + 5, p.y + 12, 54, 18);
-      g.fillStyle(variant ? 0x69452b : 0x765033, 1); g.fillRoundedRect(p.x - 5, p.y - 7, 10, 35, 3);
-      g.fillStyle(variant ? 0x28613a : 0x347446, 1); g.fillCircle(p.x, p.y - 27, variant ? 25 : 21);
-      g.fillStyle(variant ? 0x438b4d : 0x4d9851, 1); g.fillCircle(p.x - 12, p.y - 35, 16);
-      g.fillStyle(variant ? 0x5ca85a : 0x70ad5a, 0.95); g.fillCircle(p.x + 10, p.y - 39, 13);
-      g.fillStyle(0x9acb68, 0.8); g.fillCircle(p.x - 6, p.y - 45, 7);
-      if (index % 3 === 0) {
-        g.fillStyle(0xc85d45, 1); g.fillCircle(p.x + 15, p.y - 29, 3); g.fillCircle(p.x - 15, p.y - 20, 3);
+  private computeFarmSignature(farm: FarmState | null): string {
+    if (!farm) return '';
+    const buildings = [...farm.buildings].sort().join(',');
+    const animals = farm.animals.map((animal) => animal.id).join(',');
+    const eggs = (farm.eggs ?? []).map((egg) => `${egg.id}:${egg.fertilized ? 1 : 0}`).join(',');
+    return `${buildings}|${animals}|${eggs}`;
+  }
+
+  private handleFarmUpdated(response: FarmResponse): void {
+    if (!this.alive) return;
+    this.applyFarmResponse(response);
+  }
+
+  private handleEscape(): void {
+    if (this.animalPanel) {
+      this.closeAnimalPanel();
+      return;
+    }
+    if (this.seedPicker) this.closeSeedPicker();
+  }
+
+  private handlePointerMove(pointer: Phaser.Input.Pointer): void {
+    this.lastPointerX = pointer.x;
+    this.lastPointerY = pointer.y;
+    if (this.hoverTip?.visible) this.positionHoverTip(pointer.x, pointer.y);
+  }
+
+  private handleFarmGroundClick(pointer: Phaser.Input.Pointer): void {
+    if (!this.avatar || pointer.button !== 0 || !this.world) return;
+    if (this.seedPicker || this.animalPanel) return;
+    if (this.ranchHud?.contains(pointer.x, pointer.y)) return;
+    if (this.input.hitTestPointer(pointer).length > 0) {
+      this.hideHoverTip();
+      return;
+    }
+
+    const targetX = Phaser.Math.Clamp(
+      (pointer.x - this.world.x) / this.world.scaleX,
+      FARM_LIMITS.minX,
+      FARM_LIMITS.maxX
+    );
+    const targetY = Phaser.Math.Clamp(
+      (pointer.y - this.world.y) / this.world.scaleY,
+      FARM_LIMITS.minY,
+      FARM_LIMITS.maxY
+    );
+    const distance = Phaser.Math.Distance.Between(this.avatar.root.x, this.avatar.root.y, targetX, targetY);
+    if (distance < 10) return;
+    this.moving = false;
+    this.avatar.walkTo(targetX, targetY, Phaser.Math.Clamp(distance * 3.1, 220, 4200));
+    this.hideHoverTip();
+  }
+
+  update(_time: number, delta: number): void {
+    if (!this.alive || !this.world) return;
+    if (this.avatar) {
+      this.avatar.root.setDepth(2000 + this.avatar.root.y);
+      if (this.cursors && this.keys && !this.seedPicker && !this.animalPanel) {
+        let dx = 0;
+        let dy = 0;
+        if (this.cursors.left.isDown || this.keys.A.isDown) { dx -= 1; dy += 0.5; }
+        if (this.cursors.right.isDown || this.keys.D.isDown) { dx += 1; dy -= 0.5; }
+        if (this.cursors.up.isDown || this.keys.W.isDown) { dx -= 1; dy -= 0.5; }
+        if (this.cursors.down.isDown || this.keys.S.isDown) { dx += 1; dy += 0.5; }
+        const magnitude = Math.hypot(dx, dy);
+        if (magnitude > 0) {
+          dx /= magnitude;
+          dy /= magnitude;
+          const distance = 185 * Math.min(delta, 50) / 1000;
+          this.avatar.root.x = Phaser.Math.Clamp(this.avatar.root.x + dx * distance, FARM_LIMITS.minX, FARM_LIMITS.maxX);
+          this.avatar.root.y = Phaser.Math.Clamp(this.avatar.root.y + dy * distance, FARM_LIMITS.minY, FARM_LIMITS.maxY);
+          this.avatar.facePoint(this.avatar.root.x + dx, this.avatar.root.y + dy);
+          this.avatar.setWalking(true);
+          this.moving = true;
+        } else if (this.moving) {
+          this.avatar.setWalking(false);
+          this.moving = false;
+        }
+      } else if (this.moving) {
+        this.avatar.setWalking(false);
+        this.moving = false;
       }
-      this.world.add(g);
-    });
 
-    // Arbustos, flores silvestres e pedras ao longo das cercas e caminhos.
-    const groundDetails: Array<[number, number, number]> = [
-      [3, 7, 0], [6, 8, 1], [8, 4, 2], [20, 4, 0], [22, 10, 1],
-      [3, 13, 2], [6, 18, 0], [9, 18, 1], [20, 19, 2], [23, 14, 0],
-      [14, 3, 1], [16, 19, 2], [5, 10, 0], [21, 8, 2], [8, 15, 1]
-    ];
-    groundDetails.forEach(([col, row, kind], index) => {
-      const p = this.iso(col, row);
-      const g = this.add.graphics().setDepth(35 + p.y);
-      if (kind === 0) {
-        g.fillStyle(0x376c3b, 1); g.fillEllipse(p.x, p.y, 23, 12);
-        g.fillStyle(0x5b984d, 1); g.fillCircle(p.x - 6, p.y - 5, 7); g.fillCircle(p.x + 5, p.y - 6, 8);
-      } else if (kind === 1) {
-        g.fillStyle(0x8c826e, 1); g.fillEllipse(p.x, p.y, 17, 9);
-        g.fillStyle(0xb6a98e, 1); g.fillEllipse(p.x - 3, p.y - 2, 7, 4);
-      } else {
-        const petals = [0xf2d36b, 0xe9a6b5, 0xf4eee0, 0xb8a0df];
-        g.lineStyle(2, 0x47783d, 1); g.lineBetween(p.x, p.y, p.x - 1, p.y - 9);
-        g.fillStyle(petals[index % petals.length] ?? 0xf2d36b, 1);
-        g.fillCircle(p.x - 4, p.y - 10, 3); g.fillCircle(p.x + 3, p.y - 10, 3);
-        g.fillCircle(p.x, p.y - 14, 3); g.fillStyle(0xe3b94f, 1); g.fillCircle(p.x, p.y - 10, 2);
-      }
-      this.world.add(g);
-    });
-
-    // A pesca é pública e acontece no lago da cidade principal.
-
-  }
-
-  private drawPlayer(): void {
-    this.avatar = new PlayerAvatar(this, this.character.classId, -20, 110);
-    this.avatar.root.setScale(0.78);
-    this.avatar.root.setDepth(410);
-    this.world.add(this.avatar.root);
-  }
-
-  private drawFarmHUD(): void {
-    this.farmHudText = this.add
-      .text(0, 320, this.getFarmStatusText(), {
-        fontFamily: 'Georgia, serif',
-        fontSize: '14px',
-        color: '#fff4d5',
-        stroke: '#294526',
-        strokeThickness: 4,
-        align: 'center',
-        lineSpacing: 5
-      })
-      .setOrigin(0.5)
-      .setDepth(100);
-    this.world.add(this.farmHudText);
-  }
-
-  private getFarmStatusText(): string {
-    const buildingsCount = this.farm?.buildings.length ?? 0;
-    const animalsCount = this.farm?.animals.length ?? 0;
-    const storage = this.farm?.storage ?? {};
-    const corn = storage['crop-corn'] ?? 0;
-    const wheat = storage['crop-wheat'] ?? 0;
-    const carrot = storage['crop-carrot'] ?? 0;
-    const seeds = this.farm?.seeds ?? {};
-    const chickenFeed = storage['feed-chicken'] ?? 0;
-    const cowFeed = storage['feed-cow'] ?? 0;
-    const horseFeed = storage['feed-horse'] ?? 0;
-
-    return `Fazenda de ${this.character.name} • Instalações: ${buildingsCount}/3 • Animais: ${animalsCount}
-Armazém: 🌽 ${corn}  •  🌾 ${wheat}  •  🥕 ${carrot}
-Sementes: 🌽 ${seeds.corn ?? 0}  •  🌾 ${seeds.wheat ?? 0}  •  🥕 ${seeds.carrot ?? 0}
-Rações: 🐔 ${chickenFeed}  •  🐄 ${cowFeed}  •  🐎 ${horseFeed}`;
-  }
-
-  private updateFarmHUD(): void {
-    this.farmHudText?.setText(this.getFarmStatusText());
+      const smooth = 1 - Math.pow(0.0016, Math.max(0.016, delta / 1000));
+      // Em telas estreitas, desloca o foco para o centro do rancho e mantém
+      // celeiro, horta e curral no enquadramento enquanto o jogador caminha.
+      const focusX = this.compactView
+        ? this.avatar.root.x + 380
+        : this.avatar.root.x;
+      this.cameraFocusX += (focusX - this.cameraFocusX) * smooth;
+      this.cameraFocusY += (this.avatar.root.y - this.cameraFocusY) * smooth;
+    }
+    this.applyFarmCamera();
   }
 
   private layout(): void {
-    if (!this.alive) return;
-    const mobile = this.scale.width < 760;
+    if (!this.alive || !this.scale) return;
+    const width = this.scale.width;
+    const height = this.scale.height;
+    const mobile = width < 760 || height < 520;
+    this.compactView = mobile;
+
+    if (this.seedPicker) this.closeSeedPicker();
+    if (this.animalPanel) this.closeAnimalPanel();
+
     this.cameraZoom = mobile
-      ? Phaser.Math.Clamp(Math.min(this.scale.width / 900, this.scale.height / 1180), 0.48, 0.78)
-      : Phaser.Math.Clamp(Math.min(this.scale.width / 1900, this.scale.height / 1180), 0.6, 0.94);
+      ? Phaser.Math.Clamp(Math.min(width / 1150, height / 1000), 0.36, 0.62)
+      : Phaser.Math.Clamp(Math.min(width / 1800, height / 1080), 0.66, 1.04);
+
+    this.ranchHud?.layout(width, height, mobile);
+    this.atmosphere?.resize(width, height);
+
     if (this.avatar) {
       this.cameraFocusX = this.avatar.root.x;
       this.cameraFocusY = this.avatar.root.y;
@@ -1020,11 +449,1378 @@ Rações: 🐔 ${chickenFeed}  •  🐄 ${cowFeed}  •  🐎 ${horseFeed}`;
     const zoom = this.cameraZoom;
     const halfW = this.scale.width / (2 * zoom);
     const halfH = this.scale.height / (2 * zoom);
-    const worldHalfX = ((COLS + ROWS - 2) * TILE_W) / 4;
-    const worldHalfY = ((COLS + ROWS - 2) * TILE_H) / 4;
-    const focusX = halfW >= worldHalfX ? 0 : Phaser.Math.Clamp(this.cameraFocusX, -worldHalfX + halfW, worldHalfX - halfW);
-    const focusY = halfH >= worldHalfY ? 0 : Phaser.Math.Clamp(this.cameraFocusY, -worldHalfY + halfH, worldHalfY - halfH);
+    const worldHalfX = 1080;
+    const worldHalfY = 600;
+    const focusX = halfW >= worldHalfX
+      ? 0
+      : Phaser.Math.Clamp(this.cameraFocusX, -worldHalfX + halfW, worldHalfX - halfW);
+    const focusY = halfH >= worldHalfY
+      ? 0
+      : Phaser.Math.Clamp(this.cameraFocusY, -worldHalfY + halfH, worldHalfY - halfH);
     this.world.setScale(zoom);
-    this.world.setPosition(this.scale.width / 2 - focusX * zoom, this.scale.height / 2 - focusY * zoom);
+    this.world.setPosition(
+      this.scale.width / 2 - focusX * zoom,
+      this.scale.height / 2 - focusY * zoom
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Cenário
+  // ---------------------------------------------------------------------------
+
+  private renderFullScene(): void {
+    this.world.removeAll(true);
+    this.plots = [];
+    this.buildingObjects = [];
+    this.livestockObjects = [];
+    this.buildingBadges = [];
+    this.hoveredPlotIndex = null;
+
+    const roads = buildRoads();
+    const ground = createGround(this, (col, row) => this.iso(col, row), COLS, ROWS, roads);
+    this.world.add(ground);
+
+    const meadow = createMeadowDetails(this, (col, row) => this.iso(col, row), COLS, ROWS, roads);
+    this.world.add(meadow);
+
+    this.addScenery();
+    this.buildPlotViews();
+    this.rebuildBuildingsAndAnimals();
+    this.farmSignature = this.computeFarmSignature(this.farm);
+    this.renderPlots();
+    this.drawPlayer();
+    this.atmosphere.resize(this.scale.width, this.scale.height);
+  }
+
+  private addScenery(): void {
+    const housePoint = this.iso(12, 6);
+    const house = createFarmhouse(this, housePoint.x, housePoint.y, this.character.name);
+    house.setDepth(2000 + housePoint.y);
+    this.world.add(house);
+
+    const barnPoint = this.iso(4, 7);
+    const barn = createBarn(this, barnPoint.x, barnPoint.y);
+    barn.setDepth(2000 + barnPoint.y);
+    this.world.add(barn);
+
+    const windmillPoint = this.iso(21, 5);
+    const windmill = createWindmill(this, windmillPoint.x, windmillPoint.y);
+    windmill.setDepth(2000 + windmillPoint.y);
+    this.world.add(windmill);
+
+    const wellPoint = this.iso(15, 8);
+    const well = createWell(this, wellPoint.x, wellPoint.y);
+    well.setDepth(2000 + wellPoint.y);
+    this.world.add(well);
+
+    const scarecrowPoint = this.iso(13, 16);
+    const scarecrow = createScarecrow(this, scarecrowPoint.x, scarecrowPoint.y);
+    scarecrow.setDepth(2000 + scarecrowPoint.y);
+    this.world.add(scarecrow);
+
+    const gardenPoint = this.iso(5.15, 10.55);
+    const gardenSign = createRusticSign(this, gardenPoint.x, gardenPoint.y, 'Horta do rancho');
+    gardenSign.setDepth(2000 + gardenPoint.y);
+    this.world.add(gardenSign);
+
+    const seedCratePoint = this.iso(5.3, 11.7);
+    const seedCrate = createSeedCrate(this, seedCratePoint.x, seedCratePoint.y, 0.95);
+    seedCrate.setDepth(2000 + seedCratePoint.y);
+    this.world.add(seedCrate);
+
+    const wateringCanPoint = this.iso(4.9, 13.4);
+    const wateringCan = createWateringCan(this, wateringCanPoint.x, wateringCanPoint.y, 1);
+    wateringCan.setDepth(2000 + wateringCanPoint.y);
+    this.world.add(wateringCan);
+
+    const wheelbarrowPoint = this.iso(4.35, 15.35);
+    const wheelbarrow = createWheelbarrow(this, wheelbarrowPoint.x, wheelbarrowPoint.y, 1);
+    wheelbarrow.setDepth(2000 + wheelbarrowPoint.y);
+    this.world.add(wheelbarrow);
+
+    const hayBaleA = createHayBale(this, -354, -204, 0.9);
+    hayBaleA.setDepth(2000 - 204);
+    this.world.add(hayBaleA);
+    const hayBaleB = createHayBale(this, -322, -190, 0.65);
+    hayBaleB.setDepth(2000 - 190);
+    this.world.add(hayBaleB);
+
+    const clothesline = createClothesline(this, 12, -102, 104);
+    clothesline.setDepth(2000 - 102);
+    this.world.add(clothesline);
+
+    const mailbox = createMailbox(this, 28, 424);
+    mailbox.setDepth(2000 + 424);
+    this.world.add(mailbox);
+
+    const gatePoint = this.iso(22, 20);
+    const gate = createRanchGate(this, gatePoint.x, gatePoint.y, this.character.name, () => this.exitToCity());
+    gate.setDepth(2000 + gatePoint.y);
+    this.world.add(gate);
+
+    for (const side of [-1, 1]) {
+      const fence = createFenceLine(
+        this,
+        gatePoint.x + 66 * side,
+        gatePoint.y - 12,
+        gatePoint.x + 292 * side,
+        gatePoint.y - 12,
+        { height: 20, spacing: 27, alpha: 0.95 }
+      );
+      fence.setDepth(2000 + gatePoint.y - 12);
+      this.world.add(fence);
+    }
+
+    const lanternPoints: Array<[number, number, number]> = [
+      [0, 48, 0.9],
+      [-360, 62, 0.85],
+      [-48, 264, 0.9]
+    ];
+    for (const [x, y, scale] of lanternPoints) {
+      const lantern = createLanternPost(this, x, y);
+      lantern.setScale(scale);
+      lantern.setDepth(2000 + y);
+      this.world.add(lantern);
+    }
+
+    const barrel = createBarrel(this, 328, -44, 0.9);
+    barrel.setDepth(2000 - 44);
+    this.world.add(barrel);
+
+    const treeSpots: Array<{
+      col: number;
+      row: number;
+      variant: 'oak' | 'fruit' | 'pine';
+      scale: number;
+    }> = [
+      { col: 2, row: 3, variant: 'oak', scale: 1.05 },
+      { col: 7, row: 4, variant: 'fruit', scale: 0.95 },
+      { col: 2, row: 10, variant: 'pine', scale: 1.0 },
+      { col: 4, row: 18, variant: 'oak', scale: 1.1 },
+      { col: 8, row: 20, variant: 'fruit', scale: 0.9 },
+      { col: 22, row: 3, variant: 'oak', scale: 1.0 },
+      { col: 24, row: 9, variant: 'pine', scale: 0.95 },
+      { col: 23, row: 15, variant: 'fruit', scale: 0.9 },
+      { col: 10, row: 19, variant: 'fruit', scale: 0.85 }
+    ];
+
+    for (const spot of treeSpots) {
+      const point = this.iso(spot.col, spot.row);
+      const tree = createTree(this, point.x, point.y, spot.variant, spot.scale);
+      tree.setDepth(2000 + point.y);
+      this.world.add(tree);
+    }
+
+    const butterflies: Array<[number, number, number]> = [
+      [-320, -46, 0xf2d36a],
+      [-210, -88, 0xe9a9b8],
+      [-430, 8, 0xf4eee0],
+      [250, -20, 0xf2c35f]
+    ];
+    for (const [x, y, color] of butterflies) {
+      const butterfly = createButterfly(this, x, y, color);
+      butterfly.setDepth(2000 + y + 30);
+      this.world.add(butterfly);
+    }
+
+    for (let index = 0; index < 10; index += 1) {
+      const x = -740 + ((index * 137) % 1480);
+      const y = -230 + ((index * 97) % 560);
+      const mote = this.add.circle(x, y, 1.2 + (index % 3) * 0.5, 0xffe6a4, 0.18 + (index % 4) * 0.03);
+      mote.setDepth(7500);
+      this.world.add(mote);
+      this.tweens.add({
+        targets: mote,
+        x: x + 18 + (index % 5) * 7,
+        y: y - 42 - (index % 4) * 14,
+        alpha: { from: mote.alpha, to: 0.04 },
+        duration: 4200 + (index % 5) * 900,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+        delay: index * 320
+      });
+    }
+  }
+
+  private exitToCity(): void {
+    sfxClick();
+    this.scene.stop('FarmScene');
+    this.scene.start('CityScene');
+  }
+
+  // ---------------------------------------------------------------------------
+  // Canteiros
+  // ---------------------------------------------------------------------------
+
+  private buildPlotViews(): void {
+    for (let index = 0; index < MAX_PLOTS; index += 1) {
+      const { col, row } = plotPosition(index);
+      const point = this.iso(col, row);
+      const container = this.add.container(point.x, point.y).setDepth(2000 + point.y);
+      const soil = this.add.graphics();
+      const art = this.add.graphics();
+      const marker = this.add.graphics();
+      const beacon = this.add.container(0, -30);
+      const beaconArt = this.add.graphics();
+      beaconArt.fillStyle(0xffd77a, 0.18);
+      beaconArt.fillCircle(0, 0, 12);
+      beaconArt.fillStyle(0xffe6a4, 0.95);
+      beaconArt.fillPoints([
+        { x: 0, y: -6 },
+        { x: 5, y: 0 },
+        { x: 0, y: 6 },
+        { x: -5, y: 0 }
+      ], true);
+      beaconArt.lineStyle(1.2, 0xa3742c, 0.8);
+      beaconArt.strokePoints([
+        { x: 0, y: -6 },
+        { x: 5, y: 0 },
+        { x: 0, y: 6 },
+        { x: -5, y: 0 }
+      ], true);
+      beacon.add(beaconArt);
+      beacon.setVisible(false);
+      container.add([soil, art, marker, beacon]);
+
+      const view: PlotView = {
+        index,
+        container,
+        soil,
+        art,
+        marker,
+        beacon,
+        hovered: false,
+        ready: false
+      };
+
+      container.setInteractive(
+        new Phaser.Geom.Polygon([
+          { x: 0, y: -26 },
+          { x: 45, y: 0 },
+          { x: 0, y: 26 },
+          { x: -45, y: 0 }
+        ]),
+        Phaser.Geom.Polygon.Contains
+      );
+      container.on('pointerover', (pointer: Phaser.Input.Pointer) => {
+        view.hovered = true;
+        this.hoveredPlotIndex = index;
+        this.renderPlotView(view);
+        this.showHoverTip(this.plotTooltip(view), pointer.x, pointer.y);
+      });
+      container.on('pointerout', () => {
+        view.hovered = false;
+        if (this.hoveredPlotIndex === index) this.hoveredPlotIndex = null;
+        this.renderPlotView(view);
+        this.hideHoverTip();
+      });
+      container.on(
+        'pointerdown',
+        (
+          _pointer: Phaser.Input.Pointer,
+          _localX: number,
+          _localY: number,
+          event: Phaser.Types.Input.EventData
+        ) => {
+          event.stopPropagation();
+          this.handlePlotClick(view);
+        }
+      );
+
+      this.world.add(container);
+      this.plots.push(view);
+
+      this.tweens.add({
+        targets: beacon,
+        y: { from: -30, to: -36 },
+        duration: 820,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+        delay: (index % 6) * 90
+      });
+    }
+  }
+
+  private unlockedPlots(): number {
+    return this.farm?.unlockedPlots ?? this.farm?.plots.length ?? INITIAL_PLOTS;
+  }
+
+  private plotState(index: number): FarmPlotState | undefined {
+    return this.farm?.plots.find((plot) => plot.plotIndex === index);
+  }
+
+  private isPlotReady(index: number): boolean {
+    const state = this.plotState(index);
+    if (!state?.cropId || !state.readyAt) return false;
+    return Date.now() >= new Date(state.readyAt).getTime();
+  }
+
+  private renderPlots(): void {
+    for (const view of this.plots) this.renderPlotView(view);
+    if (this.hoveredPlotIndex !== null) this.refreshHoverTip();
+  }
+
+  private renderPlotView(view: PlotView): void {
+    const unlocked = this.unlockedPlots();
+    const locked = view.index >= unlocked;
+    const state = this.plotState(view.index);
+    const cropId = state?.cropId ?? null;
+    const watered = Boolean(state?.readyAt);
+    const plantedAt = state?.plantedAt ? new Date(state.plantedAt).getTime() : 0;
+    const readyAt = state?.readyAt ? new Date(state.readyAt).getTime() : 0;
+    const now = Date.now();
+    const ready = Boolean(cropId && watered && readyAt > 0 && now >= readyAt);
+    const stage = cropId
+      ? watered && readyAt > plantedAt
+        ? Phaser.Math.Clamp((now - plantedAt) / Math.max(1, readyAt - plantedAt), 0.12, 1)
+        : 0.12
+      : 0;
+
+    view.ready = ready;
+    view.beacon.setVisible(ready);
+
+    const soil = view.soil;
+    soil.clear();
+    this.drawPlotSoil(soil, view.index, locked, Boolean(cropId), watered);
+
+    const art = view.art;
+    art.clear();
+    if (cropId && !locked) this.drawCropArt(art, cropId, stage, ready);
+
+    const marker = view.marker;
+    marker.clear();
+    if (locked) {
+      if (view.hovered) {
+        fillDiamond(marker, 0, -1, 0xffe6a4, 0.08, 84, 38);
+        strokeDiamond(marker, 0, -1, 0xe2cd9e, 0.45, 1.5, 84, 38);
+      }
+      return;
+    }
+
+    if (view.hovered) {
+      fillDiamond(marker, 0, -1, 0xffe6a4, 0.1, 82, 36);
+      strokeDiamond(marker, 0, -1, 0xffe6a4, 0.95, 2, 84, 38);
+    }
+
+    if (cropId && !watered) {
+      marker.fillStyle(0x4b97b5, 0.3);
+      marker.fillCircle(0, -22, 9);
+      marker.fillStyle(0x75c9e6, 0.98);
+      marker.fillCircle(0, -19, 6);
+      marker.fillStyle(0xcdf2fb, 1);
+      marker.fillTriangle(0, -31, -5, -21, 5, -21);
+      marker.fillStyle(0xffffff, 0.55);
+      marker.fillCircle(-2, -20, 1.6);
+    }
+
+    if (!cropId) {
+      // Pequenos brotos indicam que o canteiro está livre para plantio.
+      marker.lineStyle(1.4, 0x5b8c42, 0.85);
+      marker.lineBetween(-26, 4, -26, -2);
+      marker.lineBetween(-26, -2, -31, -5);
+      marker.lineBetween(-26, -2, -21, -5);
+      marker.fillStyle(0x79a95b, 0.9);
+      marker.fillEllipse(-31, -6, 4, 2.4);
+      marker.fillEllipse(-21, -6, 4, 2.4);
+    }
+  }
+
+  private drawPlotSoil(
+    graphics: Phaser.GameObjects.Graphics,
+    index: number,
+    locked: boolean,
+    planted: boolean,
+    watered: boolean
+  ): void {
+    if (locked) {
+      // As terras ainda não compradas se misturam ao capim. Só o contorno
+      // aparece ao passar o mouse, para não formar uma grade de losangos.
+      graphics.fillStyle(index % 2 === 0 ? 0x789f54 : 0x7ba557, 0.16);
+      fillDiamond(graphics, 0, 0, index % 2 === 0 ? 0x789f54 : 0x7ba557, 0.16, 88, 41);
+      for (let tuft = 0; tuft < 2; tuft += 1) {
+        const x = -26 + ((index * 37 + tuft * 31) % 52);
+        const y = -5 + ((index * 17 + tuft * 9) % 12);
+        graphics.lineStyle(1.2, tuft % 2 === 0 ? 0x5f8a47 : 0x89b45f, 0.7);
+        graphics.lineBetween(x, y, x - 3, y - 6);
+        graphics.lineBetween(x + 1, y, x + 1, y - 7);
+        graphics.lineBetween(x + 2, y, x + 4, y - 5);
+      }
+      if (index % 5 === 0) {
+        graphics.fillStyle(0xf2d36a, 0.85);
+        graphics.fillCircle(-18, -7, 1.6);
+        graphics.fillCircle(-15.5, -8.5, 1.6);
+        graphics.fillCircle(-16.7, -5.5, 1.6);
+        graphics.fillStyle(0xe8bd59, 1);
+        graphics.fillCircle(-16.7, -7, 1);
+      }
+      return;
+    }
+
+    graphics.fillStyle(0x263a1e, 0.24);
+    graphics.fillEllipse(2, 7, 90, 25);
+
+    graphics.fillStyle(0x4c321d, 0.85);
+    fillDiamond(graphics, 0, 2, 0x4c321d, 0.85, 90, 41);
+    fillDiamond(graphics, 0, 0, planted ? 0x6f482a : 0x96693f, 1, 84, 38);
+    fillDiamond(graphics, 0, -1, planted ? 0x7a5030 : 0xa17146, 1, 80, 34);
+
+    if (watered) {
+      graphics.fillStyle(0x4b7c88, 0.13);
+      fillDiamond(graphics, 0, -1, 0x4b7c88, 0.13, 78, 32);
+      graphics.fillStyle(0xbfe8ea, 0.25);
+      graphics.fillEllipse(-10, 1, 22, 5);
+      graphics.fillEllipse(14, -4, 15, 4);
+    }
+
+    // Sulcos arados.
+    for (let furrow = -1; furrow <= 1; furrow += 1) {
+      graphics.lineStyle(1.8, planted ? 0x54331d : 0x79502c, 0.8);
+      graphics.lineBetween(-27, furrow * 8 - 1, 27, furrow * 8 - 1);
+      graphics.lineStyle(0.8, planted ? 0x8d603a : 0xb18254, 0.5);
+      graphics.lineBetween(-27, furrow * 8 + 1, 27, furrow * 8 + 1);
+    }
+
+    // Pedrinhas e fios de capim nas bordas.
+    graphics.fillStyle(0x8e7b5d, 0.6);
+    graphics.fillEllipse(-31, 7, 6, 3);
+    graphics.fillEllipse(33, -7, 5, 2.4);
+    graphics.lineStyle(1, 0x688f4d, 0.75);
+    graphics.lineBetween(-36, 6, -38, -1);
+    graphics.lineBetween(35, -4, 37, -10);
+
+    // Moldura rústica de madeira, como um canteiro elevado.
+    strokeDiamond(graphics, 0, -1, 0x4c321d, 0.9, 3.2, 86, 39);
+    strokeDiamond(graphics, 0, -1, 0x9a6a3d, 0.95, 1.6, 83, 36.5);
+    graphics.lineStyle(0.8, 0xd0a167, 0.5);
+    graphics.lineBetween(-28, -12, 28, -12);
+  }
+
+  private drawCropArt(
+    graphics: Phaser.GameObjects.Graphics,
+    cropId: CropTypeId,
+    stage: number,
+    ready: boolean
+  ): void {
+    if (cropId === 'corn') {
+      for (let index = 0; index < 5; index += 1) {
+        const x = -28 + index * 14;
+        const baseY = 5 - Math.abs(index - 2) * 2.2;
+        const height = 7 + stage * 32 + (index % 2) * 2;
+        const topY = baseY - height;
+        graphics.lineStyle(2.4, ready ? 0x8e8a3f : 0x4f8a3b, 1);
+        graphics.lineBetween(x, baseY, x + 1, topY);
+        graphics.lineStyle(1, 0xa9c873, 0.4);
+        graphics.lineBetween(x - 0.5, baseY - 2, x + 0.5, topY + 3);
+
+        graphics.fillStyle(ready ? 0x76953f : 0x5a9748, 0.96);
+        graphics.fillTriangle(x, baseY - height * 0.38, x - 10, baseY - height * 0.55, x - 1, baseY - height * 0.6);
+        graphics.fillTriangle(x + 1, baseY - height * 0.62, x + 10, baseY - height * 0.78, x + 1, baseY - height * 0.82);
+
+        if (stage > 0.55) {
+          const earY = baseY - height * 0.62;
+          graphics.fillStyle(ready ? 0xf2c94c : 0xc9b05a, 1);
+          graphics.fillEllipse(x + 1, earY, 5, 12);
+          graphics.fillStyle(ready ? 0xffe48a : 0xdccb85, 0.85);
+          graphics.fillEllipse(x, earY - 1, 2.2, 7);
+          graphics.lineStyle(1, 0x7e6b34, 0.6);
+          graphics.lineBetween(x + 1, earY - 6, x + 1, earY + 6);
+        }
+
+        if (ready) {
+          graphics.lineStyle(1.3, 0xcda74a, 1);
+          graphics.lineBetween(x + 1, topY, x + 1, topY - 5);
+          graphics.fillStyle(0xf6da82, 1);
+          graphics.fillCircle(x + 1, topY - 6, 2);
+        }
+      }
+      return;
+    }
+
+    if (cropId === 'wheat') {
+      for (let index = 0; index < 7; index += 1) {
+        const x = -26 + index * 8.6;
+        const height = 9 + stage * 25 + (index % 3) * 2;
+        const topY = 6 - height;
+        graphics.lineStyle(1.6, ready ? 0xd6b45e : 0x78a34f, 1);
+        graphics.lineBetween(x, 6 + (index % 2), x + (index % 2 === 0 ? -2 : 2), topY);
+        if (stage > 0.45) {
+          graphics.fillStyle(ready ? 0xf3d477 : 0xa9c76b, 1);
+          for (let grain = 0; grain < 3; grain += 1) {
+            graphics.fillEllipse(x + (grain % 2 === 0 ? -1 : 1.4), topY + grain * 4, 3.4, 5.4);
+          }
+        }
+      }
+      return;
+    }
+
+    for (const offset of [-20, 0, 20]) {
+      const height = 10 + stage * 15;
+      for (let leaf = 0; leaf < 4; leaf += 1) {
+        const angle = -1.1 + leaf * 0.72;
+        graphics.lineStyle(1.6, leaf % 2 === 0 ? 0x4f8f43 : 0x6aa353, 1);
+        graphics.lineBetween(offset, 7, offset + Math.sin(angle) * height * 0.7, 7 - Math.cos(angle) * height);
+      }
+      graphics.fillStyle(0x5d9c49, 0.95);
+      graphics.fillEllipse(offset, 7 - height * 0.5, 3, height * 0.8);
+      if (ready) {
+        graphics.fillStyle(0xe98236, 1);
+        graphics.fillEllipse(offset, 8, 12, 7);
+        graphics.fillStyle(0xf7a44c, 1);
+        graphics.fillEllipse(offset - 2, 7, 6, 3.4);
+        graphics.fillStyle(0xbf5e25, 0.8);
+        graphics.fillEllipse(offset + 4, 9, 3, 1.6);
+      }
+    }
+  }
+
+  private plotTooltip(view: PlotView): string {
+    if (view.index >= this.unlockedPlots()) {
+      return '🔒 Canteiro bloqueado\nExpanda a terra no mercado do rancho.';
+    }
+    const state = this.plotState(view.index);
+    if (!state?.cropId) {
+      return '🌱 Canteiro livre\nClique para escolher uma semente.';
+    }
+    const crop = FARM_CROPS[state.cropId];
+    const icon = crop?.icon ?? '🌱';
+    const name = crop?.name ?? 'Cultivo';
+    if (!state.readyAt) {
+      return `${icon} ${name}\nClique para regar e iniciar o crescimento.`;
+    }
+    const remaining = new Date(state.readyAt).getTime() - Date.now();
+    if (remaining <= 0) {
+      return `${icon} ${name} pronto!\nClique para colher.`;
+    }
+    return `${icon} ${name}\nFica pronto em ${formatRemaining(remaining)}.`;
+  }
+
+  private refreshHoverTip(): void {
+    if (this.hoveredPlotIndex === null || !this.hoverTip?.visible) return;
+    const view = this.plots[this.hoveredPlotIndex];
+    if (!view) return;
+    this.showHoverTip(this.plotTooltip(view), this.lastPointerX, this.lastPointerY);
+  }
+
+  private tickPlotStates(): void {
+    let needsRender = false;
+    for (const view of this.plots) {
+      if (this.isPlotReady(view.index) !== view.ready) {
+        needsRender = true;
+        break;
+      }
+    }
+    if (needsRender) {
+      this.renderPlots();
+      return;
+    }
+    this.refreshHoverTip();
+  }
+
+  private handlePlotClick(view: PlotView): void {
+    if (!this.farm) return;
+    if (view.index >= this.unlockedPlots()) {
+      sfxClick();
+      this.openMarket();
+      return;
+    }
+    if (this.busyPlots.has(view.index)) return;
+
+    const state = this.plotState(view.index);
+    if (!state?.cropId) {
+      this.openSeedPicker(view.index);
+      return;
+    }
+
+    if (!state.readyAt) {
+      void this.waterPlot(view.index);
+      return;
+    }
+
+    const remaining = new Date(state.readyAt).getTime() - Date.now();
+    if (remaining > 0) {
+      this.floatText(view.container.x, view.container.y - 18, `⏳ ${formatRemaining(remaining)}`, '#ffe6a4');
+      return;
+    }
+    void this.harvestPlot(view.index);
+  }
+
+  private openSeedPicker(plotIndex: number): void {
+    if (!this.farm) return;
+    sfxClick();
+    this.hideHoverTip();
+    this.closeAnimalPanel();
+    this.closeSeedPicker();
+
+    const width = Math.min(382, this.scale.width - 24);
+    const height = 336;
+    const root = this.add.container(0, 0).setDepth(9700);
+
+    const overlay = this.add
+      .rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0x0e0803, 0.5)
+      .setInteractive();
+    overlay.on('pointerdown', () => this.closeSeedPicker());
+
+    const panel = this.add.container(this.scale.width / 2, this.scale.height / 2);
+    const background = this.add.graphics();
+    drawRanchPanel(background, -width / 2, -height / 2, width, height, { variant: 'parchment' });
+    const block = this.add
+      .rectangle(0, 0, width - 18, height - 18, 0x000000, 0.001)
+      .setInteractive();
+    block.on('pointerdown', (
+      _pointer: Phaser.Input.Pointer,
+      _localX: number,
+      _localY: number,
+      event: Phaser.Types.Input.EventData
+    ) => {
+      event.stopPropagation();
+    });
+
+    const eyebrow = this.add.text(0, -height / 2 + 31, 'HORTA DO RANCHO', {
+      fontFamily: RANCH_FONT_BODY,
+      fontSize: '8px',
+      fontStyle: 'bold',
+      color: '#8a6334',
+      letterSpacing: 2.4
+    }).setOrigin(0.5);
+
+    const title = this.add.text(0, -height / 2 + 53, 'O que vamos plantar?', {
+      fontFamily: RANCH_FONT_DISPLAY,
+      fontSize: '19px',
+      color: '#3a2514'
+    }).setOrigin(0.5);
+
+    const subtitle = this.add.text(0, -height / 2 + 74, 'Sementes do estoque ou compradas na hora.', {
+      fontFamily: RANCH_FONT_BODY,
+      fontSize: '9px',
+      color: '#7b5b36'
+    }).setOrigin(0.5);
+
+    panel.add([background, block, eyebrow, title, subtitle]);
+
+    const crops: CropTypeId[] = ['corn', 'wheat', 'carrot'];
+    crops.forEach((cropId, index) => {
+      const definition = FARM_CROPS[cropId];
+      const seedCount = this.farm?.seeds?.[cropId] ?? 0;
+      const rowY = -height / 2 + 132 + index * 58;
+      const row = this.add.container(0, rowY);
+
+      const rowBackground = this.add.graphics();
+      rowBackground.fillStyle(0x9c7748, 0.1);
+      rowBackground.fillRoundedRect(-width / 2 + 22, -23, width - 44, 46, 8);
+      rowBackground.lineStyle(1, 0xa77d4b, 0.35);
+      rowBackground.strokeRoundedRect(-width / 2 + 22, -23, width - 44, 46, 8);
+      rowBackground.fillStyle(0xc9a46b, 0.24);
+      rowBackground.fillCircle(-width / 2 + 48, 0, 17);
+      rowBackground.lineStyle(1, 0x9a7442, 0.4);
+      rowBackground.strokeCircle(-width / 2 + 48, 0, 17);
+
+      const icon = this.add.text(-width / 2 + 48, 0, definition.icon, {
+        fontFamily: '"Segoe UI Emoji", "Apple Color Emoji", sans-serif',
+        fontSize: '19px'
+      }).setOrigin(0.5);
+
+      const name = this.add.text(-width / 2 + 72, -9, definition.name, {
+        fontFamily: RANCH_FONT_DISPLAY,
+        fontSize: '12px',
+        color: '#3d2816'
+      });
+      const stock = this.add.text(
+        -width / 2 + 72,
+        7,
+        seedCount > 0 ? `${seedCount} semente${seedCount > 1 ? 's' : ''} no estoque` : `Sem sementes · ${definition.cost} ouro`,
+        {
+          fontFamily: RANCH_FONT_BODY,
+          fontSize: '8.5px',
+          color: '#7b5b36'
+        }
+      );
+
+      const action = this.add.text(width / 2 - 40, 0, seedCount > 0 ? 'Plantar' : 'Comprar', {
+        fontFamily: RANCH_FONT_BODY,
+        fontSize: '9px',
+        fontStyle: 'bold',
+        color: '#2e5c32'
+      }).setOrigin(1, 0.5);
+
+      const hit = this.add
+        .rectangle(0, 0, width - 44, 46, 0x000000, 0.001)
+        .setInteractive({ useHandCursor: true });
+      hit.on('pointerover', () => {
+        rowBackground.clear();
+        rowBackground.fillStyle(0xe3c789, 0.55);
+        rowBackground.fillRoundedRect(-width / 2 + 22, -23, width - 44, 46, 8);
+        rowBackground.lineStyle(1.3, 0x9a6f39, 0.7);
+        rowBackground.strokeRoundedRect(-width / 2 + 22, -23, width - 44, 46, 8);
+        rowBackground.fillStyle(0xd4b273, 0.5);
+        rowBackground.fillCircle(-width / 2 + 48, 0, 17);
+      });
+      hit.on('pointerout', () => {
+        rowBackground.clear();
+        rowBackground.fillStyle(0x9c7748, 0.1);
+        rowBackground.fillRoundedRect(-width / 2 + 22, -23, width - 44, 46, 8);
+        rowBackground.lineStyle(1, 0xa77d4b, 0.35);
+        rowBackground.strokeRoundedRect(-width / 2 + 22, -23, width - 44, 46, 8);
+        rowBackground.fillStyle(0xc9a46b, 0.24);
+        rowBackground.fillCircle(-width / 2 + 48, 0, 17);
+        rowBackground.lineStyle(1, 0x9a7442, 0.4);
+        rowBackground.strokeCircle(-width / 2 + 48, 0, 17);
+      });
+      hit.on(
+        'pointerdown',
+        (
+          _pointer: Phaser.Input.Pointer,
+          _localX: number,
+          _localY: number,
+          event: Phaser.Types.Input.EventData
+        ) => {
+          event.stopPropagation();
+          this.closeSeedPicker();
+          void this.plantWithSeedCheck(plotIndex, cropId, seedCount);
+        }
+      );
+
+      row.add([rowBackground, icon, name, stock, action, hit]);
+      panel.add(row);
+    });
+
+    const footer = this.add.text(0, height / 2 - 51, 'Cada plantio usa 1 semente.', {
+      fontFamily: RANCH_FONT_BODY,
+      fontSize: '8px',
+      color: '#8a6a42'
+    }).setOrigin(0.5);
+
+    const closeButton = createRanchButton(this, {
+      width: 120,
+      height: 27,
+      label: 'Cancelar',
+      fontSize: 9,
+      onClick: () => this.closeSeedPicker()
+    });
+    closeButton.container.setPosition(0, height / 2 - 26);
+    panel.add([footer, closeButton.container]);
+
+    root.add([overlay, panel]);
+    this.seedPicker = root;
+  }
+
+  private closeSeedPicker(): void {
+    this.seedPicker?.destroy(true);
+    this.seedPicker = null;
+  }
+
+  private async plantWithSeedCheck(plotIndex: number, cropId: CropTypeId, seedCount: number): Promise<void> {
+    if (this.busyPlots.has(plotIndex)) return;
+    this.busyPlots.add(plotIndex);
+    try {
+      if (seedCount < 1) {
+        const bought = await api.buyFarmSeeds(this.character.id, cropId, 1);
+        if (!this.alive) return;
+        this.applyFarmResponse(bought);
+        this.hud?.pushFeed(bought.message ?? `${FARM_CROPS[cropId].seedName} compradas.`, 'gold');
+      }
+      const state = this.plotState(plotIndex);
+      if (state?.cropId) return;
+      const response = await api.plantFarmCrop(this.character.id, plotIndex, cropId);
+      if (!this.alive) return;
+      this.applyFarmResponse(response);
+      this.hud?.pushFeed(response.message ?? 'Semente plantada!', 'gold');
+      sfxClick();
+      const view = this.plots[plotIndex];
+      if (view) {
+        this.floatText(view.container.x, view.container.y - 24, `🌱 ${FARM_CROPS[cropId].name}`, '#d8f0c8');
+      }
+    } catch (error) {
+      this.hud?.pushFeed(
+        error instanceof Error ? error.message : 'Não foi possível plantar neste canteiro.',
+        'danger'
+      );
+      this.renderPlots();
+    } finally {
+      this.busyPlots.delete(plotIndex);
+    }
+  }
+
+  private async waterPlot(plotIndex: number): Promise<void> {
+    if (this.busyPlots.has(plotIndex)) return;
+    this.busyPlots.add(plotIndex);
+    try {
+      const response = await api.waterFarmCrop(this.character.id, plotIndex);
+      if (!this.alive) return;
+      this.applyFarmResponse(response);
+      this.hud?.pushFeed(response.message ?? 'Plantação regada!', 'gold');
+      sfxClick();
+      const view = this.plots[plotIndex];
+      if (view) this.floatText(view.container.x, view.container.y - 20, '💧 Regado', '#bde9f4');
+    } catch (error) {
+      this.hud?.pushFeed(
+        error instanceof Error ? error.message : 'Não foi possível regar o canteiro.',
+        'danger'
+      );
+    } finally {
+      this.busyPlots.delete(plotIndex);
+    }
+  }
+
+  private async harvestPlot(plotIndex: number): Promise<void> {
+    if (this.busyPlots.has(plotIndex)) return;
+    const state = this.plotState(plotIndex);
+    const cropName = state?.cropId ? FARM_CROPS[state.cropId].name : 'Colheita';
+    this.busyPlots.add(plotIndex);
+    try {
+      const response = await api.harvestFarmCrop(this.character.id, plotIndex);
+      if (!this.alive) return;
+      this.applyFarmResponse(response);
+      this.hud?.pushFeed(response.message ?? 'Colheita concluída com sucesso!', 'gold');
+      sfxClick();
+      const view = this.plots[plotIndex];
+      if (view) {
+        this.floatText(view.container.x, view.container.y - 24, `✨ ${cropName}!`, '#ffe08a');
+      }
+    } catch (error) {
+      this.hud?.pushFeed(
+        error instanceof Error ? error.message : 'Não foi possível colher esta plantação.',
+        'danger'
+      );
+    } finally {
+      this.busyPlots.delete(plotIndex);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Construções, animais e ovos
+  // ---------------------------------------------------------------------------
+
+  private rebuildBuildingsAndAnimals(): void {
+    for (const object of this.buildingObjects) object.destroy();
+    this.buildingObjects = [];
+    for (const object of this.livestockObjects) object.destroy();
+    this.livestockObjects = [];
+    this.buildingBadges = [];
+
+    const owned = new Set<FarmBuildingId>(this.farm?.buildings ?? []);
+
+    for (const buildingId of BUILDING_ORDER) {
+      const layout = BUILDING_LAYOUTS[buildingId];
+      const point = this.iso(layout.col, layout.row);
+      if (owned.has(buildingId)) {
+        const art = this.createBuildingArt(buildingId, point.x, point.y);
+        art.setDepth(2000 + point.y);
+        this.world.add(art);
+        this.buildingObjects.push(art);
+
+        const badge = this.createBuildingBadge(buildingId, point.x, point.y);
+        this.world.add(badge);
+        this.buildingObjects.push(badge);
+      } else {
+        const definition = FARM_BUILDINGS[buildingId];
+        const pad = createVacantPad(
+          this,
+          point.x,
+          point.y,
+          definition.name,
+          definition.icon,
+          definition.cost
+        );
+        pad.setDepth(2000 + point.y);
+        pad.setInteractive(
+          new Phaser.Geom.Rectangle(-104, -118, 208, 178),
+          Phaser.Geom.Rectangle.Contains
+        );
+        pad.on('pointerover', (pointer: Phaser.Input.Pointer) => {
+          this.showHoverTip(
+            `LOTE DISPONÍVEL · ${definition.name}\n${definition.icon} ${definition.cost.toLocaleString('pt-BR')} ouro no mercado.\nClique para abrir o comércio do rancho.`,
+            pointer.x,
+            pointer.y
+          );
+        });
+        pad.on('pointerout', () => this.hideHoverTip());
+        pad.on(
+          'pointerdown',
+          (
+            _pointer: Phaser.Input.Pointer,
+            _localX: number,
+            _localY: number,
+            event: Phaser.Types.Input.EventData
+          ) => {
+            event.stopPropagation();
+            sfxClick();
+            this.openMarket();
+          }
+        );
+        this.world.add(pad);
+        this.buildingObjects.push(pad);
+      }
+    }
+
+    this.spawnAnimals();
+    this.spawnEggs();
+    this.updateBuildingBadges();
+  }
+
+  private createBuildingArt(
+    buildingId: FarmBuildingId,
+    x: number,
+    y: number
+  ): Phaser.GameObjects.Container {
+    if (buildingId === 'coop') return createCoop(this, x, y);
+    if (buildingId === 'corral') return createCorral(this, x, y);
+    return createStable(this, x, y);
+  }
+
+  private createBuildingBadge(
+    buildingId: FarmBuildingId,
+    x: number,
+    y: number
+  ): Phaser.GameObjects.Container {
+    const definition = FARM_BUILDINGS[buildingId];
+    // O estábulo possui piquete e cochos baixos; a placa desce para não cobrir os cavalos.
+    const badgeOffset = buildingId === 'stable' ? 124 : 96;
+    const badge = this.add.container(x, y + badgeOffset).setDepth(2000 + y + badgeOffset + 14);
+    const graphics = this.add.graphics();
+    graphics.fillStyle(0x263a1e, 0.22);
+    graphics.fillEllipse(0, 1, 150, 16);
+    graphics.fillStyle(0x54351f, 1);
+    graphics.fillRoundedRect(-55, -42, 6, 44, 1.5);
+    graphics.fillRoundedRect(49, -42, 6, 44, 1.5);
+    graphics.fillStyle(0x8a5b33, 1);
+    graphics.fillRect(-53.5, -40, 3, 39);
+    graphics.fillRect(50.5, -40, 3, 39);
+    graphics.fillStyle(0x3d2515, 1);
+    graphics.fillRoundedRect(-70, -43, 140, 25, 5);
+    graphics.fillStyle(0x8b5b33, 1);
+    graphics.fillRoundedRect(-67, -41, 134, 21, 4);
+    graphics.lineStyle(1, 0xd9b979, 0.7);
+    graphics.strokeRoundedRect(-64, -38, 128, 15, 3);
+    graphics.fillStyle(0x5e3d24, 1);
+    graphics.fillCircle(-64, -31, 1.8);
+    graphics.fillCircle(64, -31, 1.8);
+
+    const label = this.add.text(0, -30.5, definition.name.toUpperCase(), {
+      fontFamily: RANCH_FONT_BODY,
+      fontSize: '8px',
+      fontStyle: 'bold',
+      color: '#ffe9b8',
+      letterSpacing: 0.6
+    }).setOrigin(0.5);
+
+    const hit = this.add
+      .rectangle(0, -30, 142, 32, 0x000000, 0.001)
+      .setInteractive({ useHandCursor: true });
+    hit.on('pointerover', (pointer: Phaser.Input.Pointer) => {
+      const farm = this.farm;
+      const count = farm?.animals.filter((animal) => animal.buildingId === buildingId).length ?? 0;
+      const care = farm?.animalCare?.[buildingId] ?? { feed: 0, water: 0 };
+      this.showHoverTip(
+        `${definition.name} · ${count}/${definition.capacity} animais\nRação: ${care.feed}/30 · Água: ${care.water}/30\nClique para abrir o mercado do rancho.`,
+        pointer.x,
+        pointer.y
+      );
+    });
+    hit.on('pointerout', () => this.hideHoverTip());
+    hit.on(
+      'pointerdown',
+      (
+        _pointer: Phaser.Input.Pointer,
+        _localX: number,
+        _localY: number,
+        event: Phaser.Types.Input.EventData
+      ) => {
+        event.stopPropagation();
+        sfxClick();
+        this.openMarket();
+      }
+    );
+
+    badge.add([graphics, label, hit]);
+    this.buildingBadges.push({ buildingId, label });
+    return badge;
+  }
+
+  private updateBuildingBadges(): void {
+    for (const badge of this.buildingBadges) {
+      const definition = FARM_BUILDINGS[badge.buildingId];
+      const count = this.farm?.animals.filter((animal) => animal.buildingId === badge.buildingId).length ?? 0;
+      badge.label.setText(`${definition.name.toUpperCase()} · ${count}/${definition.capacity}`);
+    }
+  }
+
+  private spawnAnimals(): void {
+    const animals = this.farm?.animals ?? [];
+    const counters: Record<FarmBuildingId, number> = { coop: 0, corral: 0, stable: 0 };
+
+    for (const animal of animals) {
+      const layout = BUILDING_LAYOUTS[animal.buildingId];
+      const anchor = this.iso(layout.col, layout.row);
+      const index = counters[animal.buildingId];
+      counters[animal.buildingId] += 1;
+
+      const slot = this.animalSlot(animal.species, index);
+      const visual = createAnimalVisual(this, {
+        species: animal.species,
+        tier: animal.tier,
+        gender: animal.gender,
+        name: animal.name
+      });
+      visual.root.setPosition(anchor.x + slot.x, anchor.y + slot.y);
+      visual.root.setDepth(2000 + anchor.y + slot.y);
+      visual.face(index % 2 === 0 ? 1 : -1);
+      this.world.add(visual.root);
+      this.livestockObjects.push(visual.root);
+
+      visual.root.on('pointerover', (pointer: Phaser.Input.Pointer) => {
+        visual.setLabelVisible(true);
+        const definition = FARM_ANIMALS[animal.definitionId];
+        const rank = RANK_LABELS[animal.tier] ?? 'Comum';
+        this.showHoverTip(
+          `${definition?.icon ?? '🐾'} ${animal.name}\n${definition?.speciesName ?? animal.species} · ${animal.gender === 'female' ? 'Fêmea' : 'Macho'} · Rank ${rank}\nClique para ver a ficha do animal.`,
+          pointer.x,
+          pointer.y
+        );
+      });
+      visual.root.on('pointerout', () => {
+        visual.setLabelVisible(false);
+        this.hideHoverTip();
+      });
+      visual.root.on(
+        'pointerdown',
+        (
+          _pointer: Phaser.Input.Pointer,
+          _localX: number,
+          _localY: number,
+          event: Phaser.Types.Input.EventData
+        ) => {
+          event.stopPropagation();
+          sfxClick();
+          visual.setLabelVisible(false);
+          this.hideHoverTip();
+          this.openAnimalDetails(animal);
+        }
+      );
+
+      this.scheduleAnimalRoam(visual, anchor.x + slot.x, anchor.y + slot.y, animal.species);
+    }
+  }
+
+  private animalSlot(
+    species: AnimalSpeciesId,
+    index: number
+  ): { x: number; y: number } {
+    const slots: Record<AnimalSpeciesId, Array<[number, number]>> = {
+      chicken: [
+        [-58, 20], [-18, 28], [24, 20], [58, 28], [-38, 36], [6, 36]
+      ],
+      cow: [
+        [-70, 26], [30, 30], [-22, 36], [76, 20]
+      ],
+      horse: [
+        [-28, 56], [32, 60], [-4, 50], [64, 54]
+      ]
+    };
+    const list = slots[species];
+    const slot = list[index % list.length] ?? [0, 24];
+    return { x: slot[0], y: slot[1] };
+  }
+
+  private scheduleAnimalRoam(
+    visual: AnimalVisual,
+    homeX: number,
+    homeY: number,
+    species: AnimalSpeciesId
+  ): void {
+    const roam = (): void => {
+      if (!this.alive || !visual.root.active) return;
+      const radius = species === 'chicken' ? 18 : species === 'cow' ? 14 : 10;
+      const targetX = homeX + Phaser.Math.Between(-radius, radius);
+      const targetY = homeY + Phaser.Math.Between(-4, 7);
+      visual.face(targetX >= visual.root.x ? 1 : -1);
+      this.tweens.add({
+        targets: visual.root,
+        x: targetX,
+        y: targetY,
+        duration: Phaser.Math.Between(1800, 4200),
+        ease: 'Sine.easeInOut',
+        onUpdate: () => {
+          if (visual.root.active) visual.root.setDepth(2000 + visual.root.y);
+        },
+        onComplete: () => {
+          if (!visual.root.active) return;
+          this.time.delayedCall(Phaser.Math.Between(700, 2400), roam);
+        }
+      });
+    };
+    this.time.delayedCall(Phaser.Math.Between(400, 1800), roam);
+  }
+
+  private spawnEggs(): void {
+    if (!this.farm?.buildings.includes('coop')) return;
+    const anchor = this.iso(BUILDING_LAYOUTS.coop.col, BUILDING_LAYOUTS.coop.row);
+    (this.farm.eggs ?? []).slice(0, 6).forEach((egg, index) => {
+      const x = anchor.x - 30 + (index % 3) * 20;
+      const y = anchor.y + 20 + Math.floor(index / 3) * 9;
+      const graphics = this.add.graphics();
+      graphics.fillStyle(0x263a1e, 0.2);
+      graphics.fillEllipse(x, y + 4, 10, 4);
+      graphics.fillStyle(egg.fertilized ? 0xe9d9a5 : 0xf8f1de, 1);
+      graphics.fillEllipse(x, y, 7, 9);
+      graphics.fillStyle(0xffffff, 0.55);
+      graphics.fillEllipse(x - 1.6, y - 2, 2.4, 3.2);
+      graphics.lineStyle(0.8, egg.fertilized ? 0xb89a52 : 0xd8cbb0, 0.8);
+      graphics.strokeEllipse(x, y, 7, 9);
+      graphics.setDepth(2000 + y);
+      this.world.add(graphics);
+      this.livestockObjects.push(graphics);
+    });
+  }
+
+  private openMarket(): void {
+    const openShop = this.registry.get('openFarmShop') as (() => void) | undefined;
+    openShop?.();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Ficha do animal
+  // ---------------------------------------------------------------------------
+
+  private openAnimalDetails(animal: OwnedAnimal): void {
+    this.closeSeedPicker();
+    this.closeAnimalPanel();
+
+    const definition = FARM_ANIMALS[animal.definitionId];
+    const width = Math.min(470, this.scale.width - 24);
+    const height = 302;
+    const root = this.add.container(0, 0).setDepth(9700);
+
+    const overlay = this.add
+      .rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0x0e0803, 0.5)
+      .setInteractive();
+    overlay.on('pointerdown', () => this.closeAnimalPanel());
+
+    const panel = this.add.container(this.scale.width / 2, this.scale.height / 2);
+    const background = this.add.graphics();
+    drawRanchPanel(background, -width / 2, -height / 2, width, height, { variant: 'parchment' });
+    const block = this.add
+      .rectangle(0, 0, width - 18, height - 18, 0x000000, 0.001)
+      .setInteractive();
+    block.on('pointerdown', (
+      _pointer: Phaser.Input.Pointer,
+      _localX: number,
+      _localY: number,
+      event: Phaser.Types.Input.EventData
+    ) => {
+      event.stopPropagation();
+    });
+
+    const rankLabel = RANK_LABELS[animal.tier] ?? 'Comum';
+    const accent = RANK_COLORS[animal.tier] ?? 0xe6dfca;
+
+    const eyebrow = this.add.text(0, -height / 2 + 27, 'FICHA DO ANIMAL', {
+      fontFamily: RANCH_FONT_BODY,
+      fontSize: '8px',
+      fontStyle: 'bold',
+      color: '#8a6334',
+      letterSpacing: 2.2
+    }).setOrigin(0.5);
+
+    const title = this.add.text(0, -height / 2 + 49, `${definition?.icon ?? '🐾'} ${animal.name}`, {
+      fontFamily: RANCH_FONT_DISPLAY,
+      fontSize: '19px',
+      color: '#3a2514'
+    }).setOrigin(0.5);
+
+    const subtitle = this.add.text(
+      0,
+      -height / 2 + 69,
+      `${definition?.speciesName ?? animal.species} · ${animal.gender === 'female' ? 'Fêmea' : 'Macho'} · ${Math.floor(animal.ageDays ?? 0)} dia(s)`,
+      {
+        fontFamily: RANCH_FONT_BODY,
+        fontSize: '9px',
+        color: '#7b5b36'
+      }
+    ).setOrigin(0.5);
+
+    const portraitX = -width / 2 + 86;
+    const portraitY = 18;
+    const portrait = this.add.graphics();
+    portrait.fillStyle(accent, 0.18);
+    portrait.fillCircle(portraitX, portraitY, 54);
+    portrait.fillStyle(0xf6ead0, 0.8);
+    portrait.fillCircle(portraitX, portraitY, 48);
+    portrait.lineStyle(2, accent, 0.85);
+    portrait.strokeCircle(portraitX, portraitY, 48);
+    portrait.lineStyle(1, 0x9a7442, 0.4);
+    portrait.strokeCircle(portraitX, portraitY, 42);
+
+    const visual = createAnimalVisual(this, {
+      species: animal.species,
+      tier: animal.tier,
+      gender: animal.gender,
+      name: animal.name
+    });
+    visual.root.disableInteractive();
+    visual.root.setPosition(portraitX, portraitY + 18);
+    visual.root.setScale(1.15);
+    visual.setLabelVisible(false);
+
+    const rankPill = this.add.graphics();
+    rankPill.fillStyle(0x3d2515, 0.9);
+    rankPill.fillRoundedRect(portraitX - 42, 76, 84, 18, 9);
+    rankPill.fillStyle(accent, 0.95);
+    rankPill.fillCircle(portraitX - 30, 85, 3.4);
+
+    const rankText = this.add.text(portraitX - 22, 85, `Rank ${rankLabel}`, {
+      fontFamily: RANCH_FONT_BODY,
+      fontSize: '8.5px',
+      fontStyle: 'bold',
+      color: '#ffe9b8'
+    }).setOrigin(0, 0.5);
+
+    const barsX = -width / 2 + 160;
+    const barsWidth = width - (barsX + width / 2) - 24;
+    const stats: Array<[string, number, number]> = [
+      ['Saúde', animal.health ?? 100, 0x74b46a],
+      ['Felicidade', animal.happiness ?? 100, 0xe0b75c],
+      ['Fome', animal.hunger ?? 100, 0xd08c54],
+      ['Sede', animal.hydration ?? 100, 0x6cb3c8]
+    ];
+
+    const statGraphics = this.add.graphics();
+    stats.forEach(([label, value, color], index) => {
+      const y = -54 + index * 27;
+      statGraphics.fillStyle(0xc8a875, 0.4);
+      statGraphics.fillRoundedRect(barsX, y + 10, barsWidth, 6, 3);
+      statGraphics.fillStyle(color, 1);
+      statGraphics.fillRoundedRect(barsX, y + 10, Math.max(3, barsWidth * (value / 100)), 6, 3);
+      statGraphics.lineStyle(0.8, 0x8a6334, 0.35);
+      statGraphics.strokeRoundedRect(barsX, y + 10, barsWidth, 6, 3);
+    });
+
+    const statTexts: Phaser.GameObjects.Text[] = [];
+    stats.forEach(([label, value], index) => {
+      const y = -54 + index * 27;
+      const name = this.add.text(barsX, y - 2, label, {
+        fontFamily: RANCH_FONT_BODY,
+        fontSize: '8.5px',
+        color: '#6b4a28'
+      });
+      const amount = this.add.text(barsX + barsWidth, y - 2, `${Math.round(value)}%`, {
+        fontFamily: RANCH_FONT_BODY,
+        fontSize: '8.5px',
+        fontStyle: 'bold',
+        color: '#4b321b'
+      }).setOrigin(1, 0);
+      statTexts.push(name, amount);
+    });
+
+    const pregnancy = animal.pregnantUntil
+      ? `Gestação em andamento até ${new Date(animal.pregnantUntil).toLocaleDateString('pt-BR')}.`
+      : animal.species === 'chicken'
+        ? 'Postura a cada 4 horas quando adulta e bem cuidada.'
+        : 'Aguardando um parceiro adulto para reprodução.';
+    const breeding = animal.species === 'chicken'
+      ? 'Ovos: 45% de chance de fecundação com um galo adulto.'
+      : 'Acasalamento: 12% de chance diária com um parceiro adulto.';
+
+    const details = this.add.text(0, 77, `${pregnancy}\n${breeding}`, {
+      fontFamily: RANCH_FONT_BODY,
+      fontSize: '8.5px',
+      color: '#7b5b36',
+      align: 'center',
+      lineSpacing: 4,
+      wordWrap: { width: width - 48 }
+    }).setOrigin(0.5, 0);
+
+    const closeButton = createRanchButton(this, {
+      width: 128,
+      height: 28,
+      label: 'Fechar ficha',
+      fontSize: 9,
+      onClick: () => this.closeAnimalPanel()
+    });
+    closeButton.container.setPosition(0, height / 2 - 25);
+
+    panel.add([
+      background,
+      block,
+      eyebrow,
+      title,
+      subtitle,
+      portrait,
+      visual.root,
+      rankPill,
+      rankText,
+      statGraphics,
+      ...statTexts,
+      details,
+      closeButton.container
+    ]);
+
+    root.add([overlay, panel]);
+    this.animalPanel = root;
+  }
+
+  private closeAnimalPanel(): void {
+    this.animalPanel?.destroy(true);
+    this.animalPanel = null;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Jogador, tooltip e efeitos
+  // ---------------------------------------------------------------------------
+
+  private drawPlayer(): void {
+    const spawn = this.iso(12, 18);
+    this.avatar = new PlayerAvatar(this, this.character.classId, spawn.x, spawn.y);
+    this.avatar.root.setScale(0.86);
+    this.avatar.root.setDepth(2000 + spawn.y);
+    this.world.add(this.avatar.root);
+  }
+
+  private showHoverTip(text: string, screenX: number, screenY: number): void {
+    if (!this.hoverTip) return;
+    this.hoverTip.setText(text).setVisible(true);
+    this.positionHoverTip(screenX, screenY);
+  }
+
+  private positionHoverTip(screenX: number, screenY: number): void {
+    if (!this.hoverTip) return;
+    const padding = 12;
+    let x = screenX + 18;
+    let y = screenY + 18;
+    if (x + this.hoverTip.width > this.scale.width - padding) {
+      x = screenX - this.hoverTip.width - 16;
+    }
+    if (y + this.hoverTip.height > this.scale.height - padding) {
+      y = screenY - this.hoverTip.height - 16;
+    }
+    this.hoverTip.setPosition(
+      Phaser.Math.Clamp(x, padding, Math.max(padding, this.scale.width - this.hoverTip.width - padding)),
+      Phaser.Math.Clamp(y, padding, Math.max(padding, this.scale.height - this.hoverTip.height - padding))
+    );
+  }
+
+  private hideHoverTip(): void {
+    this.hoverTip?.setVisible(false);
+  }
+
+  private floatText(x: number, y: number, label: string, color: string): void {
+    const text = this.add.text(x, y, label, {
+      fontFamily: RANCH_FONT_BODY,
+      fontSize: '11px',
+      fontStyle: 'bold',
+      color,
+      stroke: '#2a1a0c',
+      strokeThickness: 4
+    }).setOrigin(0.5).setDepth(7200);
+    this.world.add(text);
+    this.tweens.add({
+      targets: text,
+      y: y - 34,
+      alpha: 0,
+      duration: 1150,
+      ease: 'Sine.easeOut',
+      onComplete: () => text.destroy()
+    });
   }
 }

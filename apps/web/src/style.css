@@ -3221,7 +3221,7 @@ textarea {
   color: #fff0c4;
 }
 @media (max-width: 540px) {
-  .city-mount-control { left: 10px; bottom: 12px; min-width: 116px; padding: 8px 10px; }
+  .city-mount-control { left: 10px; top: 108px; bottom: auto; min-width: 0; padding: 8px 10px; font-size: 10px; }
 }
 
 
@@ -3319,3 +3319,919 @@ textarea {
 .farm-inventory-card__sell:disabled{opacity:.55;cursor:wait}
 .farm-inventory-empty{grid-column:1/-1;margin:0;padding:12px;color:#b8c5ac;font-size:12px;text-align:center}
 @media(max-width:620px){.farm-inventory-panel{width:calc(100vw - 16px);max-height:92vh;padding:14px}.farm-inventory-summary{gap:6px}.farm-inventory-summary__item{grid-template-columns:26px 1fr;padding:8px}.farm-inventory-summary__item>span{font-size:20px}.farm-inventory-summary__item strong{font-size:15px}.farm-inventory-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.farm-inventory-section__heading{display:block}.farm-inventory-section__heading p{margin-top:4px;text-align:left}}
+
+
+/* ---------- Comércio do rancho: pergaminho e madeira ---------- */
+
+.farm-shop-overlay {
+  z-index: 12400;
+  padding: clamp(8px, 2vw, 28px);
+  background:
+    radial-gradient(ellipse at 50% 12%, rgba(112, 79, 38, 0.34), transparent 62%),
+    radial-gradient(ellipse at 50% 108%, rgba(38, 52, 28, 0.28), transparent 55%),
+    rgba(7, 5, 3, 0.84);
+  backdrop-filter: blur(10px) saturate(0.9);
+}
+
+.farm-shop-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(1080px, 100%);
+  max-height: min(92vh, 950px);
+  overflow: hidden;
+  border: 10px solid transparent;
+  border-radius: 18px;
+  background:
+    radial-gradient(ellipse at 16% 0%, rgba(255, 252, 240, 0.62), transparent 46%) padding-box,
+    radial-gradient(ellipse at 94% 104%, rgba(148, 110, 58, 0.24), transparent 58%) padding-box,
+    repeating-linear-gradient(0deg, rgba(110, 80, 42, 0.032) 0 1px, transparent 1px 4px) padding-box,
+    linear-gradient(157deg, #f2e5c6 0%, #e9d9b4 46%, #dcc89c 100%) padding-box,
+    linear-gradient(160deg, #7a5530 0%, #4a3019 28%, #24160c 68%, #52391e 100%) border-box;
+  box-shadow:
+    0 34px 100px rgba(0, 0, 0, 0.72),
+    0 0 0 1px rgba(24, 14, 7, 0.9),
+    inset 0 0 0 1px rgba(255, 236, 190, 0.14),
+    inset 0 0 90px rgba(122, 88, 42, 0.16);
+  color: #3a2917;
+}
+
+.farm-shop__header {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 22px;
+  padding: 24px 30px 19px;
+  border-bottom: 1px solid rgba(84, 56, 28, 0.26);
+  background:
+    radial-gradient(ellipse at 0% 0%, rgba(255, 255, 255, 0.36), transparent 54%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.2), transparent);
+}
+
+.farm-shop__heading {
+  min-width: 0;
+}
+
+.farm-shop__eyebrow {
+  margin: 0 0 6px;
+  color: #8a3f23;
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.farm-shop__title {
+  margin: 0;
+  color: #35230f;
+  font-family: var(--font-display);
+  font-size: 32px;
+  line-height: 1.06;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 0 rgba(255, 246, 222, 0.75);
+}
+
+.farm-shop__intro {
+  max-width: 62ch;
+  margin: 8px 0 0;
+  color: #6d5738;
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.farm-shop__header-right {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.farm-shop__balance {
+  display: grid;
+  grid-template-columns: 30px auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: 9px;
+  padding: 8px 15px 8px 11px;
+  border: 1px solid #8b6b36;
+  border-radius: 11px;
+  background:
+    radial-gradient(ellipse at 20% 0%, rgba(255, 232, 172, 0.14), transparent 60%),
+    linear-gradient(180deg, #3a2a18, #1d140c);
+  color: var(--gold);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 240, 200, 0.14),
+    0 6px 14px rgba(60, 40, 18, 0.22);
+}
+
+.farm-shop__balance > .coin-glyph {
+  grid-row: 1 / 3;
+  width: 30px;
+  height: 30px;
+  font-size: 14px !important;
+}
+
+.farm-shop__balance strong {
+  color: var(--gold-bright);
+  font-size: 18px;
+  line-height: 1.1;
+  letter-spacing: 0.03em;
+}
+
+.farm-shop__balance small {
+  color: #b9a074;
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+
+.farm-shop__close {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid #8b6b36;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #4a3720, #24180d);
+  color: #f0d699;
+  font-family: var(--font-body);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 240, 200, 0.15), 0 5px 12px rgba(50, 32, 14, 0.24);
+  transition: border-color 0.18s ease, color 0.18s ease, transform 0.15s ease;
+}
+
+.farm-shop__close:hover {
+  border-color: var(--gold);
+  color: #fff0c4;
+  transform: translateY(-1px);
+}
+
+.farm-shop__tabs {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+  padding: 10px 26px 0;
+  overflow-x: auto;
+  border-bottom: 2px solid rgba(84, 56, 28, 0.35);
+  background: rgba(255, 250, 235, 0.16);
+  scrollbar-width: none;
+}
+
+.farm-shop__tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.farm-shop__tab {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 18px 10px;
+  border: 1px solid rgba(84, 56, 28, 0.3);
+  border-bottom: none;
+  border-radius: 9px 9px 0 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(126, 95, 52, 0.13));
+  color: #6b5231;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+}
+
+.farm-shop__tab:hover {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.38), rgba(126, 95, 52, 0.18));
+  color: #4b3418;
+}
+
+.farm-shop__tab.is-active {
+  border-color: #2c1d0f;
+  background: linear-gradient(180deg, #533b20, #2c1d0f);
+  color: #ffe4a3;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 235, 190, 0.22),
+    0 -2px 10px rgba(70, 45, 18, 0.18);
+}
+
+.farm-shop__tab.is-active::after {
+  content: '';
+  position: absolute;
+  top: -1px;
+  right: 12px;
+  left: 12px;
+  height: 2px;
+  border-radius: 0 0 2px 2px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+}
+
+.farm-shop__tab-icon {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.farm-shop__tab-label {
+  white-space: nowrap;
+}
+
+.farm-shop__feedback {
+  flex: 0 0 auto;
+  margin: 14px 30px 0;
+  padding: 10px 14px;
+  border: 1px solid rgba(138, 96, 42, 0.4);
+  border-left: 3px solid #a97b3d;
+  border-radius: 8px;
+  background: rgba(255, 246, 220, 0.55);
+  color: #6a4b21;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.farm-shop__feedback:empty {
+  display: none;
+}
+
+.farm-shop__feedback.is-success {
+  border-color: rgba(74, 109, 58, 0.42);
+  border-left-color: #4f7a3c;
+  background: rgba(214, 230, 189, 0.55);
+  color: #3d5729;
+}
+
+.farm-shop__feedback.is-error {
+  border-color: rgba(150, 62, 42, 0.42);
+  border-left-color: #a14a33;
+  background: rgba(242, 211, 196, 0.62);
+  color: #7a2f1c;
+}
+
+.farm-shop__content {
+  display: grid;
+  flex: 1 1 auto;
+  grid-auto-rows: max-content;
+  align-content: start;
+  gap: 16px;
+  min-height: 0;
+  padding: 18px 30px 24px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.farm-shop__land {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 15px 18px;
+  border: 1px solid #7d5c2d;
+  border-radius: 12px;
+  background:
+    radial-gradient(ellipse at 10% 0%, rgba(179, 209, 140, 0.4), transparent 55%),
+    linear-gradient(135deg, #4a5d34, #33431f 58%, #28361a);
+  color: #eef4d8;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 235, 0.16),
+    0 6px 16px rgba(50, 60, 30, 0.2);
+}
+
+.farm-shop__land-copy {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.farm-shop__land-title {
+  display: block;
+  color: #f4f8e2;
+  font-family: var(--font-display);
+  font-size: 16px;
+  letter-spacing: 0.02em;
+}
+
+.farm-shop__land-info {
+  max-width: 66ch;
+  margin: 5px 0 0;
+  color: #cfdab7;
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.primary-button.farm-shop__land-button {
+  flex: 0 0 auto;
+  padding: 10px 16px;
+  font-size: 10px;
+  border-radius: 8px;
+}
+
+.farm-shop__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(248px, 1fr));
+  gap: 13px;
+}
+
+.farm-shop__card {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid rgba(96, 64, 30, 0.34);
+  border-radius: 11px;
+  background:
+    linear-gradient(180deg, rgba(255, 252, 240, 0.74), rgba(244, 232, 203, 0.56));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.66),
+    0 5px 12px rgba(92, 64, 30, 0.09);
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+
+.farm-shop__card:hover {
+  border-color: rgba(96, 64, 30, 0.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 9px 18px rgba(92, 64, 30, 0.14);
+  transform: translateY(-1px);
+}
+
+.farm-shop__card.is-owned {
+  border-color: rgba(74, 109, 58, 0.48);
+  background:
+    linear-gradient(180deg, rgba(246, 251, 232, 0.78), rgba(224, 233, 200, 0.58));
+}
+
+.farm-shop__card.is-locked {
+  opacity: 0.76;
+}
+
+.farm-shop__card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.farm-shop__icon {
+  display: grid;
+  flex: 0 0 46px;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border: 1px solid rgba(89, 58, 26, 0.35);
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at 32% 24%, #fff5d8, #d8bd85 70%, #b69357);
+  font-size: 25px;
+  line-height: 1;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 3px 8px rgba(90, 62, 30, 0.16);
+}
+
+.farm-shop__card-title-wrap {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.farm-shop__card-name {
+  margin: 0;
+  color: #3a2712;
+  font-family: var(--font-display);
+  font-size: 16px;
+  line-height: 1.15;
+}
+
+.farm-shop__meta {
+  margin: 0;
+  color: #806742;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.farm-shop__desc {
+  flex: 1;
+  margin: 0;
+  color: #5f4a2d;
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.farm-shop__card-bottom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.primary-button.farm-shop__buy {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 7px;
+  font-size: 9.5px;
+  letter-spacing: 0.07em;
+}
+
+.farm-shop__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 10px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.farm-shop__badge--owned {
+  border: 1px solid rgba(74, 109, 58, 0.4);
+  background: rgba(74, 109, 58, 0.14);
+  color: #3e5c2e;
+}
+
+.farm-shop__gender {
+  margin-left: auto;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.farm-shop__gender--male {
+  border: 1px solid rgba(47, 92, 128, 0.38);
+  background: rgba(175, 205, 228, 0.5);
+  color: #29557c;
+}
+
+.farm-shop__gender--female {
+  border: 1px solid rgba(138, 58, 87, 0.34);
+  background: rgba(238, 202, 214, 0.52);
+  color: #8a3a57;
+}
+
+.farm-shop__requirement {
+  margin: 0;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+.farm-shop__requirement.is-ok {
+  color: #4a6c37;
+}
+
+.farm-shop__requirement.is-locked {
+  color: #94432c;
+}
+
+.farm-shop__notice {
+  margin: 0;
+  padding: 11px 14px;
+  border: 1px solid rgba(138, 96, 42, 0.34);
+  border-left: 3px solid #a97b3d;
+  border-radius: 8px;
+  background: rgba(255, 248, 226, 0.46);
+  color: #66502e;
+  font-size: 11.5px;
+  line-height: 1.55;
+}
+
+.farm-shop__notice--gold {
+  border-left-color: #b8842f;
+  background: rgba(250, 236, 196, 0.5);
+}
+
+.farm-shop__notice--green {
+  border-left-color: #5c7c43;
+  background: rgba(224, 236, 203, 0.5);
+  color: #476031;
+}
+
+.farm-shop__notice--plain {
+  border-left-color: #8b7350;
+  background: rgba(246, 239, 222, 0.46);
+}
+
+.farm-shop__seed-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.farm-shop__seed-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 10px;
+  border: 1px solid rgba(96, 64, 30, 0.2);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.farm-shop__seed-stat strong {
+  color: #4a3216;
+  font-size: 15px;
+  line-height: 1.1;
+}
+
+.farm-shop__seed-stat small {
+  color: #806742;
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.farm-shop__section-title {
+  margin: 4px 0 0;
+  color: #7a4a22;
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.farm-shop__status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 9px;
+}
+
+.farm-shop__status-card {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid rgba(96, 64, 30, 0.24);
+  border-radius: 9px;
+  background: rgba(255, 252, 240, 0.42);
+}
+
+.farm-shop__status-name {
+  color: #4a3216;
+  font-size: 12px;
+}
+
+.farm-shop__status-needs {
+  margin: 0;
+  color: #6d5738;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.farm-shop__stock-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(96, 64, 30, 0.28);
+  color: #6d5738;
+  font-size: 10.5px;
+}
+
+.farm-shop__stock-line strong {
+  color: #4a3216;
+  font-size: 14px;
+}
+
+.farm-shop__trough {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 13px 15px;
+  border: 1px solid rgba(96, 64, 30, 0.3);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(255, 252, 240, 0.62), rgba(244, 232, 203, 0.46));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.farm-shop__trough-info {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+
+.farm-shop__trough-name {
+  color: #4a3216;
+  font-family: var(--font-display);
+  font-size: 14px;
+}
+
+.farm-shop__trough-values {
+  margin: 4px 0 0;
+  color: #5f4a2d;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.farm-shop__trough-stock {
+  margin: 3px 0 0;
+  color: #806742;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.farm-shop__trough-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.farm-shop__trough-button {
+  padding: 8px 11px;
+  border: 1px solid #7d5c2d;
+  border-radius: 7px;
+  background: linear-gradient(180deg, #f7ead0, #e2cfa6);
+  color: #4a3216;
+  font-family: var(--font-body);
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 2px 5px rgba(90, 62, 30, 0.12);
+  transition: filter 0.15s ease, transform 0.15s ease;
+}
+
+.farm-shop__trough-button:hover:not(:disabled) {
+  filter: brightness(1.04);
+  transform: translateY(-1px);
+}
+
+.farm-shop__trough-button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.farm-shop__footer {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 13px 30px 16px;
+  border-top: 1px solid rgba(84, 56, 28, 0.26);
+  background: linear-gradient(180deg, rgba(201, 176, 132, 0.16), rgba(156, 124, 76, 0.24));
+}
+
+.farm-shop__hint {
+  max-width: 64ch;
+  margin: 0;
+  color: #79613f;
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+.farm-shop__back {
+  padding: 10px 16px;
+  border: 1px solid #6f4f26;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #51371d, #2d1d0f);
+  color: #f3d99c;
+  font-family: var(--font-body);
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 235, 190, 0.16), 0 2px 0 #1b1109;
+  transition: filter 0.15s ease, transform 0.15s ease;
+}
+
+.farm-shop__back:hover {
+  filter: brightness(1.12);
+  transform: translateY(-1px);
+}
+
+.farm-shop__tab:focus-visible,
+.farm-shop__close:focus-visible,
+.farm-shop__back:focus-visible,
+.farm-shop__trough-button:focus-visible,
+.farm-shop__buy:focus-visible,
+.farm-shop__land-button:focus-visible {
+  outline: 2px solid #8a5a26;
+  outline-offset: 2px;
+}
+
+@media (max-width: 760px) {
+  .farm-shop-overlay {
+    padding: 6px;
+  }
+
+  .farm-shop-panel {
+    max-height: 94vh;
+    border-width: 6px;
+    border-radius: 14px;
+  }
+
+  .farm-shop__header {
+    gap: 12px;
+    padding: 16px 16px 12px;
+  }
+
+  .farm-shop__title {
+    font-size: 24px;
+  }
+
+  .farm-shop__intro {
+    margin-top: 6px;
+    font-size: 11px;
+    line-height: 1.45;
+  }
+
+  .farm-shop__header-right {
+    gap: 8px;
+    margin-top: 2px;
+  }
+
+  .farm-shop__balance {
+    grid-template-columns: 24px auto;
+    column-gap: 7px;
+    padding: 7px 10px 7px 8px;
+  }
+
+  .farm-shop__balance > .coin-glyph {
+    width: 24px;
+    height: 24px;
+    font-size: 11px !important;
+  }
+
+  .farm-shop__balance strong {
+    font-size: 15px;
+  }
+
+  .farm-shop__balance small {
+    font-size: 7.5px;
+  }
+
+  .farm-shop__close {
+    width: 36px;
+    height: 36px;
+    font-size: 20px;
+  }
+
+  .farm-shop__tabs {
+    gap: 4px;
+    padding: 8px 12px 0;
+  }
+
+  .farm-shop__tab {
+    gap: 6px;
+    padding: 9px 11px 8px;
+    font-size: 9px;
+  }
+
+  .farm-shop__tab-icon {
+    font-size: 13px;
+  }
+
+  .farm-shop__feedback {
+    margin: 10px 16px 0;
+    padding: 8px 11px;
+    font-size: 11px;
+  }
+
+  .farm-shop__content {
+    gap: 13px;
+    padding: 13px 16px 18px;
+  }
+
+  .farm-shop__grid {
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 10px;
+  }
+
+  .farm-shop__land {
+    padding: 12px 14px;
+  }
+
+  .primary-button.farm-shop__land-button {
+    width: 100%;
+  }
+
+  .farm-shop__footer {
+    padding: 11px 16px 13px;
+  }
+}
+
+@media (max-height: 540px) and (orientation: landscape) {
+  .farm-shop__header {
+    padding: 12px 18px 10px;
+  }
+
+  .farm-shop__eyebrow,
+  .farm-shop__intro {
+    display: none;
+  }
+
+  .farm-shop__title {
+    font-size: 21px;
+  }
+
+  .farm-shop__balance {
+    padding: 5px 10px 5px 8px;
+  }
+
+  .farm-shop__balance > .coin-glyph {
+    width: 24px;
+    height: 24px;
+    font-size: 11px !important;
+  }
+
+  .farm-shop__balance strong {
+    font-size: 15px;
+  }
+
+  .farm-shop__close {
+    width: 34px;
+    height: 34px;
+    font-size: 19px;
+  }
+
+  .farm-shop__tabs {
+    padding-top: 6px;
+  }
+
+  .farm-shop__tab {
+    padding: 7px 14px 6px;
+  }
+
+  .farm-shop__feedback {
+    margin-top: 8px;
+    padding: 6px 10px;
+  }
+
+  .farm-shop__content {
+    gap: 10px;
+    padding: 10px 18px 14px;
+  }
+
+  .farm-shop__footer {
+    padding: 8px 18px 9px;
+  }
+
+  .farm-shop__hint {
+    display: none;
+  }
+
+  .farm-shop__back {
+    margin-left: auto;
+    padding: 8px 14px;
+  }
+}
+
+@media (max-width: 560px) {
+  .farm-shop__header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .farm-shop__header-right {
+    justify-content: space-between;
+    margin-top: 0;
+  }
+
+  .farm-shop__title {
+    font-size: 22px;
+  }
+
+  .farm-shop__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .farm-shop__tab {
+    padding: 8px 9px 7px;
+  }
+
+  .farm-shop__tab-label {
+    font-size: 8px;
+  }
+
+  .farm-shop__footer {
+    align-items: stretch;
+  }
+
+  .farm-shop__hint {
+    display: none;
+  }
+
+  .farm-shop__back {
+    width: 100%;
+  }
+}

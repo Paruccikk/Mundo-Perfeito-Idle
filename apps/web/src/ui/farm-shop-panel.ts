@@ -9,8 +9,32 @@ import {
   type AnimalSpeciesId
 } from '@mundo-perfeito/shared';
 
+type ShopTab = 'buildings' | 'animals' | 'seeds' | 'care';
+
 function formatGold(value: number): string {
   return Math.max(0, Math.floor(value)).toLocaleString('pt-BR');
+}
+
+function make<K extends keyof HTMLElementTagNameMap>(
+  tag: K,
+  className: string,
+  text?: string
+): HTMLElementTagNameMap[K] {
+  const element = document.createElement(tag);
+  element.className = className;
+  if (text !== undefined) element.textContent = text;
+  return element;
+}
+
+function makeTab(icon: string, label: string): HTMLButtonElement {
+  const button = make('button', 'farm-shop__tab');
+  button.type = 'button';
+  button.setAttribute('role', 'tab');
+  const iconSpan = make('span', 'farm-shop__tab-icon', icon);
+  iconSpan.setAttribute('aria-hidden', 'true');
+  const labelSpan = make('span', 'farm-shop__tab-label', label);
+  button.append(iconSpan, labelSpan);
+  return button;
 }
 
 export function renderFarmShop(
@@ -29,591 +53,489 @@ export function renderFarmShop(
 
   let currentFarm = farmData.farm;
   let currentGold = farmData.gold;
-  let activeTab: 'buildings' | 'animals' | 'seeds' | 'care' = 'buildings';
+  let activeTab: ShopTab = 'buildings';
 
-  const overlay = document.createElement('div');
-  overlay.className = 'game-panel-overlay';
+  const overlay = make('div', 'game-panel-overlay farm-shop-overlay');
 
-  const panel = document.createElement('section');
-  panel.className = 'game-panel blacksmith-panel farm-shop-panel';
-  panel.style.maxWidth = '780px';
+  const panel = make('section', 'farm-shop-panel');
+  panel.setAttribute('role', 'dialog');
+  panel.setAttribute('aria-modal', 'true');
+  panel.setAttribute('aria-labelledby', 'farm-shop-title');
 
-  const header = document.createElement('header');
-  header.className = 'game-panel__header';
-
-  const heading = document.createElement('div');
-  const eyebrow = document.createElement('p');
-  eyebrow.className = 'game-panel__eyebrow';
-  eyebrow.textContent = 'Barnabé · Mestre Agropecuário de Valedouro';
-
-  const title = document.createElement('h2');
-  title.textContent = 'Comércio da Fazenda & Animais';
-
-  const intro = document.createElement('p');
-  intro.className = 'blacksmith-panel__intro';
-  intro.textContent =
-    'Construa abrigos rurais, crie animais machos e fêmeas para reprodução e produção, e adquira sementes para a sua terra.';
+  const header = make('header', 'farm-shop__header');
+  const heading = make('div', 'farm-shop__heading');
+  const eyebrow = make('p', 'farm-shop__eyebrow', 'Mercado do Rancho · Vale Dourado');
+  const title = make('h2', 'farm-shop__title', 'Comércio da Fazenda');
+  title.id = 'farm-shop-title';
+  const intro = make(
+    'p',
+    'farm-shop__intro',
+    'Sementes, abrigos e animais criados com cuidado. Tudo o que o seu rancho precisa para crescer.'
+  );
   heading.append(eyebrow, title, intro);
 
-  const headerRight = document.createElement('div');
-  headerRight.className = 'inventory-panel__header-right';
-
-  const balance = document.createElement('div');
-  balance.className = 'inventory-panel__balance';
-  const coin = document.createElement('span');
-  coin.className = 'coin-glyph';
+  const headerRight = make('div', 'farm-shop__header-right');
+  const balance = make('div', 'farm-shop__balance');
+  const coin = make('span', 'coin-glyph', 'G');
   coin.setAttribute('aria-hidden', 'true');
-  coin.textContent = 'G';
-  balance.append(coin);
+  const balanceValue = make('strong', '', formatGold(currentGold));
+  const balanceLabel = make('small', '', 'SEU OURO');
+  balance.append(coin, balanceValue, balanceLabel);
 
-  const balanceValue = document.createElement('strong');
-  balanceValue.textContent = formatGold(currentGold);
-  const balanceLabel = document.createElement('small');
-  balanceLabel.textContent = 'SEU OURO';
-  balance.append(balanceValue, balanceLabel);
-
-  const closeBtn = document.createElement('button');
+  const closeBtn = make('button', 'farm-shop__close', '×');
   closeBtn.type = 'button';
-  closeBtn.className = 'game-panel__close';
-  closeBtn.textContent = '✕';
-  closeBtn.addEventListener('click', onClose);
+  closeBtn.setAttribute('aria-label', 'Fechar o comércio do rancho');
   headerRight.append(balance, closeBtn);
-
   header.append(heading, headerRight);
 
-  // Tab navigation
-  const tabsContainer = document.createElement('nav');
-  tabsContainer.style.display = 'flex';
-  tabsContainer.style.gap = '8px';
-  tabsContainer.style.padding = '8px 18px';
-  tabsContainer.style.borderBottom = '1px solid rgba(255, 255, 255, 0.08)';
-  tabsContainer.style.background = 'rgba(0, 0, 0, 0.25)';
+  const tabs = make('nav', 'farm-shop__tabs');
+  tabs.setAttribute('role', 'tablist');
+  tabs.setAttribute('aria-label', 'Categorias do mercado');
 
-  const btnTabBuildings = document.createElement('button');
-  btnTabBuildings.type = 'button';
-  btnTabBuildings.className = 'ghost-button';
-  btnTabBuildings.textContent = '🏚 Abrigos & Construções';
+  const btnTabBuildings = makeTab('🏡', 'Abrigos');
+  const btnTabAnimals = makeTab('🐾', 'Animais');
+  const btnTabSeeds = makeTab('🌱', 'Sementes');
+  const btnTabCare = makeTab('🥣', 'Cuidados');
+  const tabButtons: Array<[ShopTab, HTMLButtonElement]> = [
+    ['buildings', btnTabBuildings],
+    ['animals', btnTabAnimals],
+    ['seeds', btnTabSeeds],
+    ['care', btnTabCare]
+  ];
+  tabs.append(btnTabBuildings, btnTabAnimals, btnTabSeeds, btnTabCare);
 
-  const btnTabAnimals = document.createElement('button');
-  btnTabAnimals.type = 'button';
-  btnTabAnimals.className = 'ghost-button';
-  btnTabAnimals.textContent = '🐾 Animais (Machos e Fêmeas)';
+  const feedbackArea = make('div', 'farm-shop__feedback');
+  feedbackArea.setAttribute('aria-live', 'polite');
 
-  const btnTabSeeds = document.createElement('button');
-  btnTabSeeds.type = 'button';
-  btnTabSeeds.className = 'ghost-button';
-  btnTabSeeds.textContent = '🌱 Sementes';
-  const btnTabCare = document.createElement('button');
-  btnTabCare.type = 'button';
-  btnTabCare.className = 'ghost-button';
-  btnTabCare.textContent = '🥣 Rações & Cuidados';
+  const contentArea = make('div', 'farm-shop__content');
 
-  tabsContainer.append(btnTabBuildings, btnTabAnimals, btnTabSeeds, btnTabCare);
+  const footer = make('footer', 'farm-shop__footer');
+  const footerHint = make(
+    'p',
+    'farm-shop__hint',
+    'As colheitas e produtos ficam guardados no armazém do rancho.'
+  );
+  const backButton = make('button', 'farm-shop__back', 'Voltar ao rancho');
+  backButton.type = 'button';
+  footer.append(footerHint, backButton);
 
-  const landCard = document.createElement('section');
-  landCard.style.margin = '14px 18px';
-  landCard.style.padding = '14px';
-  landCard.style.border = '1px solid rgba(134,239,172,.35)';
-  landCard.style.borderRadius = '10px';
-  const landTitle = document.createElement('strong');
-  landTitle.textContent = '🌱 Expandir minha terra';
-  const landInfo = document.createElement('p');
-  landInfo.textContent = `Canteiros liberados: ${currentFarm.plots.length}/30. Cada expansão libera até 3 novos espaços. A primeira custa 250 moedas e o preço aumenta a cada compra.`;
-  const landButton = document.createElement('button');
-  landButton.type = 'button'; landButton.className = 'primary-button'; landButton.textContent = 'Comprar mais canteiros';
-  landButton.addEventListener('click', async () => {
-    landButton.disabled = true;
-    try {
-      const updated = await onExpandFarm();
-      currentFarm = updated.farm; currentGold = updated.gold;
-      updateBalance();
-      landInfo.textContent = updated.message ?? `Agora você tem ${currentFarm.plots.length} canteiros.`;
-      landButton.textContent = currentFarm.plots.length >= 30 ? 'Limite de terra atingido' : 'Comprar próxima expansão';
-      landButton.disabled = currentFarm.plots.length >= 30;
-      showMessage(updated.message ?? 'Terra expandida!');
-    } catch (error) { showMessage(error instanceof Error ? error.message : 'Não foi possível expandir a terra.', true); landButton.disabled = false; }
-  });
-  landCard.append(landTitle, landInfo, landButton);
+  panel.append(header, tabs, feedbackArea, contentArea, footer);
+  overlay.append(panel);
 
-  const contentArea = document.createElement('div');
-  contentArea.style.padding = '16px 18px';
-  contentArea.style.maxHeight = '480px';
-  contentArea.style.overflowY = 'auto';
-
-  const feedbackArea = document.createElement('div');
-  feedbackArea.style.margin = '0 18px 10px';
-  feedbackArea.style.fontSize = '13px';
-  feedbackArea.style.minHeight = '20px';
-
-  function showMessage(text: string, isError = false) {
+  function showMessage(text: string, isError = false): void {
     feedbackArea.textContent = text;
-    feedbackArea.style.color = isError ? '#f87171' : '#4ade80';
+    feedbackArea.classList.toggle('is-error', isError);
+    feedbackArea.classList.toggle('is-success', !isError);
   }
 
-  function updateBalance() {
+  function updateBalance(): void {
     balanceValue.textContent = formatGold(currentGold);
   }
 
-  function renderActiveTab() {
-    contentArea.replaceChildren();
-    [btnTabBuildings, btnTabAnimals, btnTabSeeds, btnTabCare].forEach((btn) => {
-      btn.style.borderColor = 'rgba(255, 255, 255, 0.15)';
-      btn.style.color = '#c5d5e5';
+  function buildLandCard(): HTMLElement {
+    const landCard = make('section', 'farm-shop__land');
+    const copy = make('div', 'farm-shop__land-copy');
+    const landTitle = make('strong', 'farm-shop__land-title', '🌱 Expandir minha terra');
+    const landInfo = make('p', 'farm-shop__land-info');
+    const landButton = make('button', 'primary-button farm-shop__land-button');
+    landButton.type = 'button';
+
+    const refresh = (): void => {
+      const count = currentFarm.plots.length;
+      landInfo.textContent =
+        count >= 30
+          ? `Todos os ${count} canteiros já estão liberados. O rancho está completo.`
+          : `${count}/30 canteiros liberados. Cada expansão abre até 3 novos espaços; a primeira custa 250 moedas e o valor sobe a cada compra.`;
+      landButton.textContent = count >= 30 ? 'Limite de terra atingido' : 'Comprar mais canteiros';
+      landButton.disabled = count >= 30;
+    };
+
+    refresh();
+    landButton.addEventListener('click', async () => {
+      landButton.disabled = true;
+      landButton.textContent = 'Preparando a terra…';
+      try {
+        const updated = await onExpandFarm();
+        currentFarm = updated.farm;
+        currentGold = updated.gold;
+        updateBalance();
+        refresh();
+        showMessage(updated.message ?? 'Terra expandida!');
+        renderActiveTab();
+      } catch (error) {
+        showMessage(error instanceof Error ? error.message : 'Não foi possível expandir a terra.', true);
+        refresh();
+      }
     });
 
-    if (activeTab === 'buildings') {
-      btnTabBuildings.style.borderColor = '#86efac';
-      btnTabBuildings.style.color = '#86efac';
-      renderBuildingsTab();
-    } else if (activeTab === 'animals') {
-      btnTabAnimals.style.borderColor = '#86efac';
-      btnTabAnimals.style.color = '#86efac';
-      renderAnimalsTab();
-    } else if (activeTab === 'seeds') {
-      btnTabSeeds.style.borderColor = '#86efac';
-      btnTabSeeds.style.color = '#86efac';
-      renderSeedsTab();
-    } else {
-      btnTabCare.style.borderColor = '#86efac';
-      btnTabCare.style.color = '#86efac';
-      renderCareTab();
+    copy.append(landTitle, landInfo);
+    landCard.append(copy, landButton);
+    return landCard;
+  }
+
+  function makeNotice(text: string, tone: 'gold' | 'green' | 'plain' = 'gold'): HTMLElement {
+    return make('p', `farm-shop__notice farm-shop__notice--${tone}`, text);
+  }
+
+  function setTabActive(tab: ShopTab): void {
+    for (const [key, button] of tabButtons) {
+      const active = key === tab;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-selected', String(active));
     }
   }
 
-  function renderBuildingsTab() {
-    const grid = document.createElement('div');
-    grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(220px, 1fr))';
-    grid.style.gap = '14px';
+  function renderActiveTab(): void {
+    contentArea.replaceChildren();
+    setTabActive(activeTab);
 
-    Object.values(FARM_BUILDINGS).forEach((b) => {
-      const isOwned = currentFarm.buildings.includes(b.id);
-      const card = document.createElement('div');
-      card.style.background = 'rgba(25, 36, 45, 0.7)';
-      card.style.border = isOwned ? '1px solid #4ade80' : '1px solid rgba(255, 255, 255, 0.12)';
-      card.style.borderRadius = '8px';
-      card.style.padding = '14px';
-      card.style.display = 'flex';
-      card.style.flexDirection = 'column';
-      card.style.justifyContent = 'space-between';
+    if (activeTab === 'buildings') renderBuildingsTab();
+    else if (activeTab === 'animals') renderAnimalsTab();
+    else if (activeTab === 'seeds') renderSeedsTab();
+    else renderCareTab();
+  }
 
-      const top = document.createElement('div');
-      const iconSpan = document.createElement('div');
-      iconSpan.style.fontSize = '32px';
-      iconSpan.style.marginBottom = '6px';
-      iconSpan.textContent = b.icon;
+  function renderBuildingsTab(): void {
+    contentArea.append(buildLandCard());
+    const grid = make('div', 'farm-shop__grid');
 
-      const nameH3 = document.createElement('h3');
-      nameH3.style.margin = '0 0 6px';
-      nameH3.style.fontSize = '16px';
-      nameH3.style.color = '#fef08a';
-      nameH3.textContent = b.name;
+    Object.values(FARM_BUILDINGS).forEach((building) => {
+      const isOwned = currentFarm.buildings.includes(building.id);
+      const card = make('article', `farm-shop__card${isOwned ? ' is-owned' : ''}`);
 
-      const descP = document.createElement('p');
-      descP.style.margin = '0 0 10px';
-      descP.style.fontSize = '12px';
-      descP.style.color = '#94a3b8';
-      descP.style.lineHeight = '1.4';
-      descP.textContent = b.description;
+      const head = make('div', 'farm-shop__card-head');
+      const icon = make('div', 'farm-shop__icon', building.icon);
+      icon.setAttribute('aria-hidden', 'true');
+      const titleWrap = make('div', 'farm-shop__card-title-wrap');
+      const name = make('h3', 'farm-shop__card-name', building.name);
+      const meta = make('p', 'farm-shop__meta', `Até ${building.capacity} animais`);
+      titleWrap.append(name, meta);
+      head.append(icon, titleWrap);
 
-      const capP = document.createElement('p');
-      capP.style.margin = '0 0 12px';
-      capP.style.fontSize = '11px';
-      capP.style.color = '#7dd3fc';
-      capP.textContent = `Capacidade: até ${b.capacity} animais`;
+      const desc = make('p', 'farm-shop__desc', building.description);
+      const bottom = make('div', 'farm-shop__card-bottom');
 
-      top.append(iconSpan, nameH3, descP, capP);
-
-      const bottom = document.createElement('div');
       if (isOwned) {
-        const badge = document.createElement('div');
-        badge.style.textAlign = 'center';
-        badge.style.padding = '8px';
-        badge.style.background = 'rgba(34, 197, 94, 0.15)';
-        badge.style.color = '#86efac';
-        badge.style.borderRadius = '6px';
-        badge.style.fontWeight = 'bold';
-        badge.style.fontSize = '12px';
-        badge.textContent = '✓ Construído na Fazenda';
-        bottom.append(badge);
+        bottom.append(make('p', 'farm-shop__badge farm-shop__badge--owned', '✓ Construído no rancho'));
       } else {
-        const buyBtn = document.createElement('button');
-        buyBtn.type = 'button';
-        buyBtn.className = 'button-primary';
-        buyBtn.style.width = '100%';
-        buyBtn.style.padding = '8px';
-        buyBtn.textContent = `Construir (${formatGold(b.cost)} Ouro)`;
-        if (currentGold < b.cost) {
-          buyBtn.disabled = true;
-          buyBtn.style.opacity = '0.5';
-          buyBtn.style.cursor = 'not-allowed';
-          buyBtn.title = 'Ouro insuficiente';
+        const buyButton = make(
+          'button',
+          'primary-button farm-shop__buy',
+          `Construir · ${formatGold(building.cost)} ouro`
+        );
+        buyButton.type = 'button';
+        if (currentGold < building.cost) {
+          buyButton.disabled = true;
+          buyButton.title = 'Ouro insuficiente';
         }
-        buyBtn.addEventListener('click', async () => {
-          buyBtn.disabled = true;
-          buyBtn.textContent = 'Construindo…';
+        buyButton.addEventListener('click', async () => {
+          buyButton.disabled = true;
+          buyButton.textContent = 'Construindo…';
           try {
-            const res = await onBuyBuilding(b.id);
-            currentFarm = res.farm;
-            currentGold = res.gold;
+            const response = await onBuyBuilding(building.id);
+            currentFarm = response.farm;
+            currentGold = response.gold;
             updateBalance();
-            showMessage(res.message ?? `${b.name} construído com sucesso!`);
+            showMessage(response.message ?? `${building.name} construído com sucesso!`);
             renderActiveTab();
-          } catch (err) {
-            showMessage(err instanceof Error ? err.message : 'Falha ao construir.', true);
-            buyBtn.disabled = false;
-            buyBtn.textContent = `Construir (${formatGold(b.cost)} Ouro)`;
+          } catch (error) {
+            showMessage(error instanceof Error ? error.message : 'Falha ao construir.', true);
+            buyButton.disabled = false;
+            buyButton.textContent = `Construir · ${formatGold(building.cost)} ouro`;
           }
         });
-        bottom.append(buyBtn);
+        bottom.append(buyButton);
       }
 
-      card.append(top, bottom);
+      card.append(head, desc, bottom);
       grid.append(card);
     });
 
     contentArea.append(grid);
   }
 
-  function renderAnimalsTab() {
-    const banner = document.createElement('div');
-    banner.style.padding = '10px 14px';
-    banner.style.marginBottom = '14px';
-    banner.style.background = 'rgba(234, 179, 8, 0.12)';
-    banner.style.border = '1px solid rgba(234, 179, 8, 0.3)';
-    banner.style.borderRadius = '6px';
-    banner.style.fontSize = '12px';
-    banner.style.color = '#fde047';
-    banner.textContent =
-      'Atenção: Cada animal precisa da sua respectiva instalação (Galinheiro, Curral ou Estábulo) já comprada para ser criado. Machos e fêmeas poderão se reproduzir!';
-    contentArea.append(banner);
+  function renderAnimalsTab(): void {
+    contentArea.append(
+      makeNotice(
+        'Cada animal precisa do seu abrigo já construído. Machos e fêmeas de bom rank podem formar casal e gerar novos filhotes.',
+        'gold'
+      )
+    );
 
-    const grid = document.createElement('div');
-    grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(230px, 1fr))';
-    grid.style.gap = '14px';
-
-    Object.values(FARM_ANIMALS).forEach((a) => {
-      const hasBuilding = currentFarm.buildings.includes(a.requiredBuilding);
-      const buildingDef = FARM_BUILDINGS[a.requiredBuilding];
-      const countInBuilding = currentFarm.animals.filter((x) => x.buildingId === a.requiredBuilding).length;
+    const grid = make('div', 'farm-shop__grid');
+    Object.values(FARM_ANIMALS).forEach((animal) => {
+      const hasBuilding = currentFarm.buildings.includes(animal.requiredBuilding);
+      const buildingDef = FARM_BUILDINGS[animal.requiredBuilding];
+      const countInBuilding = currentFarm.animals.filter(
+        (owned) => owned.buildingId === animal.requiredBuilding
+      ).length;
       const isFull = countInBuilding >= buildingDef.capacity;
 
-      const card = document.createElement('div');
-      card.style.background = 'rgba(25, 36, 45, 0.7)';
-      card.style.border = hasBuilding
-        ? '1px solid rgba(134, 239, 172, 0.3)'
-        : '1px solid rgba(239, 68, 68, 0.25)';
-      card.style.borderRadius = '8px';
-      card.style.padding = '14px';
-      card.style.display = 'flex';
-      card.style.flexDirection = 'column';
-      card.style.justifyContent = 'space-between';
+      const card = make(
+        'article',
+        `farm-shop__card farm-shop__card--animal${hasBuilding ? '' : ' is-locked'}`
+      );
+      const head = make('div', 'farm-shop__card-head');
+      const icon = make('div', 'farm-shop__icon', animal.icon);
+      icon.setAttribute('aria-hidden', 'true');
+      const gender = make(
+        'span',
+        `farm-shop__gender farm-shop__gender--${animal.gender}`,
+        animal.gender === 'male' ? '♂ Macho' : '♀ Fêmea'
+      );
+      head.append(icon, gender);
 
-      const top = document.createElement('div');
-      const headerRow = document.createElement('div');
-      headerRow.style.display = 'flex';
-      headerRow.style.justifyContent = 'space-between';
-      headerRow.style.alignItems = 'center';
-      headerRow.style.marginBottom = '8px';
+      const name = make('h3', 'farm-shop__card-name', animal.name);
+      const species = make(
+        'p',
+        'farm-shop__meta',
+        `${animal.speciesName} · Rank ${animal.tier.toUpperCase()}`
+      );
+      const desc = make('p', 'farm-shop__desc', animal.description);
+      const requirement = make(
+        'p',
+        `farm-shop__requirement${hasBuilding ? ' is-ok' : ' is-locked'}`,
+        hasBuilding
+          ? `✓ ${animal.requiredBuildingName} disponível · ${countInBuilding}/${buildingDef.capacity}`
+          : `🔒 Requer ${animal.requiredBuildingName}`
+      );
 
-      const iconSpan = document.createElement('span');
-      iconSpan.style.fontSize = '30px';
-      iconSpan.textContent = a.icon;
-
-      const genderBadge = document.createElement('span');
-      genderBadge.style.fontSize = '11px';
-      genderBadge.style.padding = '3px 8px';
-      genderBadge.style.borderRadius = '12px';
-      genderBadge.style.fontWeight = 'bold';
-      if (a.gender === 'male') {
-        genderBadge.style.background = 'rgba(59, 130, 246, 0.2)';
-        genderBadge.style.color = '#93c5fd';
-        genderBadge.textContent = '♂ Macho';
-      } else {
-        genderBadge.style.background = 'rgba(244, 114, 182, 0.2)';
-        genderBadge.style.color = '#fbcfe8';
-        genderBadge.textContent = '♀ Fêmea';
-      }
-
-      headerRow.append(iconSpan, genderBadge);
-
-      const nameH3 = document.createElement('h3');
-      nameH3.style.margin = '0 0 4px';
-      nameH3.style.fontSize = '15px';
-      nameH3.style.color = '#fef08a';
-      nameH3.textContent = a.name;
-
-      const speciesP = document.createElement('p');
-      speciesP.style.margin = '0 0 6px';
-      speciesP.style.fontSize = '11px';
-      speciesP.style.color = '#38bdf8';
-      speciesP.textContent = `${a.speciesName} • Tier ${a.tier.toUpperCase()}`;
-
-      const descP = document.createElement('p');
-      descP.style.margin = '0 0 8px';
-      descP.style.fontSize = '12px';
-      descP.style.color = '#94a3b8';
-      descP.style.lineHeight = '1.35';
-      descP.textContent = a.description;
-
-      const reqP = document.createElement('p');
-      reqP.style.margin = '0 0 10px';
-      reqP.style.fontSize = '11px';
-      reqP.style.fontWeight = 'bold';
-      if (hasBuilding) {
-        reqP.style.color = '#4ade80';
-        reqP.textContent = `✓ ${a.requiredBuildingName} disponível (${countInBuilding}/${buildingDef.capacity})`;
-      } else {
-        reqP.style.color = '#f87171';
-        reqP.textContent = `🔒 Requer ${a.requiredBuildingName}`;
-      }
-
-      top.append(headerRow, nameH3, speciesP, descP, reqP);
-
-      const bottom = document.createElement('div');
-      const buyBtn = document.createElement('button');
-      buyBtn.type = 'button';
-      buyBtn.className = 'button-primary';
-      buyBtn.style.width = '100%';
-      buyBtn.style.padding = '8px';
+      const bottom = make('div', 'farm-shop__card-bottom');
+      const buyButton = make('button', 'primary-button farm-shop__buy');
+      buyButton.type = 'button';
 
       if (!hasBuilding) {
-        buyBtn.textContent = `Requer ${a.requiredBuildingName}`;
-        buyBtn.disabled = true;
-        buyBtn.style.opacity = '0.45';
-        buyBtn.style.cursor = 'not-allowed';
+        buyButton.textContent = `Requer ${animal.requiredBuildingName}`;
+        buyButton.disabled = true;
       } else if (isFull) {
-        buyBtn.textContent = 'Instalação Lotada';
-        buyBtn.disabled = true;
-        buyBtn.style.opacity = '0.5';
+        buyButton.textContent = 'Abrigo lotado';
+        buyButton.disabled = true;
       } else {
-        buyBtn.textContent = `Comprar (${formatGold(a.cost)} Ouro)`;
-        if (currentGold < a.cost) {
-          buyBtn.disabled = true;
-          buyBtn.style.opacity = '0.5';
-          buyBtn.title = 'Ouro insuficiente';
+        buyButton.textContent = `Adotar · ${formatGold(animal.cost)} ouro`;
+        if (currentGold < animal.cost) {
+          buyButton.disabled = true;
+          buyButton.title = 'Ouro insuficiente';
         }
-        buyBtn.addEventListener('click', async () => {
-          buyBtn.disabled = true;
-          buyBtn.textContent = 'Adquirindo…';
+        buyButton.addEventListener('click', async () => {
+          buyButton.disabled = true;
+          buyButton.textContent = 'Adotando…';
           try {
-            const res = await onBuyAnimal(a.id);
-            currentFarm = res.farm;
-            currentGold = res.gold;
+            const response = await onBuyAnimal(animal.id);
+            currentFarm = response.farm;
+            currentGold = response.gold;
             updateBalance();
-            showMessage(res.message ?? `${a.name} comprado e alojado com sucesso!`);
+            showMessage(response.message ?? `${animal.name} chegou ao rancho!`);
             renderActiveTab();
-          } catch (err) {
-            showMessage(err instanceof Error ? err.message : 'Falha ao comprar animal.', true);
-            buyBtn.disabled = false;
-            buyBtn.textContent = `Comprar (${formatGold(a.cost)} Ouro)`;
+          } catch (error) {
+            showMessage(error instanceof Error ? error.message : 'Falha ao adquirir o animal.', true);
+            buyButton.disabled = false;
+            buyButton.textContent = `Adotar · ${formatGold(animal.cost)} ouro`;
           }
         });
       }
 
-      bottom.append(buyBtn);
-      card.append(top, bottom);
+      bottom.append(buyButton);
+      card.append(head, name, species, desc, requirement, bottom);
       grid.append(card);
     });
 
     contentArea.append(grid);
   }
 
-  function renderSeedsTab() {
-    const introBox = document.createElement('div');
-    introBox.style.padding = '10px 14px';
-    introBox.style.marginBottom = '14px';
-    introBox.style.background = 'rgba(74, 222, 128, 0.12)';
-    introBox.style.border = '1px solid rgba(74, 222, 128, 0.25)';
-    introBox.style.borderRadius = '6px';
-    introBox.style.fontSize = '12px';
-    introBox.style.color = '#bbf7d0';
-    introBox.textContent =
-      'Cada plantio consome 1 semente. Ao colher, você recebe 2 sementes de volta e os frutos vão para o armazém. O NPC vende até 10 sementes por cultura ao dia. Frutos e produtos não são vendidos a NPCs: serão negociados somente no mercado online entre jogadores.';
-    contentArea.append(introBox);
+  function renderSeedsTab(): void {
+    contentArea.append(
+      makeNotice(
+        'Cada plantio consome 1 semente. Ao colher, você recebe 2 sementes de volta e os frutos vão para o armazém. O mercador vende até 10 sementes de cada cultura por dia.',
+        'green'
+      )
+    );
 
-    const grid = document.createElement('div');
-    grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(220px, 1fr))';
-    grid.style.gap = '14px';
-
+    const grid = make('div', 'farm-shop__grid');
     Object.values(FARM_CROPS).forEach((crop) => {
       const bought = currentFarm.dailySeedPurchases?.quantities[crop.id] ?? 0;
       const remaining = Math.max(0, 10 - bought);
       const stock = currentFarm.seeds?.[crop.id] ?? 0;
       const purchaseQuantity = Math.min(5, remaining, Math.floor(currentGold / crop.cost));
-      const card = document.createElement('div');
-      card.style.background = 'rgba(25, 36, 45, 0.7)';
-      card.style.border = '1px solid rgba(255, 255, 255, 0.12)';
-      card.style.borderRadius = '8px';
-      card.style.padding = '14px';
-      const icon = document.createElement('div');
-      icon.style.fontSize = '32px';
-      icon.textContent = crop.icon;
-      const name = document.createElement('h3');
-      name.style.color = '#fef08a';
-      name.textContent = crop.seedName;
-      const info = document.createElement('p');
-      info.style.fontSize = '12px';
-      info.style.color = '#94a3b8';
-      info.textContent = `No estoque: ${stock} • Compradas hoje: ${bought}/10 • ${crop.cost} ouro por semente`;
-      const button = document.createElement('button');
+
+      const card = make('article', 'farm-shop__card farm-shop__card--seed');
+      const head = make('div', 'farm-shop__card-head');
+      const icon = make('div', 'farm-shop__icon', crop.icon);
+      icon.setAttribute('aria-hidden', 'true');
+      const titleWrap = make('div', 'farm-shop__card-title-wrap');
+      const name = make('h3', 'farm-shop__card-name', crop.seedName);
+      const price = make('p', 'farm-shop__meta', `${crop.cost} ouro por semente`);
+      titleWrap.append(name, price);
+      head.append(icon, titleWrap);
+
+      const stats = make('div', 'farm-shop__seed-stats');
+      const stockStat = make('span', 'farm-shop__seed-stat');
+      stockStat.append(
+        make('strong', '', String(stock)),
+        make('small', '', 'no estoque')
+      );
+      const dailyStat = make('span', 'farm-shop__seed-stat');
+      dailyStat.append(
+        make('strong', '', `${bought}/10`),
+        make('small', '', 'compradas hoje')
+      );
+      stats.append(stockStat, dailyStat);
+
+      const button = make('button', 'primary-button farm-shop__buy');
       button.type = 'button';
-      button.className = 'button-primary';
-      button.style.width = '100%';
       button.textContent = remaining <= 0
         ? 'Limite diário atingido'
         : purchaseQuantity > 0
-          ? `Comprar ${purchaseQuantity} sementes (${crop.cost * purchaseQuantity} G)`
+          ? `Comprar ${purchaseQuantity} · ${crop.cost * purchaseQuantity} ouro`
           : 'Ouro insuficiente';
       button.disabled = purchaseQuantity <= 0;
+
       button.addEventListener('click', async () => {
         button.disabled = true;
+        button.textContent = 'Comprando…';
         try {
-          const result = await onBuySeeds(crop.id, purchaseQuantity);
-          currentFarm = result.farm;
-          currentGold = result.gold;
+          const response = await onBuySeeds(crop.id, purchaseQuantity);
+          currentFarm = response.farm;
+          currentGold = response.gold;
           updateBalance();
-          showMessage(result.message ?? 'Sementes compradas!');
+          showMessage(response.message ?? 'Sementes compradas!');
           renderActiveTab();
         } catch (error) {
           showMessage(error instanceof Error ? error.message : 'Não foi possível comprar sementes.', true);
           button.disabled = false;
+          button.textContent = `Comprar ${purchaseQuantity} · ${crop.cost * purchaseQuantity} ouro`;
         }
       });
-      card.append(icon, name, info, button);
+
+      card.append(head, stats, button);
       grid.append(card);
     });
+
     contentArea.append(grid);
   }
 
-  function renderCareTab() {
-    const recipes: Array<{ species: AnimalSpeciesId; title: string; icon: string; recipe: string }> = [
-      { species: 'chicken', title: 'Ração para galinhas', icon: '🐔', recipe: '2 Milhos + 1 Trigo = 1 ração' },
-      { species: 'cow', title: 'Ração para bovinos', icon: '🐄', recipe: '1 Milho + 2 Trigos = 1 ração' },
-      { species: 'horse', title: 'Ração para cavalos', icon: '🐎', recipe: '1 Milho + 2 Cenouras = 1 ração' }
-    ];
-    const note = document.createElement('p');
-    note.style.color = '#cbd5e1';
-    note.style.fontSize = '12px';
-    note.textContent = 'Transforme suas colheitas em ração. Depois abasteça o comedouro da instalação. Os animais também precisam de água no bebedouro.';
-    contentArea.append(note);
+  function renderCareTab(): void {
+    contentArea.append(
+      makeNotice(
+        'Transforme suas colheitas em ração, abasteça os comedouros e mantenha os bebedouros cheios. Animais bem cuidados produzem mais e vivem mais felizes.',
+        'plain'
+      )
+    );
 
     if (currentFarm.animals.length > 0) {
-      const animalStatus = document.createElement('div');
-      animalStatus.style.display = 'grid';
-      animalStatus.style.gridTemplateColumns = 'repeat(auto-fit, minmax(180px, 1fr))';
-      animalStatus.style.gap = '8px';
-      animalStatus.style.marginBottom = '14px';
+      const sectionTitle = make('h3', 'farm-shop__section-title', 'Seus animais');
+      const statusGrid = make('div', 'farm-shop__status-grid');
       currentFarm.animals.forEach((animal) => {
-        const card = document.createElement('div');
-        card.style.padding = '10px';
-        card.style.borderRadius = '7px';
-        card.style.background = 'rgba(25,36,45,.8)';
-        const title = document.createElement('strong');
-        title.style.color = '#fef08a';
-        title.textContent = animal.name;
-        const needs = document.createElement('p');
-        needs.style.fontSize = '11px';
-        needs.style.color = '#cbd5e1';
-        needs.textContent = `🍽 Fome: ${animal.hunger ?? 100}/100  •  💧 Sede: ${animal.hydration ?? 100}/100`;
-        card.append(title, needs);
-        animalStatus.append(card);
+        const card = make('div', 'farm-shop__status-card');
+        const name = make('strong', 'farm-shop__status-name', animal.name);
+        const needs = make(
+          'p',
+          'farm-shop__status-needs',
+          `🍽 Fome ${animal.hunger ?? 100}/100 · 💧 Sede ${animal.hydration ?? 100}/100`
+        );
+        card.append(name, needs);
+        statusGrid.append(card);
       });
-      contentArea.append(animalStatus);
+      contentArea.append(sectionTitle, statusGrid);
     }
 
-    const recipeGrid = document.createElement('div');
-    recipeGrid.style.display = 'grid';
-    recipeGrid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(210px, 1fr))';
-    recipeGrid.style.gap = '12px';
+    const recipes: Array<{ species: AnimalSpeciesId; title: string; icon: string; recipe: string }> = [
+      { species: 'chicken', title: 'Ração para galinhas', icon: '🐔', recipe: '2 Milhos + 1 Trigo' },
+      { species: 'cow', title: 'Ração para bovinos', icon: '🐄', recipe: '1 Milho + 2 Trigos' },
+      { species: 'horse', title: 'Ração para cavalos', icon: '🐎', recipe: '1 Milho + 2 Cenouras' }
+    ];
+
+    contentArea.append(make('h3', 'farm-shop__section-title', 'Preparar ração'));
+    const recipeGrid = make('div', 'farm-shop__grid farm-shop__grid--recipes');
     recipes.forEach((recipe) => {
       const stock = currentFarm.storage[`feed-${recipe.species}`] ?? 0;
-      const card = document.createElement('div');
-      card.style.padding = '12px';
-      card.style.borderRadius = '8px';
-      card.style.background = 'rgba(25,36,45,.8)';
-      card.style.border = '1px solid rgba(255,255,255,.12)';
-      const title = document.createElement('strong');
-      title.style.color = '#fef08a';
-      title.textContent = `${recipe.icon} ${recipe.title}`;
-      const recipeText = document.createElement('p');
-      recipeText.style.fontSize = '12px';
-      recipeText.style.color = '#cbd5e1';
-      recipeText.textContent = recipe.recipe;
-      const stockText = document.createElement('p');
-      stockText.style.fontSize = '12px';
-      stockText.textContent = `Ração pronta: ${stock}`;
-      const craft = document.createElement('button');
+      const card = make('article', 'farm-shop__card farm-shop__card--recipe');
+      const head = make('div', 'farm-shop__card-head');
+      const icon = make('div', 'farm-shop__icon', recipe.icon);
+      icon.setAttribute('aria-hidden', 'true');
+      const titleWrap = make('div', 'farm-shop__card-title-wrap');
+      const name = make('h3', 'farm-shop__card-name', recipe.title);
+      const recipeText = make('p', 'farm-shop__meta', recipe.recipe);
+      titleWrap.append(name, recipeText);
+      head.append(icon, titleWrap);
+
+      const stockLine = make('p', 'farm-shop__stock-line');
+      stockLine.append(
+        make('span', '', 'Ração pronta'),
+        make('strong', '', String(stock))
+      );
+
+      const craft = make('button', 'primary-button farm-shop__buy', 'Preparar 1 ração');
       craft.type = 'button';
-      craft.className = 'button-primary';
-      craft.textContent = 'Preparar 1 ração';
       craft.addEventListener('click', async () => {
         craft.disabled = true;
+        craft.textContent = 'Preparando…';
         try {
-          const result = await onCraftFeed(recipe.species, 1);
-          currentFarm = result.farm;
-          currentGold = result.gold;
+          const response = await onCraftFeed(recipe.species, 1);
+          currentFarm = response.farm;
+          currentGold = response.gold;
           updateBalance();
-          showMessage(result.message ?? 'Ração preparada!');
+          showMessage(response.message ?? 'Ração preparada!');
           renderActiveTab();
         } catch (error) {
           showMessage(error instanceof Error ? error.message : 'Colheita insuficiente para preparar ração.', true);
           craft.disabled = false;
+          craft.textContent = 'Preparar 1 ração';
         }
       });
-      card.append(title, recipeText, stockText, craft);
+
+      card.append(head, stockLine, craft);
       recipeGrid.append(card);
     });
     contentArea.append(recipeGrid);
 
-    const troughTitle = document.createElement('h3');
-    troughTitle.style.color = '#fef08a';
-    troughTitle.style.marginTop = '20px';
-    troughTitle.textContent = 'Comedouros e bebedouros';
-    contentArea.append(troughTitle);
+    contentArea.append(make('h3', 'farm-shop__section-title', 'Comedouros e bebedouros'));
+    if (currentFarm.buildings.length === 0) {
+      contentArea.append(
+        makeNotice(
+          'Construa primeiro um galinheiro, curral ou estábulo para instalar comedouros e bebedouros.',
+          'plain'
+        )
+      );
+      return;
+    }
 
     (Object.keys(FARM_BUILDINGS) as FarmBuildingId[]).forEach((buildingId) => {
       if (!currentFarm.buildings.includes(buildingId)) return;
       const building = FARM_BUILDINGS[buildingId];
       const care = currentFarm.animalCare?.[buildingId] ?? { feed: 0, water: 0 };
       const species = building.allowedSpecies[0]!;
-      const card = document.createElement('div');
-      card.style.display = 'flex';
-      card.style.flexWrap = 'wrap';
-      card.style.alignItems = 'center';
-      card.style.justifyContent = 'space-between';
-      card.style.gap = '10px';
-      card.style.padding = '12px';
-      card.style.marginTop = '8px';
-      card.style.borderRadius = '8px';
-      card.style.background = 'rgba(25,36,45,.8)';
-      const info = document.createElement('div');
-      const heading = document.createElement('strong');
-      heading.style.color = '#fef08a';
-      heading.textContent = building.name;
-      const values = document.createElement('p');
-      values.style.fontSize = '12px';
-      values.style.color = '#cbd5e1';
-      values.textContent = `🥣 Comedouro: ${care.feed}/30  •  🚰 Bebedouro: ${care.water}/30  •  Ração no estoque: ${currentFarm.storage[`feed-${species}`] ?? 0}`;
-      info.append(heading, values);
-      const actions = document.createElement('div');
-      actions.style.display = 'flex';
-      actions.style.gap = '6px';
+      const card = make('div', 'farm-shop__trough');
+
+      const info = make('div', 'farm-shop__trough-info');
+      const heading = make('strong', 'farm-shop__trough-name', building.name);
+      const values = make(
+        'p',
+        'farm-shop__trough-values',
+        `🥣 Comedouro ${care.feed}/30 · 🚰 Bebedouro ${care.water}/30`
+      );
+      const stock = make(
+        'p',
+        'farm-shop__trough-stock',
+        `Ração disponível: ${currentFarm.storage[`feed-${species}`] ?? 0}`
+      );
+      info.append(heading, values, stock);
+
+      const actions = make('div', 'farm-shop__trough-actions');
       (['feed', 'water'] as const).forEach((kind) => {
-        const button = document.createElement('button');
+        const button = make(
+          'button',
+          'farm-shop__trough-button',
+          kind === 'feed' ? 'Abastecer comedouro +5' : 'Encher bebedouro +5'
+        );
         button.type = 'button';
-        button.className = 'ghost-button';
-        button.textContent = kind === 'feed' ? 'Abastecer comedouro +5' : 'Encher bebedouro +5';
         button.addEventListener('click', async () => {
           button.disabled = true;
           try {
-            const result = await onFillTrough(buildingId, kind, 5);
-            currentFarm = result.farm;
-            currentGold = result.gold;
+            const response = await onFillTrough(buildingId, kind, 5);
+            currentFarm = response.farm;
+            currentGold = response.gold;
             updateBalance();
-            showMessage(result.message ?? 'Instalação abastecida!');
+            showMessage(response.message ?? 'Instalação abastecida!');
             renderActiveTab();
           } catch (error) {
             showMessage(error instanceof Error ? error.message : 'Não foi possível abastecer.', true);
@@ -622,15 +544,10 @@ export function renderFarmShop(
         });
         actions.append(button);
       });
+
       card.append(info, actions);
       contentArea.append(card);
     });
-    if (currentFarm.buildings.length === 0) {
-      const empty = document.createElement('p');
-      empty.style.color = '#fbbf24';
-      empty.textContent = 'Construa primeiro um galinheiro, curral ou estábulo para instalar comedouros e bebedouros.';
-      contentArea.append(empty);
-    }
   }
 
   btnTabBuildings.addEventListener('click', () => {
@@ -650,20 +567,25 @@ export function renderFarmShop(
     renderActiveTab();
   });
 
-  panel.append(header, landCard, tabsContainer, feedbackArea, contentArea);
-  overlay.append(panel);
-
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) onClose();
+  let keyHandler: ((event: KeyboardEvent) => void) | null = null;
+  const closePanel = (): void => {
+    if (keyHandler) window.removeEventListener('keydown', keyHandler);
+    onClose();
+  };
+  const goToFarm = (): void => {
+    if (keyHandler) window.removeEventListener('keydown', keyHandler);
+    onGoToFarm();
+  };
+  closeBtn.addEventListener('click', closePanel);
+  backButton.addEventListener('click', goToFarm);
+  overlay.addEventListener('click', (event) => {
+    if (event.target === overlay) closePanel();
   });
 
-  const onKey = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      window.removeEventListener('keydown', onKey);
-      onClose();
-    }
+  keyHandler = (event: KeyboardEvent) => {
+    if (event.key === 'Escape') closePanel();
   };
-  window.addEventListener('keydown', onKey);
+  window.addEventListener('keydown', keyHandler);
 
   root.append(overlay);
   renderActiveTab();

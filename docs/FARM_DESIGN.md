@@ -324,3 +324,94 @@ A cria parte do melhor tier entre os pais e pode subir mais um nível conforme a
 - O estado agrícola fica dentro de `Character.combat.farm` e é salvo pelo repositório do personagem com controle otimista baseado em `lastTickAt`. Com PostgreSQL configurado, o estado é persistido no banco; o modo de memória é apenas fallback de desenvolvimento e não sobrevive a reinicializações.
 - A colheita entrega 2 sementes da mesma cultura e os frutos ao armazém, sem conceder ouro automaticamente.
 - A venda direta de colheitas permanece bloqueada até existir o mercado entre jogadores. Os produtos ficam armazenados na fazenda enquanto esse sistema não estiver disponível.
+
+
+## 16. Sistema visual do rancho (implementado em 11/11/2026)
+
+A fazenda passou a usar arte vetorial procedural desenhada no Phaser, sem imagens externas. O objetivo é manter o rancho quente, limpo e nostálgico, com leitura clara em qualquer resolução e sem alterar os sistemas de jogo existentes.
+
+### 16.1 Paleta e tipografia
+
+A paleta central fica em `ranch-theme.ts` (`RANCH`) e evita saturação excessiva:
+
+| Uso | Cor |
+|---|---|
+| Grama (variações) | `#7fae5c`, `#87b462`, `#8fbc69`, `#78a856` |
+| Grama clara / escura | `#a7cd7c` / `#5d8845` |
+| Terra batida | `#c49a63` / `#d4ad78` / `#9c7647` |
+| Madeira | `#8c5a32` / `#c08a52` / `#5b3720` |
+| Celeiro | `#a94a36` / `#c35d46` / `#7b3025` |
+| Telhado | `#b15b3d` / `#d17a56` / `#7d3c2b` |
+| Creme / pergaminho | `#f2e3c4` / `#d8c49d` |
+| Ouro / destaque | `#f0c56d` / `#ffe6a4` |
+| Água | `#6fb9c4` / `#b3e4e8` |
+| Painéis escuros | `#24180f` / `#3a2818` / borda `#d3ac66` |
+
+Tipografia: `Cinzel` (títulos, placas e HUD) e `Trebuchet MS` (textos e números), com fallback para fontes do sistema.
+
+### 16.2 Composição da cena
+
+O layout isométrico aprovado foi mantido:
+
+- Casa `(12, 6)`, horta `6×5` a partir de `(6, 11)`, celeiro `(4, 7)`.
+- Galinheiro `(18, 7)`, curral `(20, 12)`, estábulo `(16, 17)`.
+- Poço `(15, 8)`, moinho `(21, 5)`, espantalho `(13, 16)`, porteira `(22, 20)`.
+
+O cenário inclui terreno estendido com variação orgânica de grama, estradas que continuam para fora da porteira, árvores com copa em camadas, cercas de madeira, fardos de feno, barris, regador, carrinho de mão, caixotes de sementes, varal, caixa de correio, postes de lanterna, placas rústicas e marcador de propriedade. Borboletas e a atmosfera (vinheta quente e luz de sol) dão vida sem competir com os elementos interativos.
+
+Canteiros bloqueados se misturam à grama; canteiros liberados usam moldura de madeira e só revelam o contorno no hover. O foco visual permanece na horta, nos animais e nas construções.
+
+### 16.3 Esquema de profundidade
+
+| Camada | Depth |
+|---|---|
+| Chão | `0` |
+| Detalhes de prado | `2` |
+| Objetos do mundo e personagem | `2000 + y` |
+| Atmosfera (vinheta/sol) | `8000`–`8001` |
+| Tooltip do rancho | `9500` |
+| HUD do rancho | `9600` |
+| Modais (sementes, animal) | `9700` |
+| Loja do rancho (overlay HTML) | `12400` |
+
+O mundo usa um contêiner com transformação manual (escala e posição), não o scroll da câmera do Phaser. A HUD e os modais ficam fora desse contêiner, portanto não sofrem zoom nem deslocamento.
+
+### 16.4 HUD do rancho
+
+A HUD (`RanchHud`) é um painel de madeira escura com moldura dourada, moeda desenhada em vetor e três cartões de resumo: canteiros liberados (`x/30`), animais e abrigos (`x/3`). Abaixo ficam o armazém de milho, trigo e cenoura, a linha de sementes e o botão **Mercado do rancho**. Valores são atualizados a cada sincronização da fazenda.
+
+### 16.5 Mercado do rancho
+
+A loja mantém as abas **Abrigos**, **Animais**, **Sementes** e **Cuidados**, agora com aparência de pergaminho sobre estrutura de madeira:
+
+- Cabeçalho com título, saldo em ouro e botão de fechar.
+- Abas em fita, cartões de item com ícone, descrição, preço e ação.
+- Faixa de expansão de terra e receitas de ração no estilo de recibo.
+- Rodapé com dica e botão **Voltar ao rancho**.
+- Feedback de compra em faixa própria, foco visível para teclado e estados de botão desabilitado.
+
+Todo o estilo usa classes com prefixo `.farm-shop-*`, sem afetar outros painéis do jogo.
+
+### 16.6 Câmera e responsividade
+
+- **Desktop:** zoom entre `0.66` e `1.04`, calculado por `min(largura/1800, altura/1080)`.
+- **Compacto** (`largura < 760` ou `altura < 520`): zoom entre `0.36` e `0.62`, calculado por `min(largura/1150, altura/1000)`, com foco horizontal deslocado `+380` para manter celeiro, horta e curral enquadrados.
+- **HUD:** escala `1` no desktop, `0.74` em telas compactas e `0.66` abaixo de `480px`; reposiciona-se para não cobrir a navegação inferior.
+- **Loja:** em paisagem baixa (`altura ≤ 540`) o cabeçalho é compactado, textos introdutórios são ocultados e o conteúdo rola dentro do painel. Em retrato, o cabeçalho empilha saldo e botão de fechar.
+- **Cidade:** o controle de montaria em telas ≤ `540px` fica acima da HUD inferior, sem cobrir a navegação.
+
+Viewports validados visualmente: `1600×900`, `1280×800`, `430×900` e `844×390`.
+
+### 16.7 Interações preservadas
+
+Plantar, regar, colher, expandir a terra, comprar sementes, abrir a ficha de animais, alimentar/abastecer instalações, sincronizar a fazenda e sair para a cidade continuam funcionando. O seletor de sementes e a ficha do animal escondem tooltips antes de abrir, e o botão de saída do rancho permanece na porteira.
+
+### 16.8 Arquivos
+
+- `apps/web/src/scenes/FarmScene.ts` — composição, câmera, interações e modais.
+- `apps/web/src/scenes/ranch/ranch-theme.ts` — paleta, terreno, cenário, construções e atmosfera.
+- `apps/web/src/scenes/ranch/ranch-buildings.ts` — galinheiro, curral, estábulo, plataformas vagas e placas.
+- `apps/web/src/scenes/ranch/ranch-animals.ts` — visuais animados de galinha, vaca e cavalo.
+- `apps/web/src/scenes/ranch/ranch-ui.ts` — HUD e botões do rancho.
+- `apps/web/src/ui/farm-shop-panel.ts` — markup e lógica do mercado.
+- `apps/web/src/style.css` — estilos `.farm-shop-*`, responsividade e correção do controle de montaria.
