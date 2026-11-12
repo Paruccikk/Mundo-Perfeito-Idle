@@ -3,7 +3,6 @@ import {
   RANCH,
   RANCH_FONT_BODY,
   RANCH_FONT_DISPLAY,
-  createFenceLine,
   drawCrate,
   drawHayBale
 } from './ranch-theme';
@@ -25,27 +24,17 @@ export function createCoop(
   y: number
 ): Phaser.GameObjects.Container {
   const container = scene.add.container(x, y);
-  addShadow(container, 470, 138);
-
-  const fence = [
-    createFenceLine(scene, -142, -58, -72, -58, { height: 22, spacing: 25, alpha: 0.95 }),
-    createFenceLine(scene, 72, -58, 142, -58, { height: 22, spacing: 25, alpha: 0.95 }),
-    createFenceLine(scene, -142, -58, -142, 70, { height: 22, spacing: 25, alpha: 0.95 }),
-    createFenceLine(scene, 142, -58, 142, 70, { height: 22, spacing: 25, alpha: 0.95 }),
-    createFenceLine(scene, -142, 70, -48, 70, { height: 22, spacing: 25, alpha: 0.95 }),
-    createFenceLine(scene, 48, 70, 142, 70, { height: 22, spacing: 25, alpha: 0.95 })
-  ];
-  container.add(fence);
+  addShadow(container, 560, 176);
 
   const g = scene.add.graphics();
 
   // Base de madeira e corpo do galinheiro.
   g.fillStyle(0x4d2f1b, 1);
-  g.fillRoundedRect(-58, -8, 116, 16, 3);
+  g.fillRoundedRect(-78, -8, 156, 20, 4);
   g.fillStyle(RANCH.woodDark, 1);
-  g.fillRoundedRect(-55, -84, 110, 80, 4);
+  g.fillRoundedRect(-70, -94, 140, 92, 5);
   g.fillStyle(0x9a6739, 1);
-  g.fillRoundedRect(-51, -80, 102, 72, 3);
+  g.fillRoundedRect(-66, -90, 132, 84, 4);
   g.fillStyle(0xb07a45, 0.65);
   g.fillRect(-49, -78, 98, 12);
   g.lineStyle(1.4, 0x6b4529, 0.7);
@@ -59,17 +48,17 @@ export function createCoop(
 
   // Telhado vermelho.
   g.fillStyle(0x6e2d22, 1);
-  g.fillTriangle(-72, -82, 0, -136, 72, -82);
+  g.fillTriangle(-92, -94, 0, -158, 92, -94);
   g.fillStyle(RANCH.barnRed, 1);
-  g.fillTriangle(-66, -84, 0, -130, 66, -84);
+  g.fillTriangle(-86, -96, 0, -151, 86, -96);
   g.fillStyle(RANCH.barnRedLight, 1);
-  g.fillTriangle(-54, -86, 0, -124, 54, -86);
+  g.fillTriangle(-70, -98, 0, -143, 70, -98);
   g.lineStyle(1.1, 0x7b3025, 0.7);
   for (let row = 0; row < 4; row += 1) {
     g.lineBetween(-56 + row * 4, -86 - row * 9, 56 - row * 4, -86 - row * 9);
   }
   g.lineStyle(2, 0xefe3c5, 0.85);
-  g.lineBetween(-72, -82, 72, -82);
+  g.lineBetween(-92, -94, 92, -94);
   g.fillStyle(0xefe3c5, 1);
   g.fillCircle(0, -132, 3);
   g.fillRect(-1.5, -145, 3, 12);
@@ -106,9 +95,9 @@ export function createCoop(
   g.strokeRoundedRect(22, -68, 21, 20, 2);
 
   g.fillStyle(0x5d3a22, 1);
-  g.fillRoundedRect(-78, -48, 25, 26, 2);
+  g.fillRoundedRect(-100, -56, 36, 38, 3);
   g.fillStyle(0x8f5d35, 1);
-  g.fillRoundedRect(-75, -45, 19, 20, 1);
+  g.fillRoundedRect(-96, -52, 28, 30, 2);
   g.fillStyle(0x3f2717, 1);
   g.fillEllipse(-65, -41, 15, 6);
   g.fillStyle(0xf6ecd2, 1);
@@ -125,15 +114,15 @@ export function createCoop(
   g.fillRect(-24, -18, 3, 12);
   g.fillRect(21, -18, 3, 12);
   g.fillStyle(0x4b2d1b, 1);
-  g.fillRoundedRect(-112, 34, 62, 19, 4);
+  g.fillRoundedRect(-150, 54, 84, 25, 5);
   g.fillStyle(0xb07a3f, 1);
-  g.fillRect(-108, 32, 54, 6);
+  g.fillRect(-144, 51, 72, 8);
   g.fillStyle(0xe0bd71, 1);
-  g.fillEllipse(-81, 32, 48, 9);
+  g.fillEllipse(-108, 51, 66, 12);
   g.fillStyle(0x557f91, 1);
-  g.fillRoundedRect(62, 34, 58, 20, 5);
+  g.fillRoundedRect(82, 54, 78, 26, 6);
   g.fillStyle(0x9ed6df, 1);
-  g.fillEllipse(91, 32, 46, 9);
+  g.fillEllipse(121, 51, 64, 12);
 
   // Ferradura e detalhes de aconchego.
   g.lineStyle(2, 0x9b8a70, 1);
@@ -204,27 +193,6 @@ export function createCorral(
   drawHayBale(props, 16, -2, 0.9);
 
   // Cercado do piquete.
-  const fence = [
-    createFenceLine(scene, -178, -62, -94, -62, { height: 26, spacing: 27 }),
-    createFenceLine(scene, 94, -62, 178, -62, { height: 26, spacing: 27 }),
-    createFenceLine(scene, -178, -62, -178, 78, { height: 26, spacing: 27 }),
-    createFenceLine(scene, 178, -62, 178, 78, { height: 26, spacing: 27 }),
-    createFenceLine(scene, -178, 78, -44, 78, { height: 26, spacing: 27 }),
-    createFenceLine(scene, 44, 78, 178, 78, { height: 26, spacing: 27 })
-  ];
-  container.add(fence);
-
-  // Porteira entreaberta.
-  const gate = scene.add.graphics();
-  gate.lineStyle(4, 0x5c3a23, 1);
-  gate.lineBetween(-30, 34, -30, 58);
-  gate.lineBetween(-30, 38, 10, 50);
-  gate.lineBetween(-30, 50, 10, 38);
-  gate.lineStyle(2, 0xa97645, 1);
-  gate.lineBetween(-28, 40, 8, 50);
-  gate.lineBetween(-28, 48, 8, 38);
-  container.add(gate);
-
   // Cocho e bebedouro.
   g.fillStyle(0x4f3120, 1);
   g.fillRoundedRect(-106, 24, 56, 17, 4);
@@ -268,16 +236,6 @@ export function createStable(
 ): Phaser.GameObjects.Container {
   const container = scene.add.container(x, y);
   addShadow(container, 610, 190);
-
-  const fence = [
-    createFenceLine(scene, -184, -50, -104, -50, { height: 28, spacing: 28 }),
-    createFenceLine(scene, 104, -50, 184, -50, { height: 28, spacing: 28 }),
-    createFenceLine(scene, -184, -50, -184, 82, { height: 28, spacing: 28 }),
-    createFenceLine(scene, 184, -50, 184, 82, { height: 28, spacing: 28 }),
-    createFenceLine(scene, -184, 82, -48, 82, { height: 28, spacing: 28 }),
-    createFenceLine(scene, 48, 82, 184, 82, { height: 28, spacing: 28 })
-  ];
-  container.add(fence);
 
   const g = scene.add.graphics();
 
