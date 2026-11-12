@@ -121,23 +121,18 @@ function formatRemaining(milliseconds: number): string {
 
 function buildRoads(): Set<string> {
   const roads = new Set<string>();
-  // Estrada principal: porteira, casa e pomar.
-  addRoadLine(roads, 22, 20, 12, 20);
-  addRoadLine(roads, 12, 20, 12, 8);
-  addRoadLine(roads, 12, 8, 13, 7);
-  // Caminhos para as instalações.
-  addRoadLine(roads, 12, 18, 14, 18);
-  addRoadLine(roads, 14, 18, 16, 19);
-  addRoadLine(roads, 22, 20, 22, 16);
-  addRoadLine(roads, 22, 16, 21, 15);
-  addRoadLine(roads, 12, 9, 6, 9);
-  addRoadLine(roads, 6, 9, 5, 8);
-  addRoadLine(roads, 12, 9, 14, 9);
-  addRoadLine(roads, 14, 9, 15, 8);
-  addRoadLine(roads, 12, 10, 17, 10);
-  addRoadLine(roads, 17, 10, 19, 10);
-  // Estrada que segue para fora da porteira, rumo à cidade.
-  addRoadLine(roads, 22, 20, 27, 25);
+  // Estrada principal da entrada até o pátio central da fazenda.
+  addRoadLine(roads, 43, 39, 29, 31);
+  addRoadLine(roads, 29, 31, 23, 20);
+  // Ramal da casa e da horta.
+  addRoadLine(roads, 23, 20, 23, 9);
+  addRoadLine(roads, 23, 20, 8, 22);
+  // Ramais independentes para cada área de criação.
+  addRoadLine(roads, 29, 31, 37, 25);
+  addRoadLine(roads, 37, 25, 37, 8);
+  addRoadLine(roads, 29, 31, 17, 31);
+  // Acesso externo à cidade.
+  addRoadLine(roads, 43, 39, 48, 44);
   return roads;
 }
 
