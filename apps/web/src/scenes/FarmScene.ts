@@ -494,79 +494,87 @@ export class FarmScene extends Phaser.Scene {
   }
 
 
-  /** Grandes áreas de criação: cada setor tem piso, cerca, porteira e acesso por estrada. */
+  /** Setores de criação em formato de piquete quadrado, com piso e entrada legíveis. */
   private buildAnimalYards(): void {
-    // Ruas largas de terra conectam a entrada principal às porteiras dos setores.
-    const entrance = this.iso(28, 26);
     const road = this.add.graphics();
-    road.lineStyle(62, 0x87633d, 0.9);
-    road.lineBetween(entrance.x, entrance.y - 8, this.iso(24, 22).x, this.iso(24, 22).y);
-    road.lineStyle(44, 0xb18a56, 0.82);
-    road.lineBetween(entrance.x, entrance.y - 8, this.iso(24, 22).x, this.iso(24, 22).y);
-    for (const destination of [this.iso(24, 5), this.iso(27, 14), this.iso(19, 22)]) {
-      road.lineStyle(58, 0x87633d, 0.92);
-      road.lineBetween(this.iso(24, 22).x, this.iso(24, 22).y, destination.x, destination.y + 120);
-      road.lineStyle(40, 0xb18a56, 0.86);
-      road.lineBetween(this.iso(24, 22).x, this.iso(24, 22).y, destination.x, destination.y + 120);
-      road.lineStyle(2, 0xd6bb83, 0.36);
-      road.lineBetween(this.iso(24, 22).x, this.iso(24, 22).y, destination.x, destination.y + 120);
-    }
-    road.setDepth(450);
+    const junction = this.iso(23, 22);
+    const entrance = this.iso(28, 26);
+    const branches = [this.iso(25, 5), this.iso(28, 14), this.iso(18, 23)];
+    road.lineStyle(74, 0x76502f, 0.92);
+    road.lineBetween(entrance.x, entrance.y, junction.x, junction.y);
+    road.lineStyle(58, 0xc09a64, 0.95);
+    road.lineBetween(entrance.x, entrance.y, junction.x, junction.y);
+    branches.forEach((point) => {
+      road.lineStyle(68, 0x76502f, 0.94);
+      road.lineBetween(junction.x, junction.y, point.x, point.y + 150);
+      road.lineStyle(52, 0xc09a64, 0.96);
+      road.lineBetween(junction.x, junction.y, point.x, point.y + 150);
+    });
+    road.setDepth(430);
     this.world.add(road);
-    const yards: Array<{ id: FarmBuildingId; halfW: number; halfH: number; label: string }> = [
-      { id: 'coop', halfW: 270, halfH: 168, label: 'GALINHEIRO' },
-      { id: 'corral', halfW: 300, halfH: 190, label: 'CURRAL' },
-      { id: 'stable', halfW: 320, halfH: 205, label: 'ESTÁBULO' }
+
+    const yards: Array<{ id: FarmBuildingId; halfW: number; halfH: number; label: string; ground: number }> = [
+      { id: 'coop', halfW: 340, halfH: 220, label: 'GALINHEIRO', ground: 0xd8bd83 },
+      { id: 'corral', halfW: 380, halfH: 250, label: 'CURRAL', ground: 0xbca071 },
+      { id: 'stable', halfW: 390, halfH: 260, label: 'ESTÁBULO', ground: 0xb58b5c }
     ];
     for (const yard of yards) {
       const layout = BUILDING_LAYOUTS[yard.id];
       const point = this.iso(layout.col, layout.row);
-      const g = this.add.graphics();
-      // Pátio amplo em forma de losango, com chão batido e manchas de grama.
-      g.fillStyle(0x496b36, 0.18);
-      g.fillPoints([
+      const corners = [
         new Phaser.Math.Vector2(point.x, point.y - yard.halfH),
         new Phaser.Math.Vector2(point.x + yard.halfW, point.y),
         new Phaser.Math.Vector2(point.x, point.y + yard.halfH),
         new Phaser.Math.Vector2(point.x - yard.halfW, point.y)
-      ], true);
-      g.fillStyle(0xb99a62, 0.16);
-      g.fillPoints([
-        new Phaser.Math.Vector2(point.x, point.y - yard.halfH + 18),
-        new Phaser.Math.Vector2(point.x + yard.halfW - 20, point.y),
-        new Phaser.Math.Vector2(point.x, point.y + yard.halfH - 18),
-        new Phaser.Math.Vector2(point.x - yard.halfW + 20, point.y)
-      ], true);
-      g.lineStyle(2, 0x6b8b4a, 0.48);
-      g.strokePoints([
-        new Phaser.Math.Vector2(point.x, point.y - yard.halfH),
-        new Phaser.Math.Vector2(point.x + yard.halfW, point.y),
-        new Phaser.Math.Vector2(point.x, point.y + yard.halfH),
-        new Phaser.Math.Vector2(point.x - yard.halfW, point.y)
-      ], true);
-      g.setDepth(500 + point.y);
-      this.world.add(g);
-
-      // Cercas nas quatro laterais, deixando uma abertura frontal para a porteira.
-      const fenceParts = [
-        createFenceLine(this, point.x - yard.halfW, point.y, point.x, point.y - yard.halfH, { height: 30, spacing: 30, alpha: 0.98 }),
-        createFenceLine(this, point.x, point.y - yard.halfH, point.x + yard.halfW, point.y, { height: 30, spacing: 30, alpha: 0.98 }),
-        createFenceLine(this, point.x - yard.halfW, point.y, point.x - 38, point.y + yard.halfH * 0.82, { height: 30, spacing: 30, alpha: 0.98 }),
-        createFenceLine(this, point.x + 38, point.y + yard.halfH * 0.82, point.x + yard.halfW, point.y, { height: 30, spacing: 30, alpha: 0.98 })
       ];
-      for (const fence of fenceParts) {
-        fence.setDepth(1500 + point.y);
-        this.world.add(fence);
+      const floor = this.add.graphics();
+      floor.fillStyle(0x304b27, 0.26);
+      floor.fillPoints(corners.map((p) => new Phaser.Math.Vector2(p.x + 7, p.y + 12)), true);
+      floor.fillStyle(yard.ground, 0.48);
+      floor.fillPoints(corners, true);
+      floor.lineStyle(7, 0x6c4729, 0.96);
+      floor.strokePoints(corners, true);
+      floor.lineStyle(2, 0xe1c58d, 0.48);
+      floor.strokePoints(corners.map((p, i) => new Phaser.Math.Vector2(
+        p.x + (i === 0 || i === 3 ? 12 : -12), p.y + (i < 2 ? 8 : -8)
+      )), true);
+      // Patches of grass, straw and stepping stones make the pen read as a lived-in yard.
+      for (let i = 0; i < 18; i += 1) {
+        const px = point.x + Phaser.Math.Between(-yard.halfW * 0.58, yard.halfW * 0.58);
+        const py = point.y + Phaser.Math.Between(-yard.halfH * 0.52, yard.halfH * 0.52);
+        floor.fillStyle(i % 3 === 0 ? 0x668a45 : 0x7c9b51, i % 3 === 0 ? 0.32 : 0.18);
+        floor.fillEllipse(px, py, Phaser.Math.Between(18, 42), Phaser.Math.Between(7, 15));
       }
-      const gate = createRanchGate(this, point.x, point.y + yard.halfH * 0.82, yard.label, () => this.hud?.pushFeed(`Área de ${yard.label.toLowerCase()} do rancho.`, 'normal'));
-      gate.setScale(0.82);
-      gate.setDepth(1900 + point.y + yard.halfH);
-      this.world.add(gate);
+      for (let i = 0; i < 8; i += 1) {
+        const px = point.x + Phaser.Math.Between(-yard.halfW * 0.45, yard.halfW * 0.45);
+        const py = point.y + Phaser.Math.Between(-yard.halfH * 0.4, yard.halfH * 0.4);
+        floor.fillStyle(0xead7a8, 0.3);
+        floor.fillEllipse(px, py, 8, 4);
+      }
+      floor.setDepth(470 + point.y);
+      this.world.add(floor);
 
-      // Placa de identificação posicionada na entrada de cada setor.
-      const sign = createRusticSign(this, point.x + yard.halfW * 0.58, point.y + yard.halfH * 0.34, yard.label);
-      sign.setScale(1.15);
-      sign.setDepth(1900 + point.y + yard.halfH * 0.34);
+      // Fence lines are split around a broad gate at the front of each square paddock.
+      const gateGap = 74;
+      const fenceParts = [
+        createFenceLine(this, point.x - yard.halfW, point.y, point.x, point.y - yard.halfH, { height: 36, spacing: 26, alpha: 1 }),
+        createFenceLine(this, point.x, point.y - yard.halfH, point.x + yard.halfW, point.y, { height: 36, spacing: 26, alpha: 1 }),
+        createFenceLine(this, point.x - yard.halfW, point.y, point.x - gateGap / 2, point.y + yard.halfH * 0.86, { height: 36, spacing: 26, alpha: 1 }),
+        createFenceLine(this, point.x + gateGap / 2, point.y + yard.halfH * 0.86, point.x + yard.halfW, point.y, { height: 36, spacing: 26, alpha: 1 })
+      ];
+      fenceParts.forEach((fence) => {
+        fence.setDepth(1600 + point.y);
+        this.world.add(fence);
+      });
+      const gate = createRanchGate(this, point.x, point.y + yard.halfH * 0.86, yard.label, () => {
+        this.hud?.pushFeed(`Você entrou na área do ${yard.label.toLowerCase()}.`, 'normal');
+      });
+      gate.setScale(1.12);
+      gate.setDepth(1950 + point.y + yard.halfH);
+      this.world.add(gate);
+      const sign = createRusticSign(this, point.x + yard.halfW * 0.58, point.y + yard.halfH * 0.38, yard.label);
+      sign.setScale(1.35);
+      sign.setDepth(1950 + point.y + yard.halfH * 0.38);
       this.world.add(sign);
     }
   }
@@ -1589,13 +1597,13 @@ export class FarmScene extends Phaser.Scene {
   ): { x: number; y: number } {
     const slots: Record<AnimalSpeciesId, Array<[number, number]>> = {
       chicken: [
-        [-92, 36], [-38, 52], [24, 34], [88, 50], [-70, 68], [-4, 70]
+        [-180, 54], [-100, 86], [-18, 46], [72, 82], [160, 56], [-140, 132], [-42, 142], [70, 132], [166, 144]
       ],
       cow: [
-        [-126, 42], [-42, 60], [48, 54], [128, 34]
+        [-190, 72], [-70, 112], [70, 102], [190, 66]
       ],
       horse: [
-        [-112, 74], [-28, 82], [62, 76], [142, 66]
+        [-190, 112], [-68, 142], [74, 132], [194, 96]
       ]
     };
     const list = slots[species];
@@ -1611,7 +1619,7 @@ export class FarmScene extends Phaser.Scene {
   ): void {
     const roam = (): void => {
       if (!this.alive || !visual.root.active) return;
-      const radius = species === 'chicken' ? 76 : species === 'cow' ? 104 : 118;
+      const radius = species === 'chicken' ? 132 : species === 'cow' ? 164 : 178;
       const targetX = homeX + Phaser.Math.Between(-radius, radius);
       const targetY = homeY + Phaser.Math.Between(-4, 7);
       visual.face(targetX >= visual.root.x ? 1 : -1);
@@ -1637,8 +1645,8 @@ export class FarmScene extends Phaser.Scene {
     if (!this.farm?.buildings.includes('coop')) return;
     const anchor = this.iso(BUILDING_LAYOUTS.coop.col, BUILDING_LAYOUTS.coop.row);
     (this.farm.eggs ?? []).forEach((egg, index) => {
-      const x = anchor.x - 112 + (index % 4) * 68;
-      const y = anchor.y + 100 + Math.floor(index / 4) * 36;
+      const x = anchor.x - 190 + (index % 4) * 112;
+      const y = anchor.y + 150 + Math.floor(index / 4) * 54;
       const reserved = Boolean(egg.clutchId && egg.hatchAt);
       const status = reserved
         ? 'EM CHOCA'
